@@ -39,3 +39,6 @@ fastlane/test_output/
 *.ipa
 *.dSYM.zip
 *.dSYM
+
+# Affinity temporary lock files
+*.af~lock~

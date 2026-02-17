@@ -11,17 +11,17 @@ import GameplayKit
 
 class GameViewController: UIViewController {
 
+    override func loadView() {
+        self.view = SKView(frame: UIScreen.main.bounds)
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        
-        if let view = self.view as? SKView {
-            let scene = GameScene(size: view.bounds.size)
-            scene.scaleMode = .resizeFill
-            view.presentScene(scene)
-
-            view.ignoresSiblingOrder = true
-        }
-
+        guard let skView = self.view as? SKView else { return }
+        skView.ignoresSiblingOrder = true
+        let scene = GameScene(size: skView.bounds.size)
+        scene.scaleMode = .resizeFill
+        skView.presentScene(scene)
     }
 
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {

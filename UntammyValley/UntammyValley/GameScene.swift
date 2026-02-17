@@ -9,33 +9,25 @@ import GameplayKit
 
 func makeBasicTileSet() -> SKTileSet {
     let tileSize = CGSize(width: 64, height: 64)
-
-    func makeTile(_ color: UIColor) -> SKTileGroup {
-        let texture = SKTexture(image: UIGraphicsImageRenderer(size: tileSize).image { ctx in
-            // Fill tile
-            color.setFill()
-            ctx.fill(CGRect(origin: .zero, size: tileSize))
-
-            // Draw border
-            let rect = CGRect(origin: .zero, size: tileSize)
-            ctx.cgContext.setStrokeColor(UIColor.black.cgColor)
-            ctx.cgContext.setLineWidth(2)
-            ctx.cgContext.stroke(rect)
-        })
-
-        let def = SKTileDefinition(texture: texture, size: tileSize)
-        return SKTileGroup(tileDefinition: def)
+    
+    // Helper to create a tile group from an asset name
+    func makeTile(named name: String) -> SKTileGroup {
+        let texture = SKTexture(imageNamed: name)
+        let definition = SKTileDefinition(texture: texture, size: tileSize)
+        let group = SKTileGroup(tileDefinition: definition)
+        group.name = name
+        return group
     }
 
-    let blue = makeTile(.systemBlue)
-    let green = makeTile(.systemGreen)
-    let yellow = makeTile(.systemYellow)
+    // Your new wood floor tile
+    let wood = makeTile(named: "floor_wood")
 
-    return SKTileSet(tileGroups: [blue, green, yellow])
+    // Object tile (your wall)
+    let wall = makeTile(named: "wall_vertical")
+
+    // Return a tileset containing both tiles
+    return SKTileSet(tileGroups: [wood, wall])
 }
-
-
-
 
 class GameScene: SKScene {
     
@@ -44,7 +36,7 @@ class GameScene: SKScene {
     var player: PlayerNode!
     var cameraNode: SKCameraNode!
 
-    
+    // This is called once per scene load.
     override func didMove(to view: SKView) {
         backgroundColor = .black
 
@@ -55,6 +47,7 @@ class GameScene: SKScene {
         let rows = 100
         let tileSize = CGSize(width: 64, height: 64)
 
+        // Create ground layer
         let tileMap = SKTileMapNode(tileSet: tileSet,
                                     columns: columns,
                                     rows: rows,
@@ -65,18 +58,45 @@ class GameScene: SKScene {
         tileMap.position = CGPoint(x: size.width / 2, y: size.height / 2)
         tileMap.zPosition = -10
 
-        let groups = tileSet.tileGroups
+        let woodGroup = tileSet.tileGroups[0]
 
         for col in 0..<columns {
             for row in 0..<rows {
-                let index = (col + row) % groups.count
-                tileMap.setTileGroup(groups[index], forColumn: col, row: row)
+                tileMap.setTileGroup(woodGroup, forColumn: col, row: row)
             }
         }
-
-
-
         addChild(tileMap)
+        
+        // Second tile layer for walls, furniture, etc.
+        let objectTileMap = SKTileMapNode(
+            tileSet: tileSet,
+            columns: columns,
+            rows: rows,
+            tileSize: tileSize
+        )
+        objectTileMap.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        objectTileMap.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        objectTileMap.zPosition = 10   // above the floor
+        addChild(objectTileMap)
+        
+        let wallGroup = tileSet.tileGroups[1]
+
+        let roomX = 47
+        let roomY = 47
+        let roomSize = 6
+
+        // Horizontal walls (top and bottom)
+        for col in roomX..<(roomX + roomSize) {
+            objectTileMap.setTileGroup(wallGroup, forColumn: col, row: roomY)                 // bottom wall
+            objectTileMap.setTileGroup(wallGroup, forColumn: col, row: roomY + roomSize - 1)  // top wall
+        }
+
+        // Vertical walls (left and right)
+        for row in roomY..<(roomY + roomSize) {
+            objectTileMap.setTileGroup(wallGroup, forColumn: roomX, row: row)                 // left wall
+            objectTileMap.setTileGroup(wallGroup, forColumn: roomX + roomSize - 1, row: row)  // right wall
+        }
+
 
         // --- PLAYER ---
         player = PlayerNode()
@@ -91,6 +111,7 @@ class GameScene: SKScene {
 
         // Make sure the camera starts on the player immediately
         cameraNode.position = player.position
+
     }
 
     override func didSimulatePhysics() {
@@ -144,10 +165,7 @@ class GameScene: SKScene {
         let move = SKAction.move(to: location, duration: 0.4)
         player.run(move)
     }
-
-
-
-    
+   
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         for t in touches { self.touchUp(atPoint: t.location(in: self)) }
     }
