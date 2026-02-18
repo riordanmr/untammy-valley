@@ -7,6 +7,13 @@
 import SpriteKit
 import GameplayKit
 
+private enum PhysicsCategory {
+    static let none: UInt32 = 0
+    static let player: UInt32 = 1 << 0
+    static let wall: UInt32 = 1 << 1
+    static let interactable: UInt32 = 1 << 2
+}
+
 func makeBasicTileSet() -> SKTileSet {
     let tileSize = CGSize(width: 64, height: 64)
     
@@ -32,38 +39,49 @@ func makeBasicTileSet() -> SKTileSet {
 }
 
 class GameScene: SKScene {
-    
-    private var label : SKLabelNode?
-    private var spinnyNode : SKShapeNode?
+
     var player: PlayerNode!
     var cameraNode: SKCameraNode!
+
+    private var coinLabel: SKLabelNode!
+    private var messageLabel: SKLabelNode!
+    private var potatoStation: SKSpriteNode!
+    private var menuButtonNode: SKShapeNode!
+    private var menuPanelNode: SKShapeNode!
+    private var menuResetLabel: SKLabelNode!
+
+    private var moveTarget: CGPoint?
+    private var playerSpawnPosition: CGPoint = .zero
+
+    private let worldColumns = 80
+    private let worldRows = 60
+    private let tileSize = CGSize(width: 64, height: 64)
+    private let playerMoveSpeed: CGFloat = 320
+    private let potatoChipReward = 5
 
     // This is called once per scene load.
     override func didMove(to view: SKView) {
         backgroundColor = .black
+        physicsWorld.gravity = .zero
 
         // --- TILE MAP ---
         let tileSet = makeBasicTileSet()
 
-        let columns = 100
-        let rows = 100
-        let tileSize = CGSize(width: 64, height: 64)
-
         // Create ground layer
         let tileMap = SKTileMapNode(tileSet: tileSet,
-                                    columns: columns,
-                                    rows: rows,
+                                    columns: worldColumns,
+                                    rows: worldRows,
                                     tileSize: tileSize)
 
-        // Center the tile map in the scene
+        // Center the tile map in world space
         tileMap.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-        tileMap.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        tileMap.position = .zero
         tileMap.zPosition = -10
 
         let woodGroup = tileSet.tileGroups[0]
 
-        for col in 0..<columns {
-            for row in 0..<rows {
+        for col in 0..<worldColumns {
+            for row in 0..<worldRows {
                 tileMap.setTileGroup(woodGroup, forColumn: col, row: row)
             }
         }
@@ -72,12 +90,12 @@ class GameScene: SKScene {
         // Second tile layer for walls, furniture, etc.
         let objectTileMap = SKTileMapNode(
             tileSet: tileSet,
-            columns: columns,
-            rows: rows,
+            columns: worldColumns,
+            rows: worldRows,
             tileSize: tileSize
         )
         objectTileMap.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-        objectTileMap.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        objectTileMap.position = .zero
         objectTileMap.zPosition = 10   // above the floor
         addChild(objectTileMap)
         
@@ -86,27 +104,60 @@ class GameScene: SKScene {
             return
         }
 
-        let roomX = 47
-        let roomY = 47
-        let roomSize = 6
+        // Family bar room (vertical slice area)
+        let roomX = 30
+        let roomY = 20
+        let roomWidth = 16
+        let roomHeight = 10
 
         // Horizontal walls (top and bottom)
-        for col in roomX..<(roomX + roomSize) {
-            objectTileMap.setTileGroup(wallGroup, forColumn: col, row: roomY)                 // bottom wall
-            objectTileMap.setTileGroup(wallGroup, forColumn: col, row: roomY + roomSize - 1)  // top wall
+        for col in roomX..<(roomX + roomWidth) {
+            objectTileMap.setTileGroup(wallGroup, forColumn: col, row: roomY)
+            objectTileMap.setTileGroup(wallGroup, forColumn: col, row: roomY + roomHeight - 1)
+            addWallCollider(forColumn: col, row: roomY, on: objectTileMap)
+            addWallCollider(forColumn: col, row: roomY + roomHeight - 1, on: objectTileMap)
         }
 
         // Vertical walls (left and right)
-        for row in roomY..<(roomY + roomSize) {
-            objectTileMap.setTileGroup(wallGroup, forColumn: roomX, row: row)                 // left wall
-            objectTileMap.setTileGroup(wallGroup, forColumn: roomX + roomSize - 1, row: row)  // right wall
+        for row in roomY..<(roomY + roomHeight) {
+            objectTileMap.setTileGroup(wallGroup, forColumn: roomX, row: row)
+            objectTileMap.setTileGroup(wallGroup, forColumn: roomX + roomWidth - 1, row: row)
+            addWallCollider(forColumn: roomX, row: row, on: objectTileMap)
+            addWallCollider(forColumn: roomX + roomWidth - 1, row: row, on: objectTileMap)
         }
 
+        // Potato chip station: one earn-coins interaction
+        let stationColumn = roomX + 3
+        let stationRow = roomY + 3
+        let stationLocalCenter = objectTileMap.centerOfTile(atColumn: stationColumn, row: stationRow)
+        let stationPosition = objectTileMap.convert(stationLocalCenter, to: self)
+
+        let potatoTexture = SKTexture(imageNamed: "potato_grinder")
+        potatoStation = SKSpriteNode(texture: potatoTexture, color: .clear, size: CGSize(width: 46, height: 46))
+        potatoStation.name = "potatoStation"
+        potatoStation.position = stationPosition
+        potatoStation.zPosition = 20
+        addChild(potatoStation)
+
+        let stationBody = SKPhysicsBody(rectangleOf: potatoStation.size)
+        stationBody.isDynamic = false
+        stationBody.categoryBitMask = PhysicsCategory.interactable
+        stationBody.collisionBitMask = PhysicsCategory.none
+        stationBody.contactTestBitMask = PhysicsCategory.player
+        potatoStation.physicsBody = stationBody
 
         // --- PLAYER ---
         player = PlayerNode()
-        // Place player at the center of the scene (and thus the tile map)
-        player.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        // Spawn inside the family bar
+        let spawnColumn = roomX + roomWidth / 2
+        let spawnRow = roomY + roomHeight / 2
+        let spawnLocalCenter = objectTileMap.centerOfTile(atColumn: spawnColumn, row: spawnRow)
+        playerSpawnPosition = objectTileMap.convert(spawnLocalCenter, to: self)
+        player.position = playerSpawnPosition
+
+        player.physicsBody?.categoryBitMask = PhysicsCategory.player
+        player.physicsBody?.collisionBitMask = PhysicsCategory.wall
+        player.physicsBody?.contactTestBitMask = PhysicsCategory.interactable
         addChild(player)
 
         // --- CAMERA ---
@@ -117,66 +168,204 @@ class GameScene: SKScene {
         // Make sure the camera starts on the player immediately
         cameraNode.position = player.position
 
+        configureHUD()
+        updateCoinLabel()
+        showMessage("Tap to move. Tap the yellow station for potato chips (+\(potatoChipReward) coins).")
+
     }
 
     override func didSimulatePhysics() {
         cameraNode.position = player.position
     }
     
-    func touchDown(atPoint pos : CGPoint) {
-        if let n = self.spinnyNode?.copy() as! SKShapeNode? {
-            n.position = pos
-            n.strokeColor = SKColor.green
-            self.addChild(n)
-        }
-    }
-    
-    func touchMoved(toPoint pos : CGPoint) {
-        if let n = self.spinnyNode?.copy() as! SKShapeNode? {
-            n.position = pos
-            n.strokeColor = SKColor.blue
-            self.addChild(n)
-        }
-    }
-    
-    func touchUp(atPoint pos : CGPoint) {
-        if let n = self.spinnyNode?.copy() as! SKShapeNode? {
-            n.position = pos
-            n.strokeColor = SKColor.red
-            self.addChild(n)
-        }
-    }
-    
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        if let label = self.label {
-            label.run(SKAction.init(named: "Pulse")!, withKey: "fadeInOut")
-        }
-        
-        for t in touches { self.touchDown(atPoint: t.location(in: self)) }
-    }
-    
-    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for t in touches { self.touchMoved(toPoint: t.location(in: self)) }
-    }
-    
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard let touch = touches.first,
-              let view = self.view else { return }
+        guard let touch = touches.first else { return }
+        let location = touch.location(in: self)
+        let hudLocation = touch.location(in: cameraNode)
 
-        // Convert from view coordinates → scene coordinates
-        let locationInView = touch.location(in: view)
-        let location = convertPoint(fromView: locationInView)
+        let hudNodes = cameraNode.nodes(at: hudLocation)
+        if hudNodes.contains(where: { $0.name == "hamburgerButton" || $0.parent?.name == "hamburgerButton" }) {
+            setMenuVisible(menuPanelNode.isHidden)
+            return
+        }
+        if hudNodes.contains(where: { $0.name == "menuResetItem" || $0.parent?.name == "menuResetItem" }) {
+            resetGameToInitialState()
+            setMenuVisible(false)
+            return
+        }
+        if !menuPanelNode.isHidden {
+            setMenuVisible(false)
+            return
+        }
 
-        let move = SKAction.move(to: location, duration: 0.4)
-        player.run(move)
+        if nodes(at: location).contains(where: { $0.name == "potatoStation" }) {
+            moveTarget = nil
+            player.physicsBody?.velocity = .zero
+            collectPotatoChipsIfPossible()
+            return
+        }
+
+        setMenuVisible(false)
+        moveTarget = location
     }
-   
-    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for t in touches { self.touchUp(atPoint: t.location(in: self)) }
-    }
-    
-    
+
     override func update(_ currentTime: TimeInterval) {
-        // Called before each frame is rendered
+        guard let body = player.physicsBody else { return }
+        guard let target = moveTarget else {
+            body.velocity = .zero
+            return
+        }
+
+        let dx = target.x - player.position.x
+        let dy = target.y - player.position.y
+        let distance = hypot(dx, dy)
+
+        if distance < 12 {
+            moveTarget = nil
+            body.velocity = .zero
+            return
+        }
+
+        let vx = (dx / distance) * playerMoveSpeed
+        let vy = (dy / distance) * playerMoveSpeed
+        body.velocity = CGVector(dx: vx, dy: vy)
+    }
+
+    private func addWallCollider(forColumn column: Int, row: Int, on tileMap: SKTileMapNode) {
+        let localCenter = tileMap.centerOfTile(atColumn: column, row: row)
+        let sceneCenter = tileMap.convert(localCenter, to: self)
+
+        let wallCollider = SKNode()
+        wallCollider.position = sceneCenter
+        wallCollider.name = "wallCollider"
+
+        let body = SKPhysicsBody(rectangleOf: tileMap.tileSize)
+        body.isDynamic = false
+        body.affectedByGravity = false
+        body.friction = 0.0
+        body.restitution = 0.0
+        body.categoryBitMask = PhysicsCategory.wall
+        body.collisionBitMask = PhysicsCategory.player
+        body.contactTestBitMask = PhysicsCategory.none
+        wallCollider.physicsBody = body
+
+        addChild(wallCollider)
+    }
+
+    private func configureHUD() {
+        coinLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        coinLabel.fontSize = 28
+        coinLabel.fontColor = .white
+        coinLabel.horizontalAlignmentMode = .left
+        coinLabel.verticalAlignmentMode = .top
+        coinLabel.position = CGPoint(x: -size.width / 2 + 20, y: size.height / 2 - 20)
+        coinLabel.zPosition = 500
+        cameraNode.addChild(coinLabel)
+
+        messageLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
+        messageLabel.fontSize = 20
+        messageLabel.fontColor = .white
+        messageLabel.horizontalAlignmentMode = .center
+        messageLabel.verticalAlignmentMode = .top
+        messageLabel.position = CGPoint(x: 0, y: size.height / 2 - 56)
+        messageLabel.zPosition = 500
+        messageLabel.alpha = 0
+        cameraNode.addChild(messageLabel)
+
+        configureMenu()
+    }
+
+    private func configureMenu() {
+        let rightX = size.width / 2 - 20
+        let topY = size.height / 2 - 20
+
+        menuButtonNode = SKShapeNode(rectOf: CGSize(width: 36, height: 30), cornerRadius: 6)
+        menuButtonNode.name = "hamburgerButton"
+        menuButtonNode.fillColor = UIColor.darkGray.withAlphaComponent(0.65)
+        menuButtonNode.strokeColor = .white
+        menuButtonNode.lineWidth = 1.5
+        menuButtonNode.position = CGPoint(x: rightX - 18, y: topY - 15)
+        menuButtonNode.zPosition = 520
+        cameraNode.addChild(menuButtonNode)
+
+        for offset in [-6, 0, 6] {
+            let line = SKShapeNode(rectOf: CGSize(width: 18, height: 2), cornerRadius: 1)
+            line.fillColor = .white
+            line.strokeColor = .clear
+            line.position = CGPoint(x: 0, y: CGFloat(offset))
+            line.name = "hamburgerLine"
+            menuButtonNode.addChild(line)
+        }
+
+        menuPanelNode = SKShapeNode(rectOf: CGSize(width: 138, height: 52), cornerRadius: 9)
+        menuPanelNode.name = "menuPanel"
+        menuPanelNode.fillColor = UIColor.black.withAlphaComponent(0.6)
+        menuPanelNode.strokeColor = .white
+        menuPanelNode.lineWidth = 1.5
+        menuPanelNode.position = CGPoint(x: rightX - 69, y: topY - 73)
+        menuPanelNode.zPosition = 520
+        menuPanelNode.isHidden = true
+        cameraNode.addChild(menuPanelNode)
+
+        menuResetLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        menuResetLabel.name = "menuResetItem"
+        menuResetLabel.text = "Reset"
+        menuResetLabel.fontSize = 24
+        menuResetLabel.fontColor = .white
+        menuResetLabel.verticalAlignmentMode = .center
+        menuResetLabel.horizontalAlignmentMode = .center
+        menuResetLabel.position = .zero
+        menuResetLabel.zPosition = 521
+        menuPanelNode.addChild(menuResetLabel)
+    }
+
+    private func setMenuVisible(_ visible: Bool) {
+        menuPanelNode.isHidden = !visible
+        if visible {
+            menuButtonNode.fillColor = UIColor.systemBlue.withAlphaComponent(0.65)
+            menuButtonNode.strokeColor = .systemYellow
+        } else {
+            menuButtonNode.fillColor = UIColor.darkGray.withAlphaComponent(0.65)
+            menuButtonNode.strokeColor = .white
+        }
+    }
+
+    private func updateCoinLabel() {
+        coinLabel.text = "Coins: \(GameState.shared.coins)"
+    }
+
+    private func collectPotatoChipsIfPossible() {
+        let dx = potatoStation.position.x - player.position.x
+        let dy = potatoStation.position.y - player.position.y
+        let distance = hypot(dx, dy)
+
+        if distance > 90 {
+            showMessage("Move closer to the station.")
+            return
+        }
+
+        GameState.shared.addCoins(potatoChipReward)
+        updateCoinLabel()
+        showMessage("Made potato chips! +\(potatoChipReward) coins")
+    }
+
+    private func resetGameToInitialState() {
+        moveTarget = nil
+        player.physicsBody?.velocity = .zero
+        player.position = playerSpawnPosition
+        cameraNode.position = playerSpawnPosition
+
+        GameState.shared.resetCoins()
+        updateCoinLabel()
+        showMessage("Progress reset.")
+    }
+
+    private func showMessage(_ text: String) {
+        messageLabel.removeAllActions()
+        messageLabel.text = text
+        messageLabel.alpha = 1
+        let wait = SKAction.wait(forDuration: 1.2)
+        let fade = SKAction.fadeOut(withDuration: 0.35)
+        messageLabel.run(SKAction.sequence([wait, fade]))
     }
 }
