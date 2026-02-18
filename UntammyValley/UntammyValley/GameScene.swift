@@ -26,7 +26,9 @@ func makeBasicTileSet() -> SKTileSet {
     let wall = makeTile(named: "wall_vertical")
 
     // Return a tileset containing both tiles
-    return SKTileSet(tileGroups: [wood, wall])
+    let tileSet = SKTileSet(tileGroups: [wood, wall])
+    tileSet.defaultTileSize = tileSize
+    return tileSet
 }
 
 class GameScene: SKScene {
@@ -79,7 +81,10 @@ class GameScene: SKScene {
         objectTileMap.zPosition = 10   // above the floor
         addChild(objectTileMap)
         
-        let wallGroup = tileSet.tileGroups[1]
+        guard let wallGroup = tileSet.tileGroups.first(where: { $0.name == "wall_vertical" }) else {
+            print("Missing wall tile group")
+            return
+        }
 
         let roomX = 47
         let roomY = 47
