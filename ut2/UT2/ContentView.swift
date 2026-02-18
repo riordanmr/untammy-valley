@@ -9,9 +9,10 @@ struct ContentView: View {
 
     @StateObject private var gameState = GameState()
     @State private var selectedScreen: Screen = .map
+    @State private var isMenuOpen = false
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
+        ZStack(alignment: .topTrailing) {
             Group {
                 switch selectedScreen {
                 case .map:
@@ -21,18 +22,43 @@ struct ContentView: View {
                 }
             }
 
-            HStack(spacing: 10) {
-                selectorButton(title: "Map", icon: "map", screen: .map)
-                selectorButton(title: "Stats", icon: "chart.bar", screen: .stats)
+            VStack(alignment: .trailing, spacing: 8) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.16)) {
+                        isMenuOpen.toggle()
+                    }
+                } label: {
+                    Text("≡")
+                        .font(.title3.weight(.bold))
+                        .frame(width: 38, height: 38)
+                        .background(Color.black.opacity(0.55))
+                        .foregroundStyle(Color.white)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+
+                if isMenuOpen {
+                    VStack(alignment: .leading, spacing: 8) {
+                        selectorButton(title: "Map", icon: "map", screen: .map)
+                        selectorButton(title: "Stats", icon: "chart.bar", screen: .stats)
+                    }
+                    .padding(10)
+                    .background(Color.black.opacity(0.62))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                }
             }
-            .padding(.leading, 18)
-            .padding(.bottom, 10)
+            .padding(.top, 8)
+            .padding(.trailing, 10)
         }
     }
 
     private func selectorButton(title: String, icon: String, screen: Screen) -> some View {
         Button {
             selectedScreen = screen
+            withAnimation(.easeInOut(duration: 0.16)) {
+                isMenuOpen = false
+            }
         } label: {
             Label(title, systemImage: icon)
                 .font(.subheadline.weight(.semibold))
