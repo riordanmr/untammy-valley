@@ -67,6 +67,16 @@ bash scripts/generate_app_icons.sh /absolute/path/to/your-1024-icon.png
 
 Then reopen the asset catalog in Xcode and the warnings should clear.
 
+## Custom player image
+
+You can replace the default simple player marker with your own image:
+
+1. Open `UT2/Assets.xcassets/Player.imageset` in Xcode.
+2. Drag your character image into the 2x/3x slots (PNG with transparency recommended).
+3. Keep the image name as the `Player` image set.
+
+`GameScene` now loads `Player` automatically; if missing, it falls back to the simple built-in shape.
+
 ## Build and run
 
 ### Option A: Generate Xcode project with XcodeGen

@@ -1,4 +1,5 @@
 import SpriteKit
+import UIKit
 
 final class GameScene: SKScene {
     private let gameState: GameState
@@ -6,8 +7,9 @@ final class GameScene: SKScene {
     private let worldSize = CGSize(width: 3200, height: 1800)
     private let worldNode = SKNode()
     private let cameraNode = SKCameraNode()
+    private let playerScale: CGFloat = 1.0
 
-    private let hero = SKShapeNode(circleOfRadius: 22)
+    private let hero = SKSpriteNode()
     private var moveTarget: CGPoint?
     private var lastUpdateTime: TimeInterval = 0
 
@@ -188,19 +190,52 @@ final class GameScene: SKScene {
         }
         hero.removeAllChildren()
 
-        hero.fillColor = SKColor(red: 0.98, green: 0.45, blue: 0.72, alpha: 1)
-        hero.strokeColor = .white
-        hero.lineWidth = 2
+        let imageBaseSize: CGFloat = 80
+        let fallbackBaseSize: CGFloat = 56
+        let fallbackOutlineBaseRadius: CGFloat = 28
+        let backpackBaseSize = CGSize(width: 20, height: 24)
+        let backpackBasePosition = CGPoint(x: -8, y: -8)
+
+        if let image = UIImage(named: "Player") {
+            hero.texture = SKTexture(image: image)
+            hero.color = .clear
+            hero.colorBlendFactor = 0
+            let imageSize = imageBaseSize * playerScale
+            hero.size = CGSize(width: imageSize, height: imageSize)
+        } else {
+            hero.texture = nil
+            hero.color = SKColor(red: 0.98, green: 0.45, blue: 0.72, alpha: 1)
+            hero.colorBlendFactor = 1
+            let fallbackSize = fallbackBaseSize * playerScale
+            hero.size = CGSize(width: fallbackSize, height: fallbackSize)
+
+            let outline = SKShapeNode(circleOfRadius: fallbackOutlineBaseRadius * playerScale)
+            outline.strokeColor = .white
+            outline.lineWidth = 2
+            outline.fillColor = .clear
+            outline.zPosition = 1
+            hero.addChild(outline)
+
+            let backpack = SKShapeNode(
+                rectOf: CGSize(
+                    width: backpackBaseSize.width * playerScale,
+                    height: backpackBaseSize.height * playerScale
+                ),
+                cornerRadius: 4
+            )
+            backpack.fillColor = SKColor(red: 0.28, green: 0.60, blue: 0.95, alpha: 1)
+            backpack.strokeColor = .clear
+            backpack.position = CGPoint(
+                x: backpackBasePosition.x * playerScale,
+                y: backpackBasePosition.y * playerScale
+            )
+            backpack.zPosition = 0
+            hero.addChild(backpack)
+        }
+
         hero.position = CGPoint(x: 470, y: 580)
         hero.zPosition = 8
         worldNode.addChild(hero)
-
-        let backpack = SKShapeNode(rectOf: CGSize(width: 16, height: 20), cornerRadius: 4)
-        backpack.fillColor = SKColor(red: 0.28, green: 0.60, blue: 0.95, alpha: 1)
-        backpack.strokeColor = .clear
-        backpack.position = CGPoint(x: -7, y: -6)
-        backpack.zPosition = 7
-        hero.addChild(backpack)
 
         let bob = SKAction.sequence([
             .moveBy(x: 0, y: 5, duration: 0.8),
