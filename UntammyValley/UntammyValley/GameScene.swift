@@ -40,6 +40,10 @@ func makeBasicTileSet() -> SKTileSet {
 
 class GameScene: SKScene {
 
+    private enum DebugSettings {
+        static let showRoomLabels = true
+    }
+
     var player: PlayerNode!
     var cameraNode: SKCameraNode!
 
@@ -52,12 +56,14 @@ class GameScene: SKScene {
 
     private var moveTarget: CGPoint?
     private var playerSpawnPosition: CGPoint = .zero
+    private let worldConfig = WorldConfig.current
 
     private let worldColumns = 80
     private let worldRows = 60
     private let tileSize = CGSize(width: 64, height: 64)
     private let playerMoveSpeed: CGFloat = 320
-    private let potatoChipReward = 5
+    private var potatoChipReward = 5
+    private var potatoStationInteractionRange: CGFloat = 90
 
     // This is called once per scene load.
     override func didMove(to view: SKView) {
@@ -104,36 +110,29 @@ class GameScene: SKScene {
             return
         }
 
-        // Family bar room (vertical slice area)
-        let roomX = 30
-        let roomY = 20
-        let roomWidth = 16
-        let roomHeight = 10
-
-        // Horizontal walls (top and bottom)
-        for col in roomX..<(roomX + roomWidth) {
-            objectTileMap.setTileGroup(wallGroup, forColumn: col, row: roomY)
-            objectTileMap.setTileGroup(wallGroup, forColumn: col, row: roomY + roomHeight - 1)
-            addWallCollider(forColumn: col, row: roomY, on: objectTileMap)
-            addWallCollider(forColumn: col, row: roomY + roomHeight - 1, on: objectTileMap)
+        func placeWallTile(column: Int, row: Int) {
+            objectTileMap.setTileGroup(wallGroup, forColumn: column, row: row)
+            addWallCollider(forColumn: column, row: row, on: objectTileMap)
         }
 
-        // Vertical walls (left and right)
-        for row in roomY..<(roomY + roomHeight) {
-            objectTileMap.setTileGroup(wallGroup, forColumn: roomX, row: row)
-            objectTileMap.setTileGroup(wallGroup, forColumn: roomX + roomWidth - 1, row: row)
-            addWallCollider(forColumn: roomX, row: row, on: objectTileMap)
-            addWallCollider(forColumn: roomX + roomWidth - 1, row: row, on: objectTileMap)
+        for wallTile in worldConfig.wallTiles {
+            placeWallTile(column: wallTile.column, row: wallTile.row)
         }
+
+        addDebugRoomLabelsIfNeeded(on: objectTileMap, labels: worldConfig.roomLabels)
 
         // Potato chip station: one earn-coins interaction
-        let stationColumn = roomX + 3
-        let stationRow = roomY + 3
+        let potatoStationConfig = worldConfig.potatoStation
+        potatoChipReward = potatoStationConfig.rewardCoins
+        potatoStationInteractionRange = potatoStationConfig.interactionRange
+
+        let stationColumn = potatoStationConfig.tile.column
+        let stationRow = potatoStationConfig.tile.row
         let stationLocalCenter = objectTileMap.centerOfTile(atColumn: stationColumn, row: stationRow)
         let stationPosition = objectTileMap.convert(stationLocalCenter, to: self)
 
-        let potatoTexture = SKTexture(imageNamed: "potato_grinder")
-        potatoStation = SKSpriteNode(texture: potatoTexture, color: .clear, size: CGSize(width: 46, height: 46))
+        let potatoTexture = SKTexture(imageNamed: potatoStationConfig.spriteName)
+        potatoStation = SKSpriteNode(texture: potatoTexture, color: .clear, size: potatoStationConfig.size)
         potatoStation.name = "potatoStation"
         potatoStation.position = stationPosition
         potatoStation.zPosition = 20
@@ -148,9 +147,9 @@ class GameScene: SKScene {
 
         // --- PLAYER ---
         player = PlayerNode()
-        // Spawn inside the family bar
-        let spawnColumn = roomX + roomWidth / 2
-        let spawnRow = roomY + roomHeight / 2
+        // Spawn inside the bedroom
+        let spawnColumn = worldConfig.spawnTile.column
+        let spawnRow = worldConfig.spawnTile.row
         let spawnLocalCenter = objectTileMap.centerOfTile(atColumn: spawnColumn, row: spawnRow)
         playerSpawnPosition = objectTileMap.convert(spawnLocalCenter, to: self)
         player.position = playerSpawnPosition
@@ -252,6 +251,29 @@ class GameScene: SKScene {
         addChild(wallCollider)
     }
 
+    private func addDebugRoomLabelsIfNeeded(on tileMap: SKTileMapNode, labels: [(name: String, tile: TileCoordinate)]) {
+        guard DebugSettings.showRoomLabels else { return }
+
+        for label in labels {
+            addDebugRoomLabel(label.name, atColumn: label.tile.column, row: label.tile.row, on: tileMap)
+        }
+    }
+
+    private func addDebugRoomLabel(_ text: String, atColumn column: Int, row: Int, on tileMap: SKTileMapNode) {
+        let localCenter = tileMap.centerOfTile(atColumn: column, row: row)
+        let sceneCenter = tileMap.convert(localCenter, to: self)
+
+        let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        label.text = text
+        label.fontSize = 22
+        label.fontColor = UIColor.white.withAlphaComponent(0.85)
+        label.horizontalAlignmentMode = .center
+        label.verticalAlignmentMode = .center
+        label.position = sceneCenter
+        label.zPosition = 30
+        addChild(label)
+    }
+
     private func configureHUD() {
         coinLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
         coinLabel.fontSize = 28
@@ -339,7 +361,7 @@ class GameScene: SKScene {
         let dy = potatoStation.position.y - player.position.y
         let distance = hypot(dx, dy)
 
-        if distance > 90 {
+        if distance > potatoStationInteractionRange {
             showMessage("Move closer to the station.")
             return
         }
