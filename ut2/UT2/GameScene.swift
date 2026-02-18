@@ -15,6 +15,7 @@ final class GameScene: SKScene {
     private let areaLabel = SKLabelNode(fontNamed: "AvenirNext-DemiBold")
     private let hintLabel = SKLabelNode(fontNamed: "AvenirNext-Regular")
     private let eventLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+    private var shouldShowInstructionHint = true
 
     private let familyBarRect = CGRect(x: 130, y: 260, width: 980, height: 700)
     private let schoolRect = CGRect(x: 1220, y: 300, width: 980, height: 700)
@@ -252,7 +253,14 @@ final class GameScene: SKScene {
     private func refreshHudText() {
         titleLabel.text = "UT2 · World Map"
         areaLabel.text = "Area: \(gameState.location.rawValue)"
-        hintLabel.text = "Tap a room/object to interact. Tap empty ground to walk. Stats and progress are in the Stats tab."
+        if shouldShowInstructionHint {
+            hintLabel.removeAction(forKey: "hideHint")
+            hintLabel.alpha = 1
+            hintLabel.text = "Tap a room/object to interact. Tap empty ground to walk. Stats and progress are in the Stats tab."
+        } else if hintLabel.action(forKey: "hideHint") == nil {
+            hintLabel.text = ""
+            hintLabel.alpha = 0
+        }
     }
 
     private func updateLocationFromHeroPosition() {
@@ -266,6 +274,17 @@ final class GameScene: SKScene {
             gameState.location = .chinaLab
         } else {
             gameState.location = .expedition
+        }
+
+        if oldLocation == .familyBar && gameState.location != .familyBar && shouldShowInstructionHint {
+            shouldShowInstructionHint = false
+            let hide = SKAction.sequence([
+                .fadeOut(withDuration: 0.45),
+                .run { [weak self] in
+                    self?.hintLabel.text = ""
+                }
+            ])
+            hintLabel.run(hide, withKey: "hideHint")
         }
 
         if oldLocation != gameState.location {
