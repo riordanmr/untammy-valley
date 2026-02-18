@@ -12,6 +12,18 @@ struct TileCoordinate: Hashable {
     let row: Int
 }
 
+struct TileRegion {
+    let minColumn: Int
+    let maxColumnExclusive: Int
+    let minRow: Int
+    let maxRowExclusive: Int
+}
+
+struct FloorRegion {
+    let tileName: String
+    let region: TileRegion
+}
+
 enum InteractableKind {
     case potatoChips
     case chaseGoats
@@ -29,6 +41,9 @@ struct InteractableConfig {
 
 struct WorldConfig {
     let wallTiles: Set<TileCoordinate>
+    let defaultFloorTileName: String
+    let floorRegions: [FloorRegion]
+    let doorwayFloorOverrides: [FloorRegion]
     let roomLabels: [(name: String, tile: TileCoordinate)]
     let spawnTile: TileCoordinate
     let interactables: [InteractableConfig]

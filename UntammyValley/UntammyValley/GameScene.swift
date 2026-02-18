@@ -27,14 +27,18 @@ func makeBasicTileSet() -> SKTileSet {
         return group
     }
 
-    // Your new wood floor tile
-    let wood = makeTile(named: "floor_wood")
+    let tileNames = [
+        "floor_wood",
+        "floor_linoleum",
+        "floor_carpet",
+        "floor_outdoor",
+        "wall_vertical"
+    ]
 
-    // Object tile (your wall)
-    let wall = makeTile(named: "wall_vertical")
+    let groups = tileNames.map { makeTile(named: $0) }
 
-    // Return a tileset containing both tiles
-    let tileSet = SKTileSet(tileGroups: [wood, wall])
+    // Return a tileset containing all floor + wall tiles
+    let tileSet = SKTileSet(tileGroups: groups)
     tileSet.defaultTileSize = tileSize
     return tileSet
 }
@@ -86,11 +90,47 @@ class GameScene: SKScene {
         tileMap.position = .zero
         tileMap.zPosition = -10
 
-        let woodGroup = tileSet.tileGroups[0]
+        var tileGroupsByName: [String: SKTileGroup] = [:]
+        for group in tileSet.tileGroups {
+            if let name = group.name {
+                tileGroupsByName[name] = group
+            }
+        }
+
+        guard let fallbackFloorGroup = tileGroupsByName["floor_wood"] ?? tileSet.tileGroups.first else {
+            print("Missing floor tile groups")
+            return
+        }
+
+        let defaultFloorGroup = tileGroupsByName[worldConfig.defaultFloorTileName] ?? fallbackFloorGroup
 
         for col in 0..<worldColumns {
             for row in 0..<worldRows {
-                tileMap.setTileGroup(woodGroup, forColumn: col, row: row)
+                tileMap.setTileGroup(defaultFloorGroup, forColumn: col, row: row)
+            }
+        }
+
+        for floorRegion in worldConfig.floorRegions {
+            guard let floorGroup = tileGroupsByName[floorRegion.tileName] else {
+                print("Missing floor tile group: \(floorRegion.tileName)")
+                continue
+            }
+            for col in floorRegion.region.minColumn..<floorRegion.region.maxColumnExclusive {
+                for row in floorRegion.region.minRow..<floorRegion.region.maxRowExclusive {
+                    tileMap.setTileGroup(floorGroup, forColumn: col, row: row)
+                }
+            }
+        }
+
+        for doorwayFloor in worldConfig.doorwayFloorOverrides {
+            guard let floorGroup = tileGroupsByName[doorwayFloor.tileName] else {
+                print("Missing doorway floor tile group: \(doorwayFloor.tileName)")
+                continue
+            }
+            for col in doorwayFloor.region.minColumn..<doorwayFloor.region.maxColumnExclusive {
+                for row in doorwayFloor.region.minRow..<doorwayFloor.region.maxRowExclusive {
+                    tileMap.setTileGroup(floorGroup, forColumn: col, row: row)
+                }
             }
         }
         addChild(tileMap)

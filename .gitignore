@@ -42,3 +42,6 @@ fastlane/test_output/
 
 # Affinity temporary lock files
 *.af~lock~
+
+# MRR tmp files
+tmp/
