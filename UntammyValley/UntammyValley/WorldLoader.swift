@@ -62,11 +62,21 @@ enum WorldLoader {
             interactionRange: 90
         )
 
+        let goatChaseSpot = InteractableConfig(
+            id: "goatChaseSpot",
+            kind: .chaseGoats,
+            spriteName: "goat_chase_marker",
+            tile: TileCoordinate(column: barMinX + singleRoomWidth + 4, row: barMinY - 3),
+            size: CGSize(width: 46, height: 46),
+            rewardCoins: 7,
+            interactionRange: 95
+        )
+
         return WorldConfig(
             wallTiles: wallTiles,
             roomLabels: roomLabels,
             spawnTile: spawnTile,
-            potatoStation: potatoStation
+            interactables: [potatoStation, goatChaseSpot]
         )
     }
 }

@@ -14,6 +14,7 @@ struct TileCoordinate: Hashable {
 
 enum InteractableKind {
     case potatoChips
+    case chaseGoats
 }
 
 struct InteractableConfig {
@@ -30,7 +31,7 @@ struct WorldConfig {
     let wallTiles: Set<TileCoordinate>
     let roomLabels: [(name: String, tile: TileCoordinate)]
     let spawnTile: TileCoordinate
-    let potatoStation: InteractableConfig
+    let interactables: [InteractableConfig]
 
     static let current = WorldLoader.makeInitialBarWorld()
 }

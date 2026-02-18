@@ -6,6 +6,7 @@
 
 import SpriteKit
 import GameplayKit
+import UIKit
 
 private enum PhysicsCategory {
     static let none: UInt32 = 0
@@ -49,21 +50,22 @@ class GameScene: SKScene {
 
     private var coinLabel: SKLabelNode!
     private var messageLabel: SKLabelNode!
-    private var potatoStation: SKSpriteNode!
     private var menuButtonNode: SKShapeNode!
     private var menuPanelNode: SKShapeNode!
     private var menuResetLabel: SKLabelNode!
+    private var interactableNodesByID: [String: SKSpriteNode] = [:]
+    private var interactableConfigsByID: [String: InteractableConfig] = [:]
+    private var respawnAtMoveByInteractableID: [String: Int] = [:]
 
     private var moveTarget: CGPoint?
     private var playerSpawnPosition: CGPoint = .zero
+    private var completedMoveCount = 0
     private let worldConfig = WorldConfig.current
 
     private let worldColumns = 80
     private let worldRows = 60
     private let tileSize = CGSize(width: 64, height: 64)
     private let playerMoveSpeed: CGFloat = 320
-    private var potatoChipReward = 5
-    private var potatoStationInteractionRange: CGFloat = 90
 
     // This is called once per scene load.
     override func didMove(to view: SKView) {
@@ -121,29 +123,7 @@ class GameScene: SKScene {
 
         addDebugRoomLabelsIfNeeded(on: objectTileMap, labels: worldConfig.roomLabels)
 
-        // Potato chip station: one earn-coins interaction
-        let potatoStationConfig = worldConfig.potatoStation
-        potatoChipReward = potatoStationConfig.rewardCoins
-        potatoStationInteractionRange = potatoStationConfig.interactionRange
-
-        let stationColumn = potatoStationConfig.tile.column
-        let stationRow = potatoStationConfig.tile.row
-        let stationLocalCenter = objectTileMap.centerOfTile(atColumn: stationColumn, row: stationRow)
-        let stationPosition = objectTileMap.convert(stationLocalCenter, to: self)
-
-        let potatoTexture = SKTexture(imageNamed: potatoStationConfig.spriteName)
-        potatoStation = SKSpriteNode(texture: potatoTexture, color: .clear, size: potatoStationConfig.size)
-        potatoStation.name = "potatoStation"
-        potatoStation.position = stationPosition
-        potatoStation.zPosition = 20
-        addChild(potatoStation)
-
-        let stationBody = SKPhysicsBody(rectangleOf: potatoStation.size)
-        stationBody.isDynamic = false
-        stationBody.categoryBitMask = PhysicsCategory.interactable
-        stationBody.collisionBitMask = PhysicsCategory.none
-        stationBody.contactTestBitMask = PhysicsCategory.player
-        potatoStation.physicsBody = stationBody
+        buildInteractables(on: objectTileMap)
 
         // --- PLAYER ---
         player = PlayerNode()
@@ -169,7 +149,7 @@ class GameScene: SKScene {
 
         configureHUD()
         updateCoinLabel()
-        showMessage("Tap to move. Tap the yellow station for potato chips (+\(potatoChipReward) coins).")
+        showMessage("Tap to move. Tap interactables to perform tasks and earn coins.")
 
     }
 
@@ -197,10 +177,10 @@ class GameScene: SKScene {
             return
         }
 
-        if nodes(at: location).contains(where: { $0.name == "potatoStation" }) {
+        if let interactableID = interactableID(at: location) {
             moveTarget = nil
             player.physicsBody?.velocity = .zero
-            collectPotatoChipsIfPossible()
+            performInteractionIfPossible(interactableID: interactableID)
             return
         }
 
@@ -222,6 +202,8 @@ class GameScene: SKScene {
         if distance < 12 {
             moveTarget = nil
             body.velocity = .zero
+            completedMoveCount += 1
+            processInteractableRespawns()
             return
         }
 
@@ -272,6 +254,91 @@ class GameScene: SKScene {
         label.position = sceneCenter
         label.zPosition = 30
         addChild(label)
+    }
+
+    private func buildInteractables(on tileMap: SKTileMapNode) {
+        interactableNodesByID.removeAll()
+        interactableConfigsByID.removeAll()
+
+        for config in worldConfig.interactables {
+            let center = tileMap.centerOfTile(atColumn: config.tile.column, row: config.tile.row)
+            let position = tileMap.convert(center, to: self)
+
+            let texture = SKTexture(imageNamed: config.spriteName)
+            let node: SKSpriteNode
+            if texture.size() == .zero {
+                if config.kind == .chaseGoats {
+                    let goatTexture = makeGoatMarkerTexture(size: config.size)
+                    node = SKSpriteNode(texture: goatTexture, color: .clear, size: config.size)
+                } else {
+                    node = SKSpriteNode(color: .systemYellow, size: config.size)
+                }
+            } else {
+                node = SKSpriteNode(texture: texture, color: .clear, size: config.size)
+            }
+
+            node.name = "interactable:\(config.id)"
+            node.position = position
+            node.zPosition = 20
+
+            let body = SKPhysicsBody(rectangleOf: node.size)
+            body.isDynamic = false
+            body.categoryBitMask = PhysicsCategory.interactable
+            body.collisionBitMask = PhysicsCategory.none
+            body.contactTestBitMask = PhysicsCategory.player
+            node.physicsBody = body
+
+            addChild(node)
+            interactableNodesByID[config.id] = node
+            interactableConfigsByID[config.id] = config
+        }
+    }
+
+    private func makeGoatMarkerTexture(size: CGSize) -> SKTexture {
+        let image = UIGraphicsImageRenderer(size: size).image { _ in
+            let markerRect = CGRect(origin: .zero, size: size)
+            UIColor.systemGreen.withAlphaComponent(0.92).setFill()
+            UIBezierPath(roundedRect: markerRect, cornerRadius: size.width * 0.22).fill()
+
+            let emoji = "🐐" as NSString
+            let fontSize = min(size.width, size.height) * 0.62
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: fontSize),
+                .foregroundColor: UIColor.white
+            ]
+
+            let textSize = emoji.size(withAttributes: attributes)
+            let textRect = CGRect(
+                x: (size.width - textSize.width) / 2,
+                y: (size.height - textSize.height) / 2 - 1,
+                width: textSize.width,
+                height: textSize.height
+            )
+            emoji.draw(in: textRect, withAttributes: attributes)
+        }
+        return SKTexture(image: image)
+    }
+
+    private func interactableID(at scenePoint: CGPoint) -> String? {
+        for node in nodes(at: scenePoint) {
+            if node.isHidden {
+                continue
+            }
+            if let name = node.name, name.hasPrefix("interactable:") {
+                return String(name.dropFirst("interactable:".count))
+            }
+        }
+        return nil
+    }
+
+    private func processInteractableRespawns() {
+        for (interactableID, respawnMove) in respawnAtMoveByInteractableID where completedMoveCount >= respawnMove {
+            interactableNodesByID[interactableID]?.isHidden = false
+            if interactableConfigsByID[interactableID]?.kind == .chaseGoats {
+                showMessage("Goat returned to the parking lot.")
+            }
+            respawnAtMoveByInteractableID.removeValue(forKey: interactableID)
+        }
     }
 
     private func configureHUD() {
@@ -356,19 +423,33 @@ class GameScene: SKScene {
         coinLabel.text = "Coins: \(GameState.shared.coins)"
     }
 
-    private func collectPotatoChipsIfPossible() {
-        let dx = potatoStation.position.x - player.position.x
-        let dy = potatoStation.position.y - player.position.y
+    private func performInteractionIfPossible(interactableID: String) {
+        guard let config = interactableConfigsByID[interactableID],
+              let node = interactableNodesByID[interactableID] else { return }
+
+        let dx = node.position.x - player.position.x
+        let dy = node.position.y - player.position.y
         let distance = hypot(dx, dy)
 
-        if distance > potatoStationInteractionRange {
-            showMessage("Move closer to the station.")
+        if distance > config.interactionRange {
+            showMessage("Move closer to interact.")
             return
         }
 
-        GameState.shared.addCoins(potatoChipReward)
+        let actionMessage: String
+        switch config.kind {
+        case .potatoChips:
+            actionMessage = "Made potato chips!"
+        case .chaseGoats:
+            actionMessage = "Chased goats off cars!"
+            node.isHidden = true
+            let respawnAfterMoves = Int.random(in: 10...20)
+            respawnAtMoveByInteractableID[interactableID] = completedMoveCount + respawnAfterMoves
+        }
+
+        GameState.shared.addCoins(config.rewardCoins)
         updateCoinLabel()
-        showMessage("Made potato chips! +\(potatoChipReward) coins")
+        showMessage("\(actionMessage) +\(config.rewardCoins) coins")
     }
 
     private func resetGameToInitialState() {
@@ -376,6 +457,11 @@ class GameScene: SKScene {
         player.physicsBody?.velocity = .zero
         player.position = playerSpawnPosition
         cameraNode.position = playerSpawnPosition
+        completedMoveCount = 0
+        respawnAtMoveByInteractableID.removeAll()
+        for (_, interactableNode) in interactableNodesByID {
+            interactableNode.isHidden = false
+        }
 
         GameState.shared.resetCoins()
         updateCoinLabel()
