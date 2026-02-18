@@ -69,7 +69,7 @@ class GameScene: SKScene {
     private let worldColumns = 80
     private let worldRows = 60
     private let tileSize = CGSize(width: 64, height: 64)
-    private let playerMoveSpeed: CGFloat = 320
+    private let playerMoveSpeed: CGFloat = 500
 
     // This is called once per scene load.
     override func didMove(to view: SKView) {
