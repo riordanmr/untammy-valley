@@ -566,7 +566,7 @@ class GameScene: SKScene {
         menuStatusLabel.fontColor = .white
         menuStatusLabel.verticalAlignmentMode = .center
         menuStatusLabel.horizontalAlignmentMode = .center
-        menuStatusLabel.position = CGPoint(x: 0, y: 22)
+        menuStatusLabel.position = CGPoint(x: 0, y: 20)
         menuStatusLabel.zPosition = 521
         menuPanelNode.addChild(menuStatusLabel)
 
@@ -609,7 +609,7 @@ class GameScene: SKScene {
         statusTitleLabel.fontColor = .white
         statusTitleLabel.horizontalAlignmentMode = .center
         statusTitleLabel.verticalAlignmentMode = .center
-        statusTitleLabel.position = CGPoint(x: 0, y: 128)
+        statusTitleLabel.position = CGPoint(x: 0, y: 142)
         statusTitleLabel.zPosition = 702
         statusPanelNode.addChild(statusTitleLabel)
 
@@ -621,7 +621,7 @@ class GameScene: SKScene {
         statusBodyLabel.fontColor = .white
         statusBodyLabel.horizontalAlignmentMode = .center
         statusBodyLabel.verticalAlignmentMode = .center
-        statusBodyLabel.position = CGPoint(x: 0, y: 20)
+        statusBodyLabel.position = CGPoint(x: 0, y: 12)
         statusBodyLabel.zPosition = 702
         statusPanelNode.addChild(statusBodyLabel)
 
