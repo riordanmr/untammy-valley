@@ -23,6 +23,12 @@ enum WorldLoader {
         static let bedroomDiningDoorRows: Set<Int> = [23, 24]
         static let diningKitchenDoorRows: Set<Int> = [23, 24]
         static let diningOutsideDoorColumns: Set<Int> = [35, 36]
+        static let kitchenCellarDoorColumns: Set<Int> = [43, 44]
+
+        static var cellarMinColumn: Int { diningKitchenWallColumn }
+        static var cellarMaxColumnExclusive: Int { maxColumnExclusive }
+        static var cellarMinRow: Int { maxRowExclusive - 1 }
+        static var cellarMaxRowExclusive: Int { cellarMinRow + 7 }
 
         static var bedroomLabelTile: TileCoordinate {
             TileCoordinate(column: minColumn + 4, row: minRow + roomHeight / 2)
@@ -47,13 +53,30 @@ enum WorldLoader {
         static var goatChaseTile: TileCoordinate {
             TileCoordinate(column: minColumn + singleRoomWidth + 4, row: minRow - 3)
         }
+
+        static var potatoBinTile: TileCoordinate {
+            TileCoordinate(column: cellarMinColumn + 2, row: cellarMaxRowExclusive - 2)
+        }
+
+        static var bucketStartTile: TileCoordinate {
+            TileCoordinate(column: diningKitchenWallColumn + 2, row: maxRowExclusive - 3)
+        }
+
+        static var cellarLabelTile: TileCoordinate {
+            TileCoordinate(column: diningKitchenWallColumn + 4, row: cellarMinRow + 3)
+        }
     }
 
     static func makeInitialBarWorld() -> WorldConfig {
         var wallTiles = Set<TileCoordinate>()
 
         for column in BarLayout.minColumn..<BarLayout.maxColumnExclusive {
-            wallTiles.insert(TileCoordinate(column: column, row: BarLayout.maxRowExclusive - 1))
+            if !BarLayout.kitchenCellarDoorColumns.contains(column) {
+                wallTiles.insert(TileCoordinate(column: column, row: BarLayout.maxRowExclusive - 1))
+            }
+            if BarLayout.kitchenCellarDoorColumns.contains(column) {
+                continue
+            }
             if !BarLayout.diningOutsideDoorColumns.contains(column) {
                 wallTiles.insert(TileCoordinate(column: column, row: BarLayout.minRow))
             }
@@ -71,10 +94,21 @@ enum WorldLoader {
             }
         }
 
+        // Cellar room north of the kitchen
+        for column in BarLayout.cellarMinColumn..<BarLayout.cellarMaxColumnExclusive {
+            wallTiles.insert(TileCoordinate(column: column, row: BarLayout.cellarMaxRowExclusive - 1))
+        }
+
+        for row in BarLayout.cellarMinRow..<BarLayout.cellarMaxRowExclusive {
+            wallTiles.insert(TileCoordinate(column: BarLayout.cellarMinColumn, row: row))
+            wallTiles.insert(TileCoordinate(column: BarLayout.cellarMaxColumnExclusive - 1, row: row))
+        }
+
         let roomLabels: [(name: String, tile: TileCoordinate)] = [
             ("Bedroom", BarLayout.bedroomLabelTile),
             ("Dining", BarLayout.diningLabelTile),
-            ("Kitchen", BarLayout.kitchenLabelTile)
+            ("Kitchen", BarLayout.kitchenLabelTile),
+            ("Cellar", BarLayout.cellarLabelTile)
         ]
 
         let interiorMinRow = BarLayout.minRow + 1
@@ -106,6 +140,15 @@ enum WorldLoader {
                     maxColumnExclusive: BarLayout.maxColumnExclusive - 1,
                     minRow: interiorMinRow,
                     maxRowExclusive: interiorMaxRowExclusive
+                )
+            ),
+            FloorRegion(
+                tileName: "floor_linoleum",
+                region: TileRegion(
+                    minColumn: BarLayout.cellarMinColumn + 1,
+                    maxColumnExclusive: BarLayout.cellarMaxColumnExclusive - 1,
+                    minRow: BarLayout.cellarMinRow + 1,
+                    maxRowExclusive: BarLayout.cellarMaxRowExclusive - 1
                 )
             )
         ]
@@ -140,6 +183,16 @@ enum WorldLoader {
                     minRow: BarLayout.minRow,
                     maxRowExclusive: BarLayout.minRow + 1
                 )
+            ),
+            // Kitchen <-> Cellar doorway: keep threshold as kitchen floor
+            FloorRegion(
+                tileName: "floor_linoleum",
+                region: TileRegion(
+                    minColumn: BarLayout.kitchenCellarDoorColumns.min() ?? BarLayout.cellarMinColumn,
+                    maxColumnExclusive: (BarLayout.kitchenCellarDoorColumns.max() ?? BarLayout.cellarMinColumn) + 1,
+                    minRow: BarLayout.cellarMinRow,
+                    maxRowExclusive: BarLayout.cellarMinRow + 1
+                )
             )
         ]
 
@@ -163,6 +216,26 @@ enum WorldLoader {
             interactionRange: 95
         )
 
+        let potatoBin = InteractableConfig(
+            id: "potatoBin",
+            kind: .potatoBin,
+            spriteName: "potato_bin",
+            tile: BarLayout.potatoBinTile,
+            size: CGSize(width: 50, height: 50),
+            rewardCoins: 0,
+            interactionRange: 95
+        )
+
+        let bucket = InteractableConfig(
+            id: "bucket",
+            kind: .bucket,
+            spriteName: "bucket_marker",
+            tile: BarLayout.bucketStartTile,
+            size: CGSize(width: 40, height: 40),
+            rewardCoins: 0,
+            interactionRange: 95
+        )
+
         return WorldConfig(
             wallTiles: wallTiles,
             defaultFloorTileName: "floor_outdoor",
@@ -170,7 +243,7 @@ enum WorldLoader {
             doorwayFloorOverrides: doorwayFloorOverrides,
             roomLabels: roomLabels,
             spawnTile: BarLayout.spawnTile,
-            interactables: [potatoStation, goatChaseSpot]
+            interactables: [potatoStation, potatoBin, bucket, goatChaseSpot]
         )
     }
 }

@@ -26,6 +26,8 @@ struct FloorRegion {
 
 enum InteractableKind {
     case potatoChips
+    case potatoBin
+    case bucket
     case chaseGoats
 }
 
