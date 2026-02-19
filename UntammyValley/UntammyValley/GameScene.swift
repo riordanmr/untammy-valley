@@ -753,7 +753,6 @@ class GameScene: SKScene {
 
         isBucketCarried = false
         node.position = player.position
-        interactableHomePositionByID[bucketID] = node.position
         showMessage("Dropped bucket (\(bucketPotatoCount)/\(bucketCapacity)).")
     }
 
