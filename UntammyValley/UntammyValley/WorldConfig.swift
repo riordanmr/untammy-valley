@@ -32,6 +32,7 @@ enum InteractableKind {
     case chaseGoats
     case tennisRacket
     case bedroomBat
+    case shovel
 }
 
 struct InteractableConfig {
@@ -49,6 +50,7 @@ struct WorldConfig {
     let defaultFloorTileName: String
     let floorRegions: [FloorRegion]
     let doorwayFloorOverrides: [FloorRegion]
+    let septicDigTiles: Set<TileCoordinate>
     let roomLabels: [(name: String, tile: TileCoordinate)]
     let spawnTile: TileCoordinate
     let interactables: [InteractableConfig]

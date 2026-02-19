@@ -92,6 +92,50 @@ enum WorldLoader {
         static var bedroomBatTile: TileCoordinate {
             TileCoordinate(column: minColumn + 5, row: minRow + 8)
         }
+
+        static var shovelTile: TileCoordinate {
+            TileCoordinate(column: cellarMaxColumnExclusive - 2, row: cellarMaxRowExclusive - 2)
+        }
+
+        static let septicSystemWidth = 2
+        static let septicSystemHeight = 5
+        static let septicGapColumns = 7
+
+        static var leftSepticMinColumn: Int { maxColumnExclusive + 4 }
+        static var leftSepticMinRow: Int { minRow - 7 }
+
+        static var rightSepticMinColumn: Int {
+            leftSepticMinColumn + septicSystemWidth + septicGapColumns
+        }
+
+        static var septicMidRow: Int { leftSepticMinRow + (septicSystemHeight / 2) }
+
+        static var leftSepticRegion: TileRegion {
+            TileRegion(
+                minColumn: leftSepticMinColumn,
+                maxColumnExclusive: leftSepticMinColumn + septicSystemWidth,
+                minRow: leftSepticMinRow,
+                maxRowExclusive: leftSepticMinRow + septicSystemHeight
+            )
+        }
+
+        static var rightSepticRegion: TileRegion {
+            TileRegion(
+                minColumn: rightSepticMinColumn,
+                maxColumnExclusive: rightSepticMinColumn + septicSystemWidth,
+                minRow: leftSepticMinRow,
+                maxRowExclusive: leftSepticMinRow + septicSystemHeight
+            )
+        }
+
+        static var septicDigTiles: Set<TileCoordinate> {
+            let startColumn = leftSepticMinColumn + septicSystemWidth
+            let endColumnInclusive = rightSepticMinColumn - 1
+            guard startColumn <= endColumnInclusive else { return [] }
+            return Set((startColumn...endColumnInclusive).map {
+                TileCoordinate(column: $0, row: septicMidRow)
+            })
+        }
     }
 
     static func makeInitialBarWorld() -> WorldConfig {
@@ -177,6 +221,14 @@ enum WorldLoader {
                     minRow: BarLayout.cellarMinRow + 1,
                     maxRowExclusive: BarLayout.cellarMaxRowExclusive - 1
                 )
+            ),
+            FloorRegion(
+                tileName: "septic_cover",
+                region: BarLayout.leftSepticRegion
+            ),
+            FloorRegion(
+                tileName: "septic_cover",
+                region: BarLayout.rightSepticRegion
             )
         ]
 
@@ -293,14 +345,25 @@ enum WorldLoader {
             interactionRange: 95
         )
 
+        let shovel = InteractableConfig(
+            id: "shovel",
+            kind: .shovel,
+            spriteName: "shovel_marker",
+            tile: BarLayout.shovelTile,
+            size: BarLayout.standardObjectSize,
+            rewardCoins: 0,
+            interactionRange: 95
+        )
+
         return WorldConfig(
             wallTiles: wallTiles,
             defaultFloorTileName: "floor_outdoor",
             floorRegions: floorRegions,
             doorwayFloorOverrides: doorwayFloorOverrides,
+            septicDigTiles: BarLayout.septicDigTiles,
             roomLabels: roomLabels,
             spawnTile: BarLayout.spawnTile,
-            interactables: [potatoStation, potatoBin, bucket, spigot, tennisRacket, bedroomBat, goatChaseSpot]
+            interactables: [potatoStation, potatoBin, bucket, spigot, tennisRacket, bedroomBat, shovel, goatChaseSpot]
         )
     }
 }

@@ -23,6 +23,10 @@ func makeBasicTileSet() -> SKTileSet {
             let fillColor: UIColor
             if name.contains("wall") {
                 fillColor = UIColor.darkGray
+            } else if name.contains("trench") {
+                fillColor = UIColor.brown
+            } else if name.contains("septic") {
+                fillColor = UIColor(red: 0.78, green: 0.63, blue: 0.44, alpha: 1.0)
             } else if name.contains("outdoor") {
                 fillColor = UIColor.systemGreen
             } else {
@@ -53,6 +57,8 @@ func makeBasicTileSet() -> SKTileSet {
         "floor_linoleum",
         "floor_carpet",
         "floor_outdoor",
+        "septic_cover",
+        "septic_trench",
         "wall_vertical"
     ]
 
@@ -104,6 +110,8 @@ class GameScene: SKScene {
     private var statusDoneLabel: SKLabelNode!
     private var makerLoadedIndicatorNode: SKShapeNode?
     private var bucketSelectedIndicatorNode: SKShapeNode?
+    private var groundTileMap: SKTileMapNode?
+    private var tileGroupsByName: [String: SKTileGroup] = [:]
     private var interactableNodesByID: [String: SKSpriteNode] = [:]
     private var interactableConfigsByID: [String: InteractableConfig] = [:]
     private var interactableHomePositionByID: [String: CGPoint] = [:]
@@ -115,7 +123,10 @@ class GameScene: SKScene {
     private let spigotID = "spigot"
     private let tennisRacketID = "tennisRacket"
     private let bedroomBatID = "bedroomBat"
+    private let shovelID = "shovel"
     private let bucketCapacity = 5
+    private let coinsPerTrenchTile = 1
+    private let septicCompletionBonusCoins = 100
 
     private var isBucketCarried = false
     private var bucketPotatoCount = 0
@@ -124,8 +135,11 @@ class GameScene: SKScene {
     private var selectedPotatoIsWashed = false
     private var makerHasLoadedPotato = false
     private var isTennisRacketCarried = false
+    private var isShovelCarried = false
     private var nextBatSpawnMove = BatEventSettings.randomSpawnIntervalMoves()
     private var batDefeatDeadlineMove: Int?
+    private var trenchedSepticTiles: Set<TileCoordinate> = []
+    private var hasAwardedSepticCompletionBonus = false
 
     private var isStatusWindowVisible = false
     private var isDraggingStatusScroll = false
@@ -163,8 +177,9 @@ class GameScene: SKScene {
         tileMap.anchorPoint = CGPoint(x: 0.5, y: 0.5)
         tileMap.position = .zero
         tileMap.zPosition = -10
+        groundTileMap = tileMap
 
-        var tileGroupsByName: [String: SKTileGroup] = [:]
+        tileGroupsByName = [:]
         for group in tileSet.tileGroups {
             if let name = group.name {
                 tileGroupsByName[name] = group
@@ -263,6 +278,7 @@ class GameScene: SKScene {
 
         configureHUD()
         updateCoinLabel()
+        updateStatusWindowBody()
 
     }
 
@@ -272,6 +288,9 @@ class GameScene: SKScene {
         }
         if isTennisRacketCarried, let racketNode = interactableNodesByID[tennisRacketID] {
             racketNode.position = CGPoint(x: player.position.x - 24, y: player.position.y + 10)
+        }
+        if isShovelCarried, let shovelNode = interactableNodesByID[shovelID] {
+            shovelNode.position = CGPoint(x: player.position.x + 2, y: player.position.y - 24)
         }
         if let bucketNode = interactableNodesByID[bucketID] {
             bucketSelectedIndicatorNode?.position = CGPoint(x: bucketNode.position.x, y: bucketNode.position.y + 22)
@@ -312,6 +331,10 @@ class GameScene: SKScene {
         }
         if !menuPanelNode.isHidden {
             setMenuVisible(false)
+            return
+        }
+
+        if handleSepticDigTap(at: location) {
             return
         }
 
@@ -447,6 +470,9 @@ class GameScene: SKScene {
                 } else if config.kind == .bedroomBat {
                     let batTexture = makeLabeledMarkerTexture(size: config.size, emoji: "🦇", color: .systemPurple)
                     node = SKSpriteNode(texture: batTexture, color: .clear, size: config.size)
+                } else if config.kind == .shovel {
+                    let shovelTexture = makeLabeledMarkerTexture(size: config.size, emoji: "S", color: .systemGray)
+                    node = SKSpriteNode(texture: shovelTexture, color: .clear, size: config.size)
                 } else {
                     node = SKSpriteNode(color: .systemYellow, size: config.size)
                 }
@@ -763,6 +789,8 @@ class GameScene: SKScene {
             "Potato selected: \(selectedPotatoForLoading ? "Yes" : "No")",
             "Maker loaded: \(makerHasLoadedPotato ? "Yes" : "No")",
             "Racket carried: \(isTennisRacketCarried ? "Yes" : "No")",
+            "Shovel carried: \(isShovelCarried ? "Yes" : "No")",
+            "Septic trenches: \(trenchedSepticTiles.count)/\(worldConfig.septicDigTiles.count)",
             "Bat event: \(batStatusText)",
             "Goat respawn: \(goatRespawnText)"
         ]
@@ -851,6 +879,9 @@ class GameScene: SKScene {
             return
         case .bedroomBat:
             handleBedroomBatInteraction(node: node)
+            return
+        case .shovel:
+            handleShovelInteraction(node: node)
             return
         case .chaseGoats:
             node.isHidden = true
@@ -1004,6 +1035,83 @@ class GameScene: SKScene {
         showMessage("You killed the bat.")
     }
 
+    private func handleShovelInteraction(node: SKSpriteNode) {
+        if isShovelCarried {
+            isShovelCarried = false
+            node.position = player.position
+            showMessage("Dropped shovel.")
+            return
+        }
+
+        isShovelCarried = true
+        showMessage("Picked up shovel.")
+    }
+
+    private func handleSepticDigTap(at scenePoint: CGPoint) -> Bool {
+        guard let tappedTile = tileCoordinate(for: scenePoint),
+              worldConfig.septicDigTiles.contains(tappedTile) else {
+            return false
+        }
+
+        guard isShovelCarried else {
+            showMessage("Pick up the shovel in the cellar first.")
+            return true
+        }
+
+        if trenchedSepticTiles.contains(tappedTile) {
+            showMessage("That trench tile is already dug.")
+            return true
+        }
+
+        guard let digCenter = scenePointForTile(tappedTile) else {
+            return true
+        }
+
+        let dx = digCenter.x - player.position.x
+        let dy = digCenter.y - player.position.y
+        let distance = hypot(dx, dy)
+        if distance > 96 {
+            showMessage("Move closer to dig this tile.")
+            return true
+        }
+
+        applyTrench(at: tappedTile)
+        trenchedSepticTiles.insert(tappedTile)
+        GameState.shared.addCoins(coinsPerTrenchTile)
+        updateCoinLabel()
+
+        if trenchedSepticTiles.count == worldConfig.septicDigTiles.count && !hasAwardedSepticCompletionBonus {
+            hasAwardedSepticCompletionBonus = true
+            GameState.shared.addCoins(septicCompletionBonusCoins)
+            updateCoinLabel()
+            showMessage("Septic trench complete! +\(coinsPerTrenchTile + septicCompletionBonusCoins) coins")
+        } else {
+            showMessage("Dug trench tile! +\(coinsPerTrenchTile) coin")
+        }
+
+        return true
+    }
+
+    private func scenePointForTile(_ tile: TileCoordinate) -> CGPoint? {
+        guard let map = groundTileMap else { return nil }
+        let localCenter = map.centerOfTile(atColumn: tile.column, row: tile.row)
+        return map.convert(localCenter, to: self)
+    }
+
+    private func applyTrench(at tile: TileCoordinate) {
+        guard let map = groundTileMap,
+              let trenchGroup = tileGroupsByName["septic_trench"] else { return }
+        map.setTileGroup(trenchGroup, forColumn: tile.column, row: tile.row)
+    }
+
+    private func resetSepticDigTiles() {
+        guard let map = groundTileMap,
+              let defaultGroup = tileGroupsByName[worldConfig.defaultFloorTileName] else { return }
+        for tile in worldConfig.septicDigTiles {
+            map.setTileGroup(defaultGroup, forColumn: tile.column, row: tile.row)
+        }
+    }
+
     private func isPlayerNearInteractable(withID interactableID: String) -> Bool {
         guard let config = interactableConfigsByID[interactableID],
               let node = interactableNodesByID[interactableID] else { return false }
@@ -1050,8 +1158,12 @@ class GameScene: SKScene {
         selectedPotatoIsWashed = false
         makerHasLoadedPotato = false
         isTennisRacketCarried = false
+        isShovelCarried = false
         nextBatSpawnMove = BatEventSettings.randomSpawnIntervalMoves()
         batDefeatDeadlineMove = nil
+        trenchedSepticTiles.removeAll()
+        hasAwardedSepticCompletionBonus = false
+        resetSepticDigTiles()
         updateMakerLoadedIndicator()
         for (_, interactableNode) in interactableNodesByID {
             interactableNode.isHidden = false
