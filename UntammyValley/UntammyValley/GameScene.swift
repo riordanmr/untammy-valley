@@ -723,7 +723,7 @@ class GameScene: SKScene {
 
         statusDoneLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
         statusDoneLabel.name = "statusDoneItem"
-        statusDoneLabel.text = "Done"
+        statusDoneLabel.text = "Close"
         statusDoneLabel.fontSize = 22
         statusDoneLabel.fontColor = .white
         statusDoneLabel.horizontalAlignmentMode = .center
