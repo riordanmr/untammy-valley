@@ -46,3 +46,4 @@ fastlane/test_output/
 # MRR tmp files
 tmp/
 UTImages/
+**/xcuserdata/*
