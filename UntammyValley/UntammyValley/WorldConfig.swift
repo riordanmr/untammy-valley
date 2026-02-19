@@ -28,6 +28,7 @@ enum InteractableKind {
     case potatoChips
     case potatoBin
     case bucket
+    case spigot
     case chaseGoats
 }
 

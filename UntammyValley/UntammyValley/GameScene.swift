@@ -94,11 +94,14 @@ class GameScene: SKScene {
     private let bucketID = "bucket"
     private let potatoBinID = "potatoBin"
     private let potatoMakerID = "potatoStation"
+    private let spigotID = "spigot"
     private let bucketCapacity = 5
 
     private var isBucketCarried = false
     private var bucketPotatoCount = 0
+    private var washedPotatoCount = 0
     private var selectedPotatoForLoading = false
+    private var selectedPotatoIsWashed = false
     private var makerHasLoadedPotato = false
 
     private var isStatusWindowVisible = false
@@ -385,6 +388,9 @@ class GameScene: SKScene {
                 } else if config.kind == .bucket {
                     let bucketTexture = makeLabeledMarkerTexture(size: config.size, emoji: "🪣", color: .systemBlue)
                     node = SKSpriteNode(texture: bucketTexture, color: .clear, size: config.size)
+                } else if config.kind == .spigot {
+                    let spigotTexture = makeLabeledMarkerTexture(size: config.size, emoji: "🚰", color: .systemTeal)
+                    node = SKSpriteNode(texture: spigotTexture, color: .clear, size: config.size)
                 } else {
                     node = SKSpriteNode(color: .systemYellow, size: config.size)
                 }
@@ -654,7 +660,7 @@ class GameScene: SKScene {
             goatRespawnText = "Active"
         }
 
-        statusBodyLabel.text = "Coins: \(GameState.shared.coins)\nMoves: \(completedMoveCount)\nBucket carried: \(isBucketCarried ? "Yes" : "No")\nBucket potatoes: \(bucketPotatoCount)/\(bucketCapacity)\nPotato selected: \(selectedPotatoForLoading ? "Yes" : "No")\nMaker loaded: \(makerHasLoadedPotato ? "Yes" : "No")\nGoat respawn: \(goatRespawnText)"
+        statusBodyLabel.text = "Coins: \(GameState.shared.coins)\nMoves: \(completedMoveCount)\nBucket carried: \(isBucketCarried ? "Yes" : "No")\nBucket potatoes: \(bucketPotatoCount)/\(bucketCapacity)\nWashed in bucket: \(washedPotatoCount)\nPotato selected: \(selectedPotatoForLoading ? "Yes" : "No")\nMaker loaded: \(makerHasLoadedPotato ? "Yes" : "No")\nGoat respawn: \(goatRespawnText)"
     }
 
     private func setMenuVisible(_ visible: Bool) {
@@ -692,6 +698,9 @@ class GameScene: SKScene {
         case .potatoBin:
             handlePotatoBinInteraction()
             return
+        case .spigot:
+            handleSpigotInteraction()
+            return
         case .potatoChips:
             handlePotatoMakerInteraction(config: config)
             return
@@ -716,19 +725,29 @@ class GameScene: SKScene {
         if selectedPotatoForLoading {
             selectedPotatoForLoading = false
             bucketPotatoCount = min(bucketCapacity, bucketPotatoCount + 1)
-            showMessage("Returned selected potato to bucket (\(bucketPotatoCount)/\(bucketCapacity)).")
+            if selectedPotatoIsWashed {
+                washedPotatoCount = min(bucketPotatoCount, washedPotatoCount + 1)
+            }
+            selectedPotatoIsWashed = false
+            showMessage("Returned selected potato to bucket (\(bucketPotatoCount)/\(bucketCapacity), washed \(washedPotatoCount)).")
             return
         }
 
         let nearMaker = isPlayerNearInteractable(withID: potatoMakerID)
         if nearMaker && bucketPotatoCount > 0 {
+            guard washedPotatoCount > 0 else {
+                showMessage("Potatoes must be washed at the spigot first.")
+                return
+            }
             if makerHasLoadedPotato {
                 showMessage("Maker already loaded. Click maker to make chips.")
                 return
             }
             bucketPotatoCount -= 1
+            washedPotatoCount -= 1
             selectedPotatoForLoading = true
-            showMessage("Selected one potato (\(bucketPotatoCount)/\(bucketCapacity) left in bucket).")
+            selectedPotatoIsWashed = true
+            showMessage("Selected washed potato (\(bucketPotatoCount)/\(bucketCapacity) left, washed \(washedPotatoCount)).")
             return
         }
 
@@ -753,7 +772,29 @@ class GameScene: SKScene {
         }
 
         bucketPotatoCount += 1
-        showMessage("Fetched potato from bin (\(bucketPotatoCount)/\(bucketCapacity)).")
+        showMessage("Fetched potato from bin (\(bucketPotatoCount)/\(bucketCapacity), washed \(washedPotatoCount)).")
+    }
+
+    private func handleSpigotInteraction() {
+        guard isBucketCarried else {
+            showMessage("Pick up the bucket to wash potatoes.")
+            return
+        }
+        guard !selectedPotatoForLoading else {
+            showMessage("Load or return selected potato first.")
+            return
+        }
+        guard bucketPotatoCount > 0 else {
+            showMessage("Bucket is empty.")
+            return
+        }
+        guard washedPotatoCount < bucketPotatoCount else {
+            showMessage("All potatoes in bucket are already washed.")
+            return
+        }
+
+        washedPotatoCount = bucketPotatoCount
+        showMessage("Washed potatoes at spigot (washed \(washedPotatoCount)/\(bucketPotatoCount)).")
     }
 
     private func handlePotatoMakerInteraction(config: InteractableConfig) {
@@ -772,7 +813,12 @@ class GameScene: SKScene {
         }
 
         if selectedPotatoForLoading {
+            guard selectedPotatoIsWashed else {
+                showMessage("Selected potato must be washed first.")
+                return
+            }
             selectedPotatoForLoading = false
+            selectedPotatoIsWashed = false
             makerHasLoadedPotato = true
             updateMakerLoadedIndicator()
             showMessage("Loaded potato into chip maker.")
@@ -799,7 +845,9 @@ class GameScene: SKScene {
         respawnAtMoveByInteractableID.removeAll()
         isBucketCarried = false
         bucketPotatoCount = 0
+        washedPotatoCount = 0
         selectedPotatoForLoading = false
+        selectedPotatoIsWashed = false
         makerHasLoadedPotato = false
         updateMakerLoadedIndicator()
         for (_, interactableNode) in interactableNodesByID {

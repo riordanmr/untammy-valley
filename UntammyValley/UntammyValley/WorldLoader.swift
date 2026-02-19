@@ -65,6 +65,10 @@ enum WorldLoader {
         static var cellarLabelTile: TileCoordinate {
             TileCoordinate(column: diningKitchenWallColumn + 4, row: cellarMinRow + 3)
         }
+
+        static var spigotTile: TileCoordinate {
+            TileCoordinate(column: maxColumnExclusive, row: minRow + roomHeight / 2)
+        }
     }
 
     static func makeInitialBarWorld() -> WorldConfig {
@@ -236,6 +240,16 @@ enum WorldLoader {
             interactionRange: 95
         )
 
+        let spigot = InteractableConfig(
+            id: "spigot",
+            kind: .spigot,
+            spriteName: "spigot_marker",
+            tile: BarLayout.spigotTile,
+            size: CGSize(width: 42, height: 42),
+            rewardCoins: 0,
+            interactionRange: 95
+        )
+
         return WorldConfig(
             wallTiles: wallTiles,
             defaultFloorTileName: "floor_outdoor",
@@ -243,7 +257,7 @@ enum WorldLoader {
             doorwayFloorOverrides: doorwayFloorOverrides,
             roomLabels: roomLabels,
             spawnTile: BarLayout.spawnTile,
-            interactables: [potatoStation, potatoBin, bucket, goatChaseSpot]
+            interactables: [potatoStation, potatoBin, bucket, spigot, goatChaseSpot]
         )
     }
 }
