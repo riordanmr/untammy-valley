@@ -69,6 +69,14 @@ enum WorldLoader {
         static var spigotTile: TileCoordinate {
             TileCoordinate(column: maxColumnExclusive, row: minRow + roomHeight / 2)
         }
+
+        static var tennisRacketTile: TileCoordinate {
+            TileCoordinate(column: minColumn + 2, row: minRow + 3)
+        }
+
+        static var bedroomBatTile: TileCoordinate {
+            TileCoordinate(column: minColumn + 5, row: minRow + 8)
+        }
     }
 
     static func makeInitialBarWorld() -> WorldConfig {
@@ -250,6 +258,26 @@ enum WorldLoader {
             interactionRange: 95
         )
 
+        let tennisRacket = InteractableConfig(
+            id: "tennisRacket",
+            kind: .tennisRacket,
+            spriteName: "tennis_racket_marker",
+            tile: BarLayout.tennisRacketTile,
+            size: CGSize(width: 44, height: 44),
+            rewardCoins: 0,
+            interactionRange: 95
+        )
+
+        let bedroomBat = InteractableConfig(
+            id: "bedroomBat",
+            kind: .bedroomBat,
+            spriteName: "bedroom_bat_marker",
+            tile: BarLayout.bedroomBatTile,
+            size: CGSize(width: 42, height: 42),
+            rewardCoins: 0,
+            interactionRange: 95
+        )
+
         return WorldConfig(
             wallTiles: wallTiles,
             defaultFloorTileName: "floor_outdoor",
@@ -257,7 +285,7 @@ enum WorldLoader {
             doorwayFloorOverrides: doorwayFloorOverrides,
             roomLabels: roomLabels,
             spawnTile: BarLayout.spawnTile,
-            interactables: [potatoStation, potatoBin, bucket, spigot, goatChaseSpot]
+            interactables: [potatoStation, potatoBin, bucket, spigot, tennisRacket, bedroomBat, goatChaseSpot]
         )
     }
 }

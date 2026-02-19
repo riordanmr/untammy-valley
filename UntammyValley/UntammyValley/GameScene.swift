@@ -70,6 +70,23 @@ class GameScene: SKScene {
         static let showRoomLabels = true
     }
 
+    private enum BatEventSettings {
+        static let spawnIntervalMoves = 44
+        static let defeatDeadlineMoves = 22
+
+        static var minSpawnIntervalMoves: Int {
+            max(1, Int(round(Double(spawnIntervalMoves) * 0.5)))
+        }
+
+        static var maxSpawnIntervalMoves: Int {
+            Int(round(Double(spawnIntervalMoves) * 1.5))
+        }
+
+        static func randomSpawnIntervalMoves() -> Int {
+            Int.random(in: minSpawnIntervalMoves...maxSpawnIntervalMoves)
+        }
+    }
+
     var player: PlayerNode!
     var cameraNode: SKCameraNode!
 
@@ -82,7 +99,8 @@ class GameScene: SKScene {
     private var statusBackdropNode: SKShapeNode!
     private var statusPanelNode: SKShapeNode!
     private var statusTitleLabel: SKLabelNode!
-    private var statusBodyLabel: SKLabelNode!
+    private var statusScrollCropNode: SKCropNode!
+    private var statusScrollContentNode: SKNode!
     private var statusDoneLabel: SKLabelNode!
     private var makerLoadedIndicatorNode: SKShapeNode?
     private var bucketSelectedIndicatorNode: SKShapeNode?
@@ -95,6 +113,8 @@ class GameScene: SKScene {
     private let potatoBinID = "potatoBin"
     private let potatoMakerID = "potatoStation"
     private let spigotID = "spigot"
+    private let tennisRacketID = "tennisRacket"
+    private let bedroomBatID = "bedroomBat"
     private let bucketCapacity = 5
 
     private var isBucketCarried = false
@@ -103,8 +123,17 @@ class GameScene: SKScene {
     private var selectedPotatoForLoading = false
     private var selectedPotatoIsWashed = false
     private var makerHasLoadedPotato = false
+    private var isTennisRacketCarried = false
+    private var nextBatSpawnMove = BatEventSettings.randomSpawnIntervalMoves()
+    private var batDefeatDeadlineMove: Int?
 
     private var isStatusWindowVisible = false
+    private var isDraggingStatusScroll = false
+    private var lastStatusDragY: CGFloat = 0
+    private var statusScrollOffset: CGFloat = 0
+    private var statusScrollViewportHeight: CGFloat = 0
+    private var statusScrollContentHeight: CGFloat = 0
+    private var statusScrollViewportWidth: CGFloat = 0
 
     private var moveTarget: CGPoint?
     private var playerSpawnPosition: CGPoint = .zero
@@ -241,6 +270,9 @@ class GameScene: SKScene {
         if isBucketCarried, let bucketNode = interactableNodesByID[bucketID] {
             bucketNode.position = CGPoint(x: player.position.x + 22, y: player.position.y + 8)
         }
+        if isTennisRacketCarried, let racketNode = interactableNodesByID[tennisRacketID] {
+            racketNode.position = CGPoint(x: player.position.x - 24, y: player.position.y + 10)
+        }
         if let bucketNode = interactableNodesByID[bucketID] {
             bucketSelectedIndicatorNode?.position = CGPoint(x: bucketNode.position.x, y: bucketNode.position.y + 22)
         }
@@ -256,6 +288,7 @@ class GameScene: SKScene {
         let hudNodes = cameraNode.nodes(at: hudLocation)
 
         if isStatusWindowVisible {
+            isDraggingStatusScroll = false
             if hudNodes.contains(where: { $0.name == "statusDoneItem" || $0.parent?.name == "statusDoneItem" }) {
                 setStatusWindowVisible(false)
             }
@@ -291,6 +324,23 @@ class GameScene: SKScene {
 
         setMenuVisible(false)
         moveTarget = location
+    }
+
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard isStatusWindowVisible, let touch = touches.first else { return }
+        let hudLocation = touch.location(in: cameraNode)
+        if statusScrollCropNode.contains(hudLocation) {
+            isDraggingStatusScroll = true
+            lastStatusDragY = hudLocation.y
+        }
+    }
+
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard isStatusWindowVisible, isDraggingStatusScroll, let touch = touches.first else { return }
+        let hudLocation = touch.location(in: cameraNode)
+        let deltaY = hudLocation.y - lastStatusDragY
+        lastStatusDragY = hudLocation.y
+        setStatusScrollOffset(statusScrollOffset + deltaY)
     }
 
     override func update(_ currentTime: TimeInterval) {
@@ -391,6 +441,12 @@ class GameScene: SKScene {
                 } else if config.kind == .spigot {
                     let spigotTexture = makeLabeledMarkerTexture(size: config.size, emoji: "🚰", color: .systemTeal)
                     node = SKSpriteNode(texture: spigotTexture, color: .clear, size: config.size)
+                } else if config.kind == .tennisRacket {
+                    let racketTexture = makeLabeledMarkerTexture(size: config.size, emoji: "🏸", color: .systemOrange)
+                    node = SKSpriteNode(texture: racketTexture, color: .clear, size: config.size)
+                } else if config.kind == .bedroomBat {
+                    let batTexture = makeLabeledMarkerTexture(size: config.size, emoji: "🦇", color: .systemPurple)
+                    node = SKSpriteNode(texture: batTexture, color: .clear, size: config.size)
                 } else {
                     node = SKSpriteNode(color: .systemYellow, size: config.size)
                 }
@@ -411,6 +467,10 @@ class GameScene: SKScene {
             interactableNodesByID[config.id] = node
             interactableConfigsByID[config.id] = config
             interactableHomePositionByID[config.id] = position
+
+            if config.id == bedroomBatID {
+                node.isHidden = true
+            }
 
             if config.id == potatoMakerID {
                 let radius = max(node.size.width, node.size.height) * 0.62
@@ -488,6 +548,30 @@ class GameScene: SKScene {
                 showMessage("Goat returned to the parking lot.")
             }
             respawnAtMoveByInteractableID.removeValue(forKey: interactableID)
+        }
+
+        if let batDeadline = batDefeatDeadlineMove,
+           completedMoveCount >= batDeadline,
+           let batNode = interactableNodesByID[bedroomBatID],
+           !batNode.isHidden {
+            let previousCoins = GameState.shared.coins
+            let remainingCoins = GameState.shared.halveCoins()
+            let lostCoins = previousCoins - remainingCoins
+            batNode.isHidden = true
+            batDefeatDeadlineMove = nil
+            nextBatSpawnMove = completedMoveCount + BatEventSettings.randomSpawnIntervalMoves()
+            updateCoinLabel()
+            showMessage("Bat escaped. Exterminator called: -\(lostCoins) coins.")
+        }
+
+        if batDefeatDeadlineMove == nil,
+           completedMoveCount >= nextBatSpawnMove,
+           isPlayerInBarRooms(),
+           let batNode = interactableNodesByID[bedroomBatID] {
+            batNode.position = interactableHomePositionByID[bedroomBatID] ?? batNode.position
+            batNode.isHidden = false
+            batDefeatDeadlineMove = completedMoveCount + BatEventSettings.defeatDeadlineMoves
+            showMessage("A bat appeared in the bedroom! Use the tennis racket within \(BatEventSettings.defeatDeadlineMoves) moves.")
         }
     }
 
@@ -613,17 +697,20 @@ class GameScene: SKScene {
         statusTitleLabel.zPosition = 702
         statusPanelNode.addChild(statusTitleLabel)
 
-        statusBodyLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
-        statusBodyLabel.text = ""
-        statusBodyLabel.numberOfLines = 0
-        statusBodyLabel.preferredMaxLayoutWidth = min(size.width - 130, 500)
-        statusBodyLabel.fontSize = 20
-        statusBodyLabel.fontColor = .white
-        statusBodyLabel.horizontalAlignmentMode = .center
-        statusBodyLabel.verticalAlignmentMode = .center
-        statusBodyLabel.position = CGPoint(x: 0, y: 12)
-        statusBodyLabel.zPosition = 702
-        statusPanelNode.addChild(statusBodyLabel)
+        statusScrollViewportWidth = min(size.width - 130, 500)
+        statusScrollViewportHeight = 196
+
+        statusScrollCropNode = SKCropNode()
+        statusScrollCropNode.position = CGPoint(x: 0, y: 12)
+        statusScrollCropNode.zPosition = 702
+        statusPanelNode.addChild(statusScrollCropNode)
+
+        let scrollMask = SKSpriteNode(color: .white, size: CGSize(width: statusScrollViewportWidth, height: statusScrollViewportHeight))
+        scrollMask.position = .zero
+        statusScrollCropNode.maskNode = scrollMask
+
+        statusScrollContentNode = SKNode()
+        statusScrollCropNode.addChild(statusScrollContentNode)
 
         let doneButton = SKShapeNode(rectOf: CGSize(width: 120, height: 42), cornerRadius: 8)
         doneButton.name = "statusDoneItem"
@@ -660,7 +747,62 @@ class GameScene: SKScene {
             goatRespawnText = "Active"
         }
 
-        statusBodyLabel.text = "Coins: \(GameState.shared.coins)\nMoves: \(completedMoveCount)\nBucket carried: \(isBucketCarried ? "Yes" : "No")\nBucket potatoes: \(bucketPotatoCount)/\(bucketCapacity)\nWashed in bucket: \(washedPotatoCount)\nPotato selected: \(selectedPotatoForLoading ? "Yes" : "No")\nMaker loaded: \(makerHasLoadedPotato ? "Yes" : "No")\nGoat respawn: \(goatRespawnText)"
+        let batStatusText: String
+        if let batDeadline = batDefeatDeadlineMove {
+            batStatusText = "Defeat in \(max(0, batDeadline - completedMoveCount)) moves"
+        } else {
+            batStatusText = "Waiting (avg \(BatEventSettings.spawnIntervalMoves), range \(BatEventSettings.minSpawnIntervalMoves)-\(BatEventSettings.maxSpawnIntervalMoves))"
+        }
+
+        let statusLines = [
+            "Coins: \(GameState.shared.coins)",
+            "Moves: \(completedMoveCount)",
+            "Bucket carried: \(isBucketCarried ? "Yes" : "No")",
+            "Bucket potatoes: \(bucketPotatoCount)/\(bucketCapacity)",
+            "Washed in bucket: \(washedPotatoCount)",
+            "Potato selected: \(selectedPotatoForLoading ? "Yes" : "No")",
+            "Maker loaded: \(makerHasLoadedPotato ? "Yes" : "No")",
+            "Racket carried: \(isTennisRacketCarried ? "Yes" : "No")",
+            "Bat event: \(batStatusText)",
+            "Goat respawn: \(goatRespawnText)"
+        ]
+
+        renderStatusLines(statusLines)
+    }
+
+    private func renderStatusLines(_ lines: [String]) {
+        statusScrollContentNode.removeAllChildren()
+
+        let lineHeight: CGFloat = 24
+        let topPadding: CGFloat = 8
+        let bottomPadding: CGFloat = 8
+        let textX = -statusScrollViewportWidth / 2 + 8
+        let contentHeight = topPadding + bottomPadding + CGFloat(lines.count) * lineHeight
+        statusScrollContentHeight = max(contentHeight, statusScrollViewportHeight)
+
+        let topY = statusScrollContentHeight / 2 - topPadding
+        for (index, lineText) in lines.enumerated() {
+            let lineNode = SKLabelNode(fontNamed: "AvenirNext-Medium")
+            lineNode.text = lineText
+            lineNode.fontSize = 20
+            lineNode.fontColor = .white
+            lineNode.horizontalAlignmentMode = .left
+            lineNode.verticalAlignmentMode = .top
+            lineNode.position = CGPoint(x: textX, y: topY - CGFloat(index) * lineHeight)
+            lineNode.zPosition = 702
+            statusScrollContentNode.addChild(lineNode)
+        }
+
+        setStatusScrollOffset(statusScrollOffset)
+    }
+
+    private func setStatusScrollOffset(_ offset: CGFloat) {
+        let maxOffset = max(0, statusScrollContentHeight - statusScrollViewportHeight)
+        statusScrollOffset = min(max(0, offset), maxOffset)
+        statusScrollContentNode.position = CGPoint(
+            x: 0,
+            y: (statusScrollViewportHeight - statusScrollContentHeight) / 2 + statusScrollOffset
+        )
     }
 
     private func setMenuVisible(_ visible: Bool) {
@@ -703,6 +845,12 @@ class GameScene: SKScene {
             return
         case .potatoChips:
             handlePotatoMakerInteraction(config: config)
+            return
+        case .tennisRacket:
+            handleTennisRacketInteraction(node: node)
+            return
+        case .bedroomBat:
+            handleBedroomBatInteraction(node: node)
             return
         case .chaseGoats:
             node.isHidden = true
@@ -827,12 +975,65 @@ class GameScene: SKScene {
         showMessage("Select a potato from the bucket first.")
     }
 
+    private func handleTennisRacketInteraction(node: SKSpriteNode) {
+        if isTennisRacketCarried {
+            isTennisRacketCarried = false
+            node.position = player.position
+            showMessage("Dropped tennis racket.")
+            return
+        }
+
+        isTennisRacketCarried = true
+        showMessage("Picked up tennis racket.")
+    }
+
+    private func handleBedroomBatInteraction(node: SKSpriteNode) {
+        guard batDefeatDeadlineMove != nil, !node.isHidden else {
+            showMessage("No bat to fight right now.")
+            return
+        }
+
+        guard isTennisRacketCarried else {
+            showMessage("Pick up the tennis racket first.")
+            return
+        }
+
+        node.isHidden = true
+        batDefeatDeadlineMove = nil
+        nextBatSpawnMove = completedMoveCount + BatEventSettings.randomSpawnIntervalMoves()
+        showMessage("You killed the bat.")
+    }
+
     private func isPlayerNearInteractable(withID interactableID: String) -> Bool {
         guard let config = interactableConfigsByID[interactableID],
               let node = interactableNodesByID[interactableID] else { return false }
         let dx = node.position.x - player.position.x
         let dy = node.position.y - player.position.y
         return hypot(dx, dy) <= config.interactionRange
+    }
+
+    private func isPlayerInBarRooms() -> Bool {
+        guard let playerTile = tileCoordinate(for: player.position) else { return false }
+        return worldConfig.floorRegions.contains(where: { region in
+            playerTile.column >= region.region.minColumn &&
+            playerTile.column < region.region.maxColumnExclusive &&
+            playerTile.row >= region.region.minRow &&
+            playerTile.row < region.region.maxRowExclusive
+        })
+    }
+
+    private func tileCoordinate(for scenePoint: CGPoint) -> TileCoordinate? {
+        let worldOriginX = -CGFloat(worldColumns) * tileSize.width * 0.5
+        let worldOriginY = -CGFloat(worldRows) * tileSize.height * 0.5
+
+        let column = Int(floor((scenePoint.x - worldOriginX) / tileSize.width))
+        let row = Int(floor((scenePoint.y - worldOriginY) / tileSize.height))
+
+        guard column >= 0, column < worldColumns, row >= 0, row < worldRows else {
+            return nil
+        }
+
+        return TileCoordinate(column: column, row: row)
     }
 
     private func resetGameToInitialState() {
@@ -848,6 +1049,9 @@ class GameScene: SKScene {
         selectedPotatoForLoading = false
         selectedPotatoIsWashed = false
         makerHasLoadedPotato = false
+        isTennisRacketCarried = false
+        nextBatSpawnMove = BatEventSettings.randomSpawnIntervalMoves()
+        batDefeatDeadlineMove = nil
         updateMakerLoadedIndicator()
         for (_, interactableNode) in interactableNodesByID {
             interactableNode.isHidden = false
@@ -855,6 +1059,7 @@ class GameScene: SKScene {
         for (id, homePosition) in interactableHomePositionByID {
             interactableNodesByID[id]?.position = homePosition
         }
+        interactableNodesByID[bedroomBatID]?.isHidden = true
 
         GameState.shared.resetCoins()
         updateCoinLabel()

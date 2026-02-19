@@ -28,6 +28,12 @@ final class GameState {
         return coins
     }
 
+    @discardableResult
+    func halveCoins() -> Int {
+        coins /= 2
+        return coins
+    }
+
     func resetCoins() {
         coins = 0
     }

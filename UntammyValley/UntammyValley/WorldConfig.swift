@@ -30,6 +30,8 @@ enum InteractableKind {
     case bucket
     case spigot
     case chaseGoats
+    case tennisRacket
+    case bedroomBat
 }
 
 struct InteractableConfig {
