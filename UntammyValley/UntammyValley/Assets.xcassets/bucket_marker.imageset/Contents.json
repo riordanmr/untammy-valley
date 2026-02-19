@@ -1,17 +1,17 @@
 {
   "images" : [
     {
-      "filename" : "wall_vertical.png",
+      "filename" : "bucket_marker.png",
       "idiom" : "universal",
       "scale" : "1x"
     },
     {
-      "filename" : "wall_vertical@2x.png",
+      "filename" : "bucket_marker@2x.png",
       "idiom" : "universal",
       "scale" : "2x"
     },
     {
-      "filename" : "wall_vertical@3x.png",
+      "filename" : "bucket_marker@3x.png",
       "idiom" : "universal",
       "scale" : "3x"
     }
