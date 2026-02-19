@@ -9,10 +9,25 @@ import CoreGraphics
 
 enum WorldLoader {
     private enum BarLayout {
+        static let objectScale: CGFloat = 1.2
+        static let baseObjectSize: CGFloat = 48
+
         static let minColumn = 24
         static let minRow = 18
         static let singleRoomWidth = 8
         static let roomHeight = 12
+
+        static func scaledSize(width: CGFloat, height: CGFloat) -> CGSize {
+            CGSize(width: width * objectScale, height: height * objectScale)
+        }
+
+        static var standardObjectSize: CGSize {
+            scaledSize(width: baseObjectSize, height: baseObjectSize)
+        }
+
+        static var chipMakerSize: CGSize {
+            scaledSize(width: baseObjectSize * 1.25, height: baseObjectSize * 1.25)
+        }
 
         static var maxColumnExclusive: Int { minColumn + (singleRoomWidth * 3) }
         static var maxRowExclusive: Int { minRow + roomHeight }
@@ -213,7 +228,7 @@ enum WorldLoader {
             kind: .potatoChips,
             spriteName: "potato_grinder",
             tile: BarLayout.potatoStationTile,
-            size: CGSize(width: 46, height: 46),
+            size: BarLayout.chipMakerSize,
             rewardCoins: 5,
             interactionRange: 90
         )
@@ -223,7 +238,7 @@ enum WorldLoader {
             kind: .chaseGoats,
             spriteName: "goat_chase_marker",
             tile: BarLayout.goatChaseTile,
-            size: CGSize(width: 46, height: 46),
+            size: BarLayout.standardObjectSize,
             rewardCoins: 7,
             interactionRange: 95
         )
@@ -233,7 +248,7 @@ enum WorldLoader {
             kind: .potatoBin,
             spriteName: "potato_bin",
             tile: BarLayout.potatoBinTile,
-            size: CGSize(width: 50, height: 50),
+            size: BarLayout.standardObjectSize,
             rewardCoins: 0,
             interactionRange: 95
         )
@@ -243,7 +258,7 @@ enum WorldLoader {
             kind: .bucket,
             spriteName: "bucket_marker",
             tile: BarLayout.bucketStartTile,
-            size: CGSize(width: 40, height: 40),
+            size: BarLayout.standardObjectSize,
             rewardCoins: 0,
             interactionRange: 95
         )
@@ -253,7 +268,7 @@ enum WorldLoader {
             kind: .spigot,
             spriteName: "spigot_marker",
             tile: BarLayout.spigotTile,
-            size: CGSize(width: 42, height: 42),
+            size: BarLayout.standardObjectSize,
             rewardCoins: 0,
             interactionRange: 95
         )
@@ -263,7 +278,7 @@ enum WorldLoader {
             kind: .tennisRacket,
             spriteName: "tennis_racket_marker",
             tile: BarLayout.tennisRacketTile,
-            size: CGSize(width: 44, height: 44),
+            size: BarLayout.standardObjectSize,
             rewardCoins: 0,
             interactionRange: 95
         )
@@ -273,7 +288,7 @@ enum WorldLoader {
             kind: .bedroomBat,
             spriteName: "bedroom_bat_marker",
             tile: BarLayout.bedroomBatTile,
-            size: CGSize(width: 42, height: 42),
+            size: BarLayout.standardObjectSize,
             rewardCoins: 0,
             interactionRange: 95
         )

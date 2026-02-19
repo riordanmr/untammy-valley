@@ -11,7 +11,7 @@ import SpriteKit
 class PlayerNode: SKSpriteNode {
 
     init() {
-        let displaySize = CGSize(width: 57.2, height: 57.2)
+        let displaySize = CGSize(width: 65, height: 65)
         let iconTexture = SKTexture(imageNamed: "player_icon")
 
         let resolvedTexture: SKTexture
