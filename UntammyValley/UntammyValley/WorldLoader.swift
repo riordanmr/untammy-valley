@@ -129,6 +129,13 @@ enum WorldLoader {
             )
         }
 
+        static var toiletBowlBrushTile: TileCoordinate {
+            TileCoordinate(
+                column: toiletTile.column,
+                row: toiletTile.row - 1
+            )
+        }
+
         static let septicSystemWidth = 2
         static let septicSystemHeight = 5
         static let septicGapColumns = 7
@@ -367,6 +374,16 @@ enum WorldLoader {
             interactionRange: 95
         )
 
+        let toiletBowlBrush = InteractableConfig(
+            id: "toiletBowlBrush",
+            kind: .toiletBowlBrush,
+            spriteName: "toilet_bowl_brush",
+            tile: BarLayout.toiletBowlBrushTile,
+            size: BarLayout.standardObjectSize,
+            rewardCoins: 0,
+            interactionRange: 95
+        )
+
         let goatChaseSpot = InteractableConfig(
             id: "goatChaseSpot",
             kind: .chaseGoats,
@@ -445,7 +462,7 @@ enum WorldLoader {
             septicDigTiles: BarLayout.septicDigTiles,
             roomLabels: roomLabels,
             spawnTile: BarLayout.spawnTile,
-            interactables: [potatoPeeler, deepFryer, chipsBasket, toilet, potatoBin, bucket, spigot, tennisRacket, bedroomBat, shovel, goatChaseSpot]
+            interactables: [potatoPeeler, deepFryer, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, bedroomBat, shovel, goatChaseSpot]
         )
     }
 }

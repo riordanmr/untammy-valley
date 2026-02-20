@@ -475,6 +475,9 @@ class GameScene: SKScene {
                 } else if config.kind == .toilet {
                     let toiletTexture = makeLabeledMarkerTexture(size: config.size, emoji: "T", color: .white)
                     node = SKSpriteNode(texture: toiletTexture, color: .clear, size: config.size)
+                } else if config.kind == .toiletBowlBrush {
+                    let brushTexture = makeLabeledMarkerTexture(size: config.size, emoji: "B", color: .systemPink)
+                    node = SKSpriteNode(texture: brushTexture, color: .clear, size: config.size)
                 } else if config.kind == .potatoBin {
                     let binTexture = makeLabeledMarkerTexture(size: config.size, emoji: "🥔", color: .systemBrown)
                     node = SKSpriteNode(texture: binTexture, color: .clear, size: config.size)
@@ -943,6 +946,9 @@ class GameScene: SKScene {
             return
         case .toilet:
             showMessage("Toilet is here.")
+            return
+        case .toiletBowlBrush:
+            showMessage("Toilet bowl brush is here.")
             return
         case .deepFryer:
             handleDeepFryerInteraction()

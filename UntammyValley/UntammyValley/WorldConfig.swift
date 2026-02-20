@@ -29,6 +29,7 @@ enum InteractableKind {
     case deepFryer
     case chipsBasket
     case toilet
+    case toiletBowlBrush
     case potatoBin
     case bucket
     case spigot
