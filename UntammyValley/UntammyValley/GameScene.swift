@@ -171,9 +171,9 @@ class GameScene: SKScene {
     private var selectedPotatoForLoading = false
     private var selectedPotatoIsWashed = false
     private var peelerHasSlicedPotatoes = false
-    private var fryerHasSlicedPotatoes = false
+    private var fryerSlicedPotatoCount = 0
     private var isChipsBasketCarried = false
-    private var basketHasSlicedPotatoes = false
+    private var basketSlicedPotatoCount = 0
     private var chipsBasketContainsChips = false
     private var isToiletBowlBrushCarried = false
     private var isToiletDirty = false
@@ -1231,9 +1231,9 @@ class GameScene: SKScene {
             "Potato selected: \(selectedPotatoForLoading ? "Yes" : "No")",
             "Peeler has slices: \(peelerHasSlicedPotatoes ? "Yes" : "No")",
             "Basket carried: \(isChipsBasketCarried ? "Yes" : "No")",
-            "Basket has slices: \(basketHasSlicedPotatoes ? "Yes" : "No")",
+            "Basket slices: \(basketSlicedPotatoCount)",
             "Basket has chips: \(chipsBasketContainsChips ? "Yes" : "No")",
-            "Fryer loaded: \(fryerHasSlicedPotatoes ? "Yes" : "No")",
+            "Fryer slices: \(fryerSlicedPotatoCount)",
             "Toilet dirty: \(isToiletDirty ? "Yes" : "No")",
             "Brush carried: \(isToiletBowlBrushCarried ? "Yes" : "No")",
             "Toilet event: \(toiletStatusText)",
@@ -1513,9 +1513,9 @@ class GameScene: SKScene {
             }
 
             peelerHasSlicedPotatoes = false
-            basketHasSlicedPotatoes = true
+            basketSlicedPotatoCount += 1
             updateMakerLoadedIndicator()
-            showMessage("Added sliced potatoes to basket.")
+            showMessage("Added sliced potato to basket (\(basketSlicedPotatoCount) total).")
             return
         }
 
@@ -1530,20 +1530,23 @@ class GameScene: SKScene {
             return
         }
 
-        if basketHasSlicedPotatoes && !fryerHasSlicedPotatoes {
-            basketHasSlicedPotatoes = false
-            fryerHasSlicedPotatoes = true
-            showMessage("Put sliced potatoes into deep fryer.")
+        if basketSlicedPotatoCount > 0 && fryerSlicedPotatoCount == 0 {
+            fryerSlicedPotatoCount = basketSlicedPotatoCount
+            basketSlicedPotatoCount = 0
+            showMessage("Put \(fryerSlicedPotatoCount) sliced potato\(fryerSlicedPotatoCount == 1 ? "" : "es") into deep fryer.")
             return
         }
 
-        if fryerHasSlicedPotatoes && !chipsBasketContainsChips {
-            fryerHasSlicedPotatoes = false
+        if fryerSlicedPotatoCount > 0 && !chipsBasketContainsChips {
+            let friedPotatoCount = fryerSlicedPotatoCount
+            fryerSlicedPotatoCount = 0
             chipsBasketContainsChips = true
-            let rewardCoins = interactableConfigsByID[potatoPeelerID]?.rewardCoins ?? 5
+            let rewardPerPotato = interactableConfigsByID[potatoPeelerID]?.rewardCoins ?? 5
+            let rewardCoins = rewardPerPotato * friedPotatoCount
             GameState.shared.addCoins(rewardCoins)
             updateCoinLabel()
-            showMessage("Fried chips returned to basket. +\(rewardCoins) coins")
+            showMessage("Fried chips from \(friedPotatoCount) potato\(friedPotatoCount == 1 ? "" : "es") returned to basket. +\(rewardCoins) coins")
+            chipsBasketContainsChips = false
             return
         }
 
@@ -1868,9 +1871,9 @@ class GameScene: SKScene {
         selectedPotatoForLoading = false
         selectedPotatoIsWashed = false
         peelerHasSlicedPotatoes = false
-        fryerHasSlicedPotatoes = false
+        fryerSlicedPotatoCount = 0
         isChipsBasketCarried = false
-        basketHasSlicedPotatoes = false
+        basketSlicedPotatoCount = 0
         chipsBasketContainsChips = false
         isToiletBowlBrushCarried = false
         isToiletDirty = false
