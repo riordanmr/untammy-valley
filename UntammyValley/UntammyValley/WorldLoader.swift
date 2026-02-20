@@ -15,7 +15,12 @@ enum WorldLoader {
         static let minColumn = 24
         static let minRow = 18
         static let singleRoomWidth = 8
+        static let diningRoomExtraWidth = 3
         static let roomHeight = 12
+
+        static var bedroomRoomWidth: Int { singleRoomWidth }
+        static var diningRoomWidth: Int { singleRoomWidth + diningRoomExtraWidth }
+        static var kitchenRoomWidth: Int { singleRoomWidth }
 
         static func scaledSize(width: CGFloat, height: CGFloat) -> CGSize {
             CGSize(width: width * objectScale, height: height * objectScale)
@@ -29,16 +34,16 @@ enum WorldLoader {
             scaledSize(width: baseObjectSize * 1.25, height: baseObjectSize * 1.25)
         }
 
-        static var maxColumnExclusive: Int { minColumn + (singleRoomWidth * 3) }
+        static var maxColumnExclusive: Int { minColumn + bedroomRoomWidth + diningRoomWidth + kitchenRoomWidth }
         static var maxRowExclusive: Int { minRow + roomHeight }
 
-        static var bedroomDiningWallColumn: Int { minColumn + singleRoomWidth }
-        static var diningKitchenWallColumn: Int { minColumn + (singleRoomWidth * 2) }
+        static var bedroomDiningWallColumn: Int { minColumn + bedroomRoomWidth }
+        static var diningKitchenWallColumn: Int { bedroomDiningWallColumn + diningRoomWidth }
 
         static let bedroomDiningDoorRows: Set<Int> = [23, 24]
         static let diningKitchenDoorRows: Set<Int> = [23, 24]
-        static let diningOutsideDoorColumns: Set<Int> = [35, 36]
-        static let kitchenCellarDoorColumns: Set<Int> = [43, 44]
+        static var diningOutsideDoorColumns: Set<Int> { [bedroomDiningWallColumn + 3, bedroomDiningWallColumn + 4] }
+        static var kitchenCellarDoorColumns: Set<Int> { [diningKitchenWallColumn + 3, diningKitchenWallColumn + 4] }
 
         static var cellarMinColumn: Int { diningKitchenWallColumn }
         static var cellarMaxColumnExclusive: Int { maxColumnExclusive }
@@ -50,11 +55,11 @@ enum WorldLoader {
         }
 
         static var diningLabelTile: TileCoordinate {
-            TileCoordinate(column: minColumn + singleRoomWidth + 4, row: minRow + roomHeight / 2)
+            TileCoordinate(column: bedroomDiningWallColumn + (diningRoomWidth / 2), row: minRow + roomHeight / 2)
         }
 
         static var kitchenLabelTile: TileCoordinate {
-            TileCoordinate(column: minColumn + (singleRoomWidth * 2) + 4, row: minRow + roomHeight / 2)
+            TileCoordinate(column: diningKitchenWallColumn + (kitchenRoomWidth / 2), row: minRow + roomHeight / 2)
         }
 
         static var spawnTile: TileCoordinate {
@@ -103,6 +108,25 @@ enum WorldLoader {
 
         static var shovelTile: TileCoordinate {
             TileCoordinate(column: cellarMaxColumnExclusive - 2, row: cellarMaxRowExclusive - 2)
+        }
+
+        static let bathroomInteriorWidth = 3
+        static let bathroomInteriorHeight = 2
+
+        static var bathroomInteriorMaxColumnExclusive: Int { diningKitchenWallColumn }
+        static var bathroomInteriorMinColumn: Int { bathroomInteriorMaxColumnExclusive - bathroomInteriorWidth }
+        static var bathroomInteriorMaxRowExclusive: Int { maxRowExclusive - 1 }
+        static var bathroomInteriorMinRow: Int { bathroomInteriorMaxRowExclusive - bathroomInteriorHeight }
+
+        static var bathroomLeftWallColumn: Int { bathroomInteriorMinColumn - 1 }
+        static var bathroomBottomWallRow: Int { bathroomInteriorMinRow - 1 }
+        static var bathroomDoorColumn: Int { bathroomInteriorMinColumn }
+
+        static var toiletTile: TileCoordinate {
+            TileCoordinate(
+                column: bathroomInteriorMaxColumnExclusive - 1,
+                row: bathroomInteriorMinRow + 1
+            )
         }
 
         static let septicSystemWidth = 2
@@ -173,6 +197,17 @@ enum WorldLoader {
             }
         }
 
+        for row in BarLayout.bathroomInteriorMinRow..<BarLayout.maxRowExclusive {
+            wallTiles.insert(TileCoordinate(column: BarLayout.bathroomLeftWallColumn, row: row))
+        }
+
+        for column in BarLayout.bathroomLeftWallColumn...BarLayout.diningKitchenWallColumn {
+            if column == BarLayout.bathroomDoorColumn {
+                continue
+            }
+            wallTiles.insert(TileCoordinate(column: column, row: BarLayout.bathroomBottomWallRow))
+        }
+
         // Cellar room north of the kitchen
         for column in BarLayout.cellarMinColumn..<BarLayout.cellarMaxColumnExclusive {
             wallTiles.insert(TileCoordinate(column: column, row: BarLayout.cellarMaxRowExclusive - 1))
@@ -210,6 +245,15 @@ enum WorldLoader {
                     maxColumnExclusive: BarLayout.diningKitchenWallColumn,
                     minRow: interiorMinRow,
                     maxRowExclusive: interiorMaxRowExclusive
+                )
+            ),
+            FloorRegion(
+                tileName: "floor_linoleum",
+                region: TileRegion(
+                    minColumn: BarLayout.bathroomInteriorMinColumn,
+                    maxColumnExclusive: BarLayout.bathroomInteriorMaxColumnExclusive,
+                    minRow: BarLayout.bathroomInteriorMinRow,
+                    maxRowExclusive: BarLayout.bathroomInteriorMaxRowExclusive
                 )
             ),
             FloorRegion(
@@ -313,6 +357,16 @@ enum WorldLoader {
             interactionRange: 95
         )
 
+        let toilet = InteractableConfig(
+            id: "toilet",
+            kind: .toilet,
+            spriteName: "toilet",
+            tile: BarLayout.toiletTile,
+            size: BarLayout.standardObjectSize,
+            rewardCoins: 0,
+            interactionRange: 95
+        )
+
         let goatChaseSpot = InteractableConfig(
             id: "goatChaseSpot",
             kind: .chaseGoats,
@@ -391,7 +445,7 @@ enum WorldLoader {
             septicDigTiles: BarLayout.septicDigTiles,
             roomLabels: roomLabels,
             spawnTile: BarLayout.spawnTile,
-            interactables: [potatoPeeler, deepFryer, chipsBasket, potatoBin, bucket, spigot, tennisRacket, bedroomBat, shovel, goatChaseSpot]
+            interactables: [potatoPeeler, deepFryer, chipsBasket, toilet, potatoBin, bucket, spigot, tennisRacket, bedroomBat, shovel, goatChaseSpot]
         )
     }
 }
