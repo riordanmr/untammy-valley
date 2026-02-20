@@ -121,6 +121,9 @@ class GameScene: SKScene {
     private var menuStatusLabel: SKLabelNode!
     private var menuResetLabel: SKLabelNode!
     private var menuMove20Label: SKLabelNode!
+    private var menuMapLabel: SKLabelNode!
+    private var mapCloseButtonNode: SKShapeNode!
+    private var mapCloseLabel: SKLabelNode!
     private var warningIconContainerNode: SKNode!
     private var warningBatIconNode: SKSpriteNode!
     private var warningToiletIconNode: SKSpriteNode!
@@ -187,6 +190,12 @@ class GameScene: SKScene {
     private var statusScrollViewportHeight: CGFloat = 0
     private var statusScrollContentHeight: CGFloat = 0
     private var statusScrollViewportWidth: CGFloat = 0
+    private var isMapViewMode = false
+    private var isDraggingMap = false
+    private var lastMapDragPoint = CGPoint.zero
+    private var mapModeSavedCameraPosition = CGPoint.zero
+    private var mapModeSavedCameraScale: CGFloat = 1
+    private let mapViewZoomOutScale: CGFloat = 2.5
 
     private var moveTarget: CGPoint?
     private var playerSpawnPosition: CGPoint = .zero
@@ -342,12 +351,18 @@ class GameScene: SKScene {
         }
         updateWarningIcons()
         updateBucketSelectedIndicator()
-        cameraNode.position = player.position
+        if !isMapViewMode {
+            cameraNode.position = player.position
+        }
     }
 
     override func didChangeSize(_ oldSize: CGSize) {
         super.didChangeSize(oldSize)
         updateWarningIconContainerPosition()
+        updateMapCloseButtonPosition()
+        if isMapViewMode {
+            clampCameraPositionToWorldBounds()
+        }
     }
     
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -356,6 +371,14 @@ class GameScene: SKScene {
         let hudLocation = touch.location(in: cameraNode)
 
         let hudNodes = cameraNode.nodes(at: hudLocation)
+
+        if isMapViewMode {
+            isDraggingMap = false
+            if hudNodes.contains(where: { $0.name == "mapCloseItem" || $0.parent?.name == "mapCloseItem" }) {
+                setMapViewMode(false)
+            }
+            return
+        }
 
         if isStatusWindowVisible {
             isDraggingStatusScroll = false
@@ -385,6 +408,11 @@ class GameScene: SKScene {
             setMenuVisible(false)
             return
         }
+        if hudNodes.contains(where: { $0.name == "menuMapItem" || $0.parent?.name == "menuMapItem" }) {
+            setMapViewMode(true)
+            setMenuVisible(false)
+            return
+        }
         if !menuPanelNode.isHidden {
             setMenuVisible(false)
             return
@@ -406,7 +434,13 @@ class GameScene: SKScene {
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard isStatusWindowVisible, let touch = touches.first else { return }
+        guard let touch = touches.first else { return }
+        if isMapViewMode {
+            isDraggingMap = true
+            lastMapDragPoint = touch.location(in: cameraNode)
+            return
+        }
+        guard isStatusWindowVisible else { return }
         let hudLocation = touch.location(in: cameraNode)
         if statusScrollCropNode.contains(hudLocation) {
             isDraggingStatusScroll = true
@@ -415,7 +449,22 @@ class GameScene: SKScene {
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        guard isStatusWindowVisible, isDraggingStatusScroll, let touch = touches.first else { return }
+        guard let touch = touches.first else { return }
+        if isMapViewMode, isDraggingMap {
+            let hudLocation = touch.location(in: cameraNode)
+            let deltaX = hudLocation.x - lastMapDragPoint.x
+            let deltaY = hudLocation.y - lastMapDragPoint.y
+            lastMapDragPoint = hudLocation
+
+            cameraNode.position = CGPoint(
+                x: cameraNode.position.x - deltaX * cameraNode.xScale,
+                y: cameraNode.position.y - deltaY * cameraNode.yScale
+            )
+            clampCameraPositionToWorldBounds()
+            return
+        }
+
+        guard isStatusWindowVisible, isDraggingStatusScroll else { return }
         let hudLocation = touch.location(in: cameraNode)
         let deltaY = hudLocation.y - lastStatusDragY
         lastStatusDragY = hudLocation.y
@@ -424,6 +473,10 @@ class GameScene: SKScene {
 
     override func update(_ currentTime: TimeInterval) {
         guard let body = player.physicsBody else { return }
+        if isMapViewMode {
+            body.velocity = .zero
+            return
+        }
         guard let target = moveTarget else {
             body.velocity = .zero
             return
@@ -707,7 +760,44 @@ class GameScene: SKScene {
 
         configureMenu()
         configureWarningIcons()
+        configureMapCloseButton()
         configureStatusWindow()
+    }
+
+    private func configureMapCloseButton() {
+        mapCloseButtonNode = SKShapeNode(rectOf: CGSize(width: 140, height: 40), cornerRadius: 8)
+        mapCloseButtonNode.name = "mapCloseItem"
+        mapCloseButtonNode.fillColor = UIColor.systemBlue.withAlphaComponent(0.9)
+        mapCloseButtonNode.strokeColor = .white
+        mapCloseButtonNode.lineWidth = 1.5
+        mapCloseButtonNode.zPosition = 530
+        mapCloseButtonNode.isHidden = true
+        cameraNode.addChild(mapCloseButtonNode)
+
+        mapCloseLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        mapCloseLabel.name = "mapCloseItem"
+        mapCloseLabel.text = "Close Map"
+        mapCloseLabel.fontSize = 21
+        mapCloseLabel.fontColor = .white
+        mapCloseLabel.horizontalAlignmentMode = .center
+        mapCloseLabel.verticalAlignmentMode = .center
+        mapCloseLabel.position = .zero
+        mapCloseLabel.zPosition = 531
+        mapCloseButtonNode.addChild(mapCloseLabel)
+
+        updateMapCloseButtonPosition()
+    }
+
+    private func updateMapCloseButtonPosition() {
+        guard mapCloseButtonNode != nil else { return }
+
+        let safeAreaInsets = view?.safeAreaInsets ?? .zero
+        let rightInset = safeAreaInsets.right + 20
+        let topInset = safeAreaInsets.top + 20
+        mapCloseButtonNode.position = CGPoint(
+            x: size.width / 2 - rightInset - 70,
+            y: size.height / 2 - topInset - 20
+        )
     }
 
     private func configureWarningIcons() {
@@ -803,12 +893,12 @@ class GameScene: SKScene {
             menuButtonNode.addChild(line)
         }
 
-        menuPanelNode = SKShapeNode(rectOf: CGSize(width: 170, height: 132), cornerRadius: 9)
+        menuPanelNode = SKShapeNode(rectOf: CGSize(width: 170, height: 168), cornerRadius: 9)
         menuPanelNode.name = "menuPanel"
         menuPanelNode.fillColor = UIColor.black.withAlphaComponent(0.6)
         menuPanelNode.strokeColor = .white
         menuPanelNode.lineWidth = 1.5
-        menuPanelNode.position = CGPoint(x: rightX - 85, y: topY - 115)
+        menuPanelNode.position = CGPoint(x: rightX - 85, y: topY - 133)
         menuPanelNode.zPosition = 520
         menuPanelNode.isHidden = true
         cameraNode.addChild(menuPanelNode)
@@ -820,7 +910,7 @@ class GameScene: SKScene {
         menuStatusLabel.fontColor = .white
         menuStatusLabel.verticalAlignmentMode = .center
         menuStatusLabel.horizontalAlignmentMode = .center
-        menuStatusLabel.position = CGPoint(x: 0, y: 36)
+        menuStatusLabel.position = CGPoint(x: 0, y: 54)
         menuStatusLabel.zPosition = 521
         menuPanelNode.addChild(menuStatusLabel)
 
@@ -831,7 +921,7 @@ class GameScene: SKScene {
         menuResetLabel.fontColor = .white
         menuResetLabel.verticalAlignmentMode = .center
         menuResetLabel.horizontalAlignmentMode = .center
-        menuResetLabel.position = CGPoint(x: 0, y: 0)
+        menuResetLabel.position = CGPoint(x: 0, y: 18)
         menuResetLabel.zPosition = 521
         menuPanelNode.addChild(menuResetLabel)
 
@@ -842,9 +932,64 @@ class GameScene: SKScene {
         menuMove20Label.fontColor = .white
         menuMove20Label.verticalAlignmentMode = .center
         menuMove20Label.horizontalAlignmentMode = .center
-        menuMove20Label.position = CGPoint(x: 0, y: -36)
+        menuMove20Label.position = CGPoint(x: 0, y: -18)
         menuMove20Label.zPosition = 521
         menuPanelNode.addChild(menuMove20Label)
+
+        menuMapLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        menuMapLabel.name = "menuMapItem"
+        menuMapLabel.text = "Map"
+        menuMapLabel.fontSize = 23
+        menuMapLabel.fontColor = .white
+        menuMapLabel.verticalAlignmentMode = .center
+        menuMapLabel.horizontalAlignmentMode = .center
+        menuMapLabel.position = CGPoint(x: 0, y: -54)
+        menuMapLabel.zPosition = 521
+        menuPanelNode.addChild(menuMapLabel)
+    }
+
+    private func setMapViewMode(_ enabled: Bool) {
+        if enabled == isMapViewMode { return }
+
+        if enabled {
+            mapModeSavedCameraPosition = cameraNode.position
+            mapModeSavedCameraScale = cameraNode.xScale
+            isMapViewMode = true
+            isDraggingMap = false
+            moveTarget = nil
+            player.physicsBody?.velocity = .zero
+            cameraNode.setScale(mapViewZoomOutScale)
+            clampCameraPositionToWorldBounds()
+            mapCloseButtonNode.isHidden = false
+            showMessage("Map mode: drag to pan, then tap Close Map.")
+            return
+        }
+
+        isMapViewMode = false
+        isDraggingMap = false
+        cameraNode.position = mapModeSavedCameraPosition
+        cameraNode.setScale(mapModeSavedCameraScale)
+        mapCloseButtonNode.isHidden = true
+    }
+
+    private func clampCameraPositionToWorldBounds() {
+        let worldWidth = CGFloat(worldColumns) * tileSize.width
+        let worldHeight = CGFloat(worldRows) * tileSize.height
+        let halfWorldWidth = worldWidth * 0.5
+        let halfWorldHeight = worldHeight * 0.5
+
+        let halfViewWidth = (size.width * cameraNode.xScale) * 0.5
+        let halfViewHeight = (size.height * cameraNode.yScale) * 0.5
+
+        let minX = -halfWorldWidth + halfViewWidth
+        let maxX = halfWorldWidth - halfViewWidth
+        let minY = -halfWorldHeight + halfViewHeight
+        let maxY = halfWorldHeight - halfViewHeight
+
+        let clampedX: CGFloat = minX <= maxX ? min(max(cameraNode.position.x, minX), maxX) : 0
+        let clampedY: CGFloat = minY <= maxY ? min(max(cameraNode.position.y, minY), maxY) : 0
+
+        cameraNode.position = CGPoint(x: clampedX, y: clampedY)
     }
 
     private func configureStatusWindow() {
@@ -1533,6 +1678,10 @@ class GameScene: SKScene {
     private func resetGameToInitialState() {
         moveTarget = nil
         player.physicsBody?.velocity = .zero
+        isMapViewMode = false
+        isDraggingMap = false
+        cameraNode.setScale(1)
+        mapCloseButtonNode?.isHidden = true
         player.position = playerSpawnPosition
         cameraNode.position = playerSpawnPosition
         completedMoveCount = 0
