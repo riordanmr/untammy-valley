@@ -125,6 +125,9 @@ class GameScene: SKScene {
     private var menuMapLabel: SKLabelNode!
     private var mapCloseButtonNode: SKShapeNode!
     private var mapCloseLabel: SKLabelNode!
+    private var snowmobileChoiceBackdropNode: SKShapeNode!
+    private var snowmobileChoicePanelNode: SKShapeNode!
+    private var pendingLotSnowmobileID: String?
     private var warningIconContainerNode: SKNode!
     private var warningBatIconNode: SKSpriteNode!
     private var warningToiletIconNode: SKSpriteNode!
@@ -184,6 +187,7 @@ class GameScene: SKScene {
     private var isShovelCarried = false
     private var ownedSnowmobileIDs: Set<String> = []
     private var selectedOwnedSnowmobileID: String?
+    private var mountedSnowmobileID: String?
     private var nextBatSpawnMove = BatEventSettings.randomSpawnIntervalMoves()
     private var batDefeatDeadlineMove: Int?
     private var trenchedSepticTiles: Set<TileCoordinate> = []
@@ -212,6 +216,9 @@ class GameScene: SKScene {
     private let worldRows = 46
     private let tileSize = CGSize(width: 64, height: 64)
     private let playerMoveSpeed: CGFloat = 500
+    private let mountedSnowmobileSpeedMultiplier: CGFloat = 3.0
+    private let mountedSnowmobileVerticalOffset: CGFloat = -12
+    private let indoorSnowmobileBlockedFloorTiles: Set<String> = ["floor_wood", "floor_linoleum", "floor_carpet"]
 
     // This is called once per scene load.
     override func didMove(to view: SKView) {
@@ -338,6 +345,15 @@ class GameScene: SKScene {
     }
 
     override func didSimulatePhysics() {
+        if let mountedID = mountedSnowmobileID,
+           let snowmobileNode = interactableNodesByID[mountedID] {
+            snowmobileNode.position = CGPoint(
+                x: player.position.x,
+                y: player.position.y + mountedSnowmobileVerticalOffset
+            )
+            snowmobileNode.zPosition = 20
+            player.zPosition = 21
+        }
         if isBucketCarried, let bucketNode = interactableNodesByID[bucketID] {
             bucketNode.position = CGPoint(x: player.position.x + 22, y: player.position.y + 8)
         }
@@ -384,6 +400,17 @@ class GameScene: SKScene {
             isDraggingMap = false
             if hudNodes.contains(where: { $0.name == "mapCloseItem" || $0.parent?.name == "mapCloseItem" }) {
                 setMapViewMode(false)
+            }
+            return
+        }
+
+        if !snowmobileChoicePanelNode.isHidden {
+            if hudNodes.contains(where: { $0.name == "snowmobileChoiceMountItem" || $0.parent?.name == "snowmobileChoiceMountItem" }) {
+                handleLotOwnedSnowmobileMountChoice()
+            } else if hudNodes.contains(where: { $0.name == "snowmobileChoiceSellItem" || $0.parent?.name == "snowmobileChoiceSellItem" }) {
+                handleLotOwnedSnowmobileSellChoice()
+            } else {
+                setSnowmobileChoiceDialogVisible(false)
             }
             return
         }
@@ -502,8 +529,27 @@ class GameScene: SKScene {
             return
         }
 
-        let vx = (dx / distance) * playerMoveSpeed
-        let vy = (dy / distance) * playerMoveSpeed
+        let moveSpeed = mountedSnowmobileID == nil
+            ? playerMoveSpeed
+            : playerMoveSpeed * mountedSnowmobileSpeedMultiplier
+        let vx = (dx / distance) * moveSpeed
+        let vy = (dy / distance) * moveSpeed
+
+        if mountedSnowmobileID != nil {
+            let probeDistance = min(distance, max(12, tileSize.width * 0.35))
+            let nextProbePoint = CGPoint(
+                x: player.position.x + (dx / distance) * probeDistance,
+                y: player.position.y + (dy / distance) * probeDistance
+            )
+
+            guard isSnowmobileDrivable(at: nextProbePoint) else {
+                moveTarget = nil
+                body.velocity = .zero
+                showMessage("Snowmobiles cannot go inside buildings.")
+                return
+            }
+        }
+
         body.velocity = CGVector(dx: vx, dy: vy)
     }
 
@@ -874,7 +920,164 @@ class GameScene: SKScene {
         configureMenu()
         configureWarningIcons()
         configureMapCloseButton()
+        configureSnowmobileChoiceDialog()
         configureStatusWindow()
+    }
+
+    private func configureSnowmobileChoiceDialog() {
+        let backdropSize = CGSize(width: size.width, height: size.height)
+        snowmobileChoiceBackdropNode = SKShapeNode(rectOf: backdropSize)
+        snowmobileChoiceBackdropNode.name = "snowmobileChoiceBackdrop"
+        snowmobileChoiceBackdropNode.fillColor = UIColor.black.withAlphaComponent(0.45)
+        snowmobileChoiceBackdropNode.strokeColor = .clear
+        snowmobileChoiceBackdropNode.position = .zero
+        snowmobileChoiceBackdropNode.zPosition = 740
+        snowmobileChoiceBackdropNode.isHidden = true
+        cameraNode.addChild(snowmobileChoiceBackdropNode)
+
+        snowmobileChoicePanelNode = SKShapeNode(rectOf: CGSize(width: min(size.width - 90, 460), height: 300), cornerRadius: 14)
+        snowmobileChoicePanelNode.name = "snowmobileChoicePanel"
+        snowmobileChoicePanelNode.fillColor = UIColor(white: 0.14, alpha: 0.97)
+        snowmobileChoicePanelNode.strokeColor = .white
+        snowmobileChoicePanelNode.lineWidth = 2
+        snowmobileChoicePanelNode.position = .zero
+        snowmobileChoicePanelNode.zPosition = 741
+        snowmobileChoicePanelNode.isHidden = true
+        cameraNode.addChild(snowmobileChoicePanelNode)
+
+        let titleLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        titleLabel.text = "Owned snowmobile"
+        titleLabel.fontSize = 28
+        titleLabel.fontColor = .white
+        titleLabel.horizontalAlignmentMode = .center
+        titleLabel.verticalAlignmentMode = .center
+        titleLabel.position = CGPoint(x: 0, y: 104)
+        titleLabel.zPosition = 742
+        snowmobileChoicePanelNode.addChild(titleLabel)
+
+        let subtitleLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
+        subtitleLabel.text = "Sell returns \(snowmobilePriceCoins) coins"
+        subtitleLabel.fontSize = 19
+        subtitleLabel.fontColor = UIColor.white.withAlphaComponent(0.9)
+        subtitleLabel.horizontalAlignmentMode = .center
+        subtitleLabel.verticalAlignmentMode = .center
+        subtitleLabel.position = CGPoint(x: 0, y: 74)
+        subtitleLabel.zPosition = 742
+        snowmobileChoicePanelNode.addChild(subtitleLabel)
+
+        let mountButton = SKShapeNode(rectOf: CGSize(width: 180, height: 52), cornerRadius: 8)
+        mountButton.name = "snowmobileChoiceMountItem"
+        mountButton.fillColor = UIColor.systemBlue.withAlphaComponent(0.9)
+        mountButton.strokeColor = .white
+        mountButton.lineWidth = 1.5
+        mountButton.position = CGPoint(x: 0, y: 24)
+        mountButton.zPosition = 742
+        snowmobileChoicePanelNode.addChild(mountButton)
+
+        let mountLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        mountLabel.name = "snowmobileChoiceMountItem"
+        mountLabel.text = "Mount"
+        mountLabel.fontSize = 22
+        mountLabel.fontColor = .white
+        mountLabel.horizontalAlignmentMode = .center
+        mountLabel.verticalAlignmentMode = .center
+        mountLabel.position = .zero
+        mountLabel.zPosition = 743
+        mountButton.addChild(mountLabel)
+
+        let sellButton = SKShapeNode(rectOf: CGSize(width: 180, height: 52), cornerRadius: 8)
+        sellButton.name = "snowmobileChoiceSellItem"
+        sellButton.fillColor = UIColor.systemRed.withAlphaComponent(0.9)
+        sellButton.strokeColor = .white
+        sellButton.lineWidth = 1.5
+        sellButton.position = CGPoint(x: 0, y: -42)
+        sellButton.zPosition = 742
+        snowmobileChoicePanelNode.addChild(sellButton)
+
+        let sellLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        sellLabel.name = "snowmobileChoiceSellItem"
+        sellLabel.text = "Sell"
+        sellLabel.fontSize = 22
+        sellLabel.fontColor = .white
+        sellLabel.horizontalAlignmentMode = .center
+        sellLabel.verticalAlignmentMode = .center
+        sellLabel.position = .zero
+        sellLabel.zPosition = 743
+        sellButton.addChild(sellLabel)
+
+        let cancelButton = SKShapeNode(rectOf: CGSize(width: 180, height: 46), cornerRadius: 8)
+        cancelButton.name = "snowmobileChoiceCancelItem"
+        cancelButton.fillColor = UIColor.darkGray.withAlphaComponent(0.9)
+        cancelButton.strokeColor = .white
+        cancelButton.lineWidth = 1.5
+        cancelButton.position = CGPoint(x: 0, y: -104)
+        cancelButton.zPosition = 742
+        snowmobileChoicePanelNode.addChild(cancelButton)
+
+        let cancelLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        cancelLabel.name = "snowmobileChoiceCancelItem"
+        cancelLabel.text = "Cancel"
+        cancelLabel.fontSize = 20
+        cancelLabel.fontColor = .white
+        cancelLabel.horizontalAlignmentMode = .center
+        cancelLabel.verticalAlignmentMode = .center
+        cancelLabel.position = .zero
+        cancelLabel.zPosition = 743
+        cancelButton.addChild(cancelLabel)
+    }
+
+    private func setSnowmobileChoiceDialogVisible(_ visible: Bool, snowmobileID: String? = nil) {
+        if visible {
+            pendingLotSnowmobileID = snowmobileID
+        } else {
+            pendingLotSnowmobileID = nil
+        }
+
+        snowmobileChoiceBackdropNode.isHidden = !visible
+        snowmobileChoicePanelNode.isHidden = !visible
+    }
+
+    private func handleLotOwnedSnowmobileMountChoice() {
+        guard let snowmobileID = pendingLotSnowmobileID,
+              ownedSnowmobileIDs.contains(snowmobileID) else {
+            setSnowmobileChoiceDialogVisible(false)
+            return
+        }
+
+        guard isSnowmobileDrivable(at: player.position) else {
+            setSnowmobileChoiceDialogVisible(false)
+            showMessage("Snowmobile can only be mounted outdoors.")
+            return
+        }
+
+        mountedSnowmobileID = snowmobileID
+        selectedOwnedSnowmobileID = snowmobileID
+        updateMountedSnowmobileUI()
+        setSnowmobileChoiceDialogVisible(false)
+        showMessage("Mounted snowmobile.")
+    }
+
+    private func handleLotOwnedSnowmobileSellChoice() {
+        guard let snowmobileID = pendingLotSnowmobileID,
+              ownedSnowmobileIDs.contains(snowmobileID) else {
+            setSnowmobileChoiceDialogVisible(false)
+            return
+        }
+
+        ownedSnowmobileIDs.remove(snowmobileID)
+        if selectedOwnedSnowmobileID == snowmobileID {
+            selectedOwnedSnowmobileID = nil
+        }
+        if mountedSnowmobileID == snowmobileID {
+            mountedSnowmobileID = nil
+            updateMountedSnowmobileUI()
+        }
+
+        GameState.shared.addCoins(snowmobilePriceCoins)
+        updateCoinLabel()
+        updateSnowmobileOwnershipVisuals()
+        setSnowmobileChoiceDialogVisible(false)
+        showMessage("Sold snowmobile back for \(snowmobilePriceCoins) coins.")
     }
 
     private func configureMapCloseButton() {
@@ -1221,10 +1424,17 @@ class GameScene: SKScene {
             toiletStatusText = "Clean (next in avg \(ToiletEventSettings.dirtyIntervalMoves), range \(ToiletEventSettings.minDirtyIntervalMoves)-\(ToiletEventSettings.maxDirtyIntervalMoves))"
         }
 
+        let currentMoveSpeed = mountedSnowmobileID == nil
+            ? Int(playerMoveSpeed)
+            : Int(playerMoveSpeed * mountedSnowmobileSpeedMultiplier)
+        let movementModeText = mountedSnowmobileID == nil ? "On foot" : "Mounted"
+
         let statusLines = [
             "Coins: \(GameState.shared.coins)",
             "Moves: \(completedMoveCount)",
             "Snowmobiles owned: \(ownedSnowmobileIDs.count)/6",
+            "Mounted snowmobile: \(mountedSnowmobileID == nil ? "No" : "Yes")",
+            "Move speed: \(currentMoveSpeed) (\(movementModeText))",
             "Bucket carried: \(isBucketCarried ? "Yes" : "No")",
             "Bucket potatoes: \(bucketPotatoCount)/\(bucketCapacity)",
             "Washed in bucket: \(washedPotatoCount)",
@@ -1329,6 +1539,11 @@ class GameScene: SKScene {
     private func performInteractionIfPossible(interactableID: String) {
         guard let config = interactableConfigsByID[interactableID],
               let node = interactableNodesByID[interactableID] else { return }
+
+        if mountedSnowmobileID != nil, config.kind != .snowmobile {
+            showMessage("Dismount snowmobile first.")
+            return
+        }
 
         let dx = node.position.x - player.position.x
         let dy = node.position.y - player.position.y
@@ -1561,17 +1776,27 @@ class GameScene: SKScene {
     private func handleSnowmobileInteraction(interactableID: String) {
         guard let snowmobileConfig = interactableConfigsByID[interactableID] else { return }
 
+        if let mountedID = mountedSnowmobileID {
+            guard mountedID == interactableID else {
+                showMessage("Already mounted on another snowmobile.")
+                return
+            }
+            attemptDismountSnowmobile()
+            return
+        }
+
         guard tileRegionContains(worldConfig.carrollSalesRegion, tile: snowmobileConfig.tile),
               isPlayerInCarrollSalesArea() else {
             if ownedSnowmobileIDs.contains(interactableID) {
-                if selectedOwnedSnowmobileID == interactableID {
-                    selectedOwnedSnowmobileID = nil
-                    showMessage("Snowmobile selection cleared.")
-                } else {
-                    selectedOwnedSnowmobileID = interactableID
-                    showMessage("Selected owned snowmobile.")
+                guard isSnowmobileDrivable(at: player.position) else {
+                    showMessage("Snowmobile can only be mounted outdoors.")
+                    return
                 }
-                updateSnowmobileOwnershipVisuals()
+
+                mountedSnowmobileID = interactableID
+                selectedOwnedSnowmobileID = interactableID
+                updateMountedSnowmobileUI()
+                showMessage("Mounted snowmobile.")
                 return
             }
 
@@ -1580,14 +1805,7 @@ class GameScene: SKScene {
         }
 
         if ownedSnowmobileIDs.contains(interactableID) {
-            ownedSnowmobileIDs.remove(interactableID)
-            if selectedOwnedSnowmobileID == interactableID {
-                selectedOwnedSnowmobileID = nil
-            }
-            GameState.shared.addCoins(snowmobilePriceCoins)
-            updateCoinLabel()
-            updateSnowmobileOwnershipVisuals()
-            showMessage("Sold snowmobile back for \(snowmobilePriceCoins) coins.")
+            setSnowmobileChoiceDialogVisible(true, snowmobileID: interactableID)
             return
         }
 
@@ -1602,6 +1820,43 @@ class GameScene: SKScene {
         updateCoinLabel()
         updateSnowmobileOwnershipVisuals()
         showMessage("Bought snowmobile for \(snowmobilePriceCoins) coins.")
+    }
+
+    private func attemptDismountSnowmobile() {
+        guard let mountedID = mountedSnowmobileID,
+              let currentTile = tileCoordinate(for: player.position) else {
+            mountedSnowmobileID = nil
+            updateMountedSnowmobileUI()
+            return
+        }
+
+        let neighborOffsets: [(Int, Int)] = [
+            (0, 1),
+            (1, 0),
+            (0, -1),
+            (-1, 0)
+        ]
+
+        for (dc, dr) in neighborOffsets {
+            let tile = TileCoordinate(column: currentTile.column + dc, row: currentTile.row + dr)
+            guard tile.column >= 0, tile.column < worldColumns,
+                  tile.row >= 0, tile.row < worldRows,
+                  !worldConfig.wallTiles.contains(tile),
+                  let dismountPoint = scenePointForTile(tile) else {
+                continue
+            }
+
+            player.position = dismountPoint
+            player.physicsBody?.velocity = .zero
+            moveTarget = nil
+            mountedSnowmobileID = nil
+            selectedOwnedSnowmobileID = mountedID
+            updateMountedSnowmobileUI()
+            showMessage("Dismounted snowmobile.")
+            return
+        }
+
+        showMessage("No space to dismount here.")
     }
 
     private func handleToiletBowlBrushInteraction(node: SKSpriteNode) {
@@ -1833,6 +2088,23 @@ class GameScene: SKScene {
         return tileRegionContains(worldConfig.carrollSalesRegion, tile: playerTile)
     }
 
+    private func isSnowmobileDrivable(at scenePoint: CGPoint) -> Bool {
+        guard let tile = tileCoordinate(for: scenePoint),
+              let map = groundTileMap else { return false }
+
+        guard let floorTileName = map.tileGroup(atColumn: tile.column, row: tile.row)?.name else {
+            return false
+        }
+
+        return !indoorSnowmobileBlockedFloorTiles.contains(floorTileName)
+    }
+
+    private func updateMountedSnowmobileUI() {
+        let isMounted = mountedSnowmobileID != nil
+        player.alpha = 1.0
+        player.zPosition = isMounted ? 21 : 20
+    }
+
     private func tileRegionContains(_ region: TileRegion, tile: TileCoordinate) -> Bool {
         tile.column >= region.minColumn &&
         tile.column < region.maxColumnExclusive &&
@@ -1861,6 +2133,7 @@ class GameScene: SKScene {
         isDraggingMap = false
         cameraNode.setScale(1)
         mapCloseButtonNode?.isHidden = true
+        setSnowmobileChoiceDialogVisible(false)
         player.position = playerSpawnPosition
         cameraNode.position = playerSpawnPosition
         completedMoveCount = 0
@@ -1885,6 +2158,8 @@ class GameScene: SKScene {
         isShovelCarried = false
         ownedSnowmobileIDs.removeAll()
         selectedOwnedSnowmobileID = nil
+        mountedSnowmobileID = nil
+        updateMountedSnowmobileUI()
         updateSnowmobileOwnershipVisuals()
         nextBatSpawnMove = BatEventSettings.randomSpawnIntervalMoves()
         batDefeatDeadlineMove = nil
