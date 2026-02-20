@@ -26,6 +26,8 @@ struct FloorRegion {
 
 enum InteractableKind {
     case potatoChips
+    case deepFryer
+    case chipsBasket
     case potatoBin
     case bucket
     case spigot

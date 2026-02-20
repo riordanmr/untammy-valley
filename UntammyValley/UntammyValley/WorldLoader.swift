@@ -61,8 +61,16 @@ enum WorldLoader {
             TileCoordinate(column: minColumn + 3, row: minRow + roomHeight / 2)
         }
 
-        static var potatoStationTile: TileCoordinate {
+        static var potatoPeelerTile: TileCoordinate {
             TileCoordinate(column: diningKitchenWallColumn + 3, row: minRow + 4)
+        }
+
+        static var deepFryerTile: TileCoordinate {
+            TileCoordinate(column: maxColumnExclusive - 2, row: minRow + 6)
+        }
+
+        static var chipsBasketTile: TileCoordinate {
+            TileCoordinate(column: deepFryerTile.column, row: deepFryerTile.row - 2)
         }
 
         static var goatChaseTile: TileCoordinate {
@@ -275,14 +283,34 @@ enum WorldLoader {
             )
         ]
 
-        let potatoStation = InteractableConfig(
-            id: "potatoStation",
+        let potatoPeeler = InteractableConfig(
+            id: "potatoPeeler",
             kind: .potatoChips,
             spriteName: "potato_grinder",
-            tile: BarLayout.potatoStationTile,
+            tile: BarLayout.potatoPeelerTile,
             size: BarLayout.chipMakerSize,
             rewardCoins: 5,
             interactionRange: 90
+        )
+
+        let deepFryer = InteractableConfig(
+            id: "deepFryer",
+            kind: .deepFryer,
+            spriteName: "deep_fryer_marker",
+            tile: BarLayout.deepFryerTile,
+            size: BarLayout.standardObjectSize,
+            rewardCoins: 0,
+            interactionRange: 95
+        )
+
+        let chipsBasket = InteractableConfig(
+            id: "chipsBasket",
+            kind: .chipsBasket,
+            spriteName: "chips_basket_marker",
+            tile: BarLayout.chipsBasketTile,
+            size: BarLayout.standardObjectSize,
+            rewardCoins: 0,
+            interactionRange: 95
         )
 
         let goatChaseSpot = InteractableConfig(
@@ -363,7 +391,7 @@ enum WorldLoader {
             septicDigTiles: BarLayout.septicDigTiles,
             roomLabels: roomLabels,
             spawnTile: BarLayout.spawnTile,
-            interactables: [potatoStation, potatoBin, bucket, spigot, tennisRacket, bedroomBat, shovel, goatChaseSpot]
+            interactables: [potatoPeeler, deepFryer, chipsBasket, potatoBin, bucket, spigot, tennisRacket, bedroomBat, shovel, goatChaseSpot]
         )
     }
 }

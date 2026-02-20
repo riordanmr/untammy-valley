@@ -119,7 +119,9 @@ class GameScene: SKScene {
 
     private let bucketID = "bucket"
     private let potatoBinID = "potatoBin"
-    private let potatoMakerID = "potatoStation"
+    private let potatoPeelerID = "potatoPeeler"
+    private let deepFryerID = "deepFryer"
+    private let chipsBasketID = "chipsBasket"
     private let spigotID = "spigot"
     private let tennisRacketID = "tennisRacket"
     private let bedroomBatID = "bedroomBat"
@@ -133,7 +135,11 @@ class GameScene: SKScene {
     private var washedPotatoCount = 0
     private var selectedPotatoForLoading = false
     private var selectedPotatoIsWashed = false
-    private var makerHasLoadedPotato = false
+    private var peelerHasSlicedPotatoes = false
+    private var fryerHasSlicedPotatoes = false
+    private var isChipsBasketCarried = false
+    private var basketHasSlicedPotatoes = false
+    private var chipsBasketContainsChips = false
     private var isTennisRacketCarried = false
     private var isShovelCarried = false
     private var nextBatSpawnMove = BatEventSettings.randomSpawnIntervalMoves()
@@ -285,6 +291,9 @@ class GameScene: SKScene {
     override func didSimulatePhysics() {
         if isBucketCarried, let bucketNode = interactableNodesByID[bucketID] {
             bucketNode.position = CGPoint(x: player.position.x + 22, y: player.position.y + 8)
+        }
+        if isChipsBasketCarried, let basketNode = interactableNodesByID[chipsBasketID] {
+            basketNode.position = CGPoint(x: player.position.x - 24, y: player.position.y - 8)
         }
         if isTennisRacketCarried, let racketNode = interactableNodesByID[tennisRacketID] {
             racketNode.position = CGPoint(x: player.position.x - 24, y: player.position.y + 10)
@@ -455,6 +464,12 @@ class GameScene: SKScene {
                 if config.kind == .chaseGoats {
                     let goatTexture = makeGoatMarkerTexture(size: config.size)
                     node = SKSpriteNode(texture: goatTexture, color: .clear, size: config.size)
+                } else if config.kind == .deepFryer {
+                    let fryerTexture = makeLabeledMarkerTexture(size: config.size, emoji: "F", color: .darkGray)
+                    node = SKSpriteNode(texture: fryerTexture, color: .clear, size: config.size)
+                } else if config.kind == .chipsBasket {
+                    let basketTexture = makeLabeledMarkerTexture(size: config.size, emoji: "B", color: .systemOrange)
+                    node = SKSpriteNode(texture: basketTexture, color: .clear, size: config.size)
                 } else if config.kind == .potatoBin {
                     let binTexture = makeLabeledMarkerTexture(size: config.size, emoji: "🥔", color: .systemBrown)
                     node = SKSpriteNode(texture: binTexture, color: .clear, size: config.size)
@@ -498,7 +513,7 @@ class GameScene: SKScene {
                 node.isHidden = true
             }
 
-            if config.id == potatoMakerID {
+            if config.id == potatoPeelerID {
                 let radius = max(node.size.width, node.size.height) * 0.62
                 let indicator = SKShapeNode(circleOfRadius: radius)
                 indicator.lineWidth = 4
@@ -603,10 +618,10 @@ class GameScene: SKScene {
 
     private func updateMakerLoadedIndicator() {
         guard let indicator = makerLoadedIndicatorNode,
-              let makerNode = interactableNodesByID[potatoMakerID] else { return }
+              let makerNode = interactableNodesByID[potatoPeelerID] else { return }
 
         indicator.position = makerNode.position
-        indicator.alpha = makerHasLoadedPotato ? 1.0 : 0.0
+        indicator.alpha = peelerHasSlicedPotatoes ? 1.0 : 0.0
     }
 
     private func updateBucketSelectedIndicator() {
@@ -787,7 +802,11 @@ class GameScene: SKScene {
             "Bucket potatoes: \(bucketPotatoCount)/\(bucketCapacity)",
             "Washed in bucket: \(washedPotatoCount)",
             "Potato selected: \(selectedPotatoForLoading ? "Yes" : "No")",
-            "Maker loaded: \(makerHasLoadedPotato ? "Yes" : "No")",
+            "Peeler has slices: \(peelerHasSlicedPotatoes ? "Yes" : "No")",
+            "Basket carried: \(isChipsBasketCarried ? "Yes" : "No")",
+            "Basket has slices: \(basketHasSlicedPotatoes ? "Yes" : "No")",
+            "Basket has chips: \(chipsBasketContainsChips ? "Yes" : "No")",
+            "Fryer loaded: \(fryerHasSlicedPotatoes ? "Yes" : "No")",
             "Racket carried: \(isTennisRacketCarried ? "Yes" : "No")",
             "Shovel carried: \(isShovelCarried ? "Yes" : "No")",
             "Septic trenches: \(trenchedSepticTiles.count)/\(worldConfig.septicDigTiles.count)",
@@ -868,11 +887,17 @@ class GameScene: SKScene {
         case .potatoBin:
             handlePotatoBinInteraction()
             return
+        case .chipsBasket:
+            handleChipsBasketInteraction(node: node)
+            return
+        case .deepFryer:
+            handleDeepFryerInteraction()
+            return
         case .spigot:
             handleSpigotInteraction()
             return
         case .potatoChips:
-            handlePotatoMakerInteraction(config: config)
+            handlePotatoPeelerInteraction()
             return
         case .tennisRacket:
             handleTennisRacketInteraction(node: node)
@@ -912,21 +937,21 @@ class GameScene: SKScene {
             return
         }
 
-        let nearMaker = isPlayerNearInteractable(withID: potatoMakerID)
-        if nearMaker && bucketPotatoCount > 0 {
+        let nearPeeler = isPlayerNearInteractable(withID: potatoPeelerID)
+        if nearPeeler && bucketPotatoCount > 0 {
             guard washedPotatoCount > 0 else {
                 showMessage("Potatoes must be washed at the spigot first.")
                 return
             }
-            if makerHasLoadedPotato {
-                showMessage("Maker already loaded. Click maker to make chips.")
+            if peelerHasSlicedPotatoes {
+                showMessage("Potato peeler already has slices. Use basket to collect them.")
                 return
             }
             bucketPotatoCount -= 1
             washedPotatoCount -= 1
             selectedPotatoForLoading = true
             selectedPotatoIsWashed = true
-            showMessage("Selected washed potato (\(bucketPotatoCount)/\(bucketCapacity) left, washed \(washedPotatoCount)).")
+            showMessage("Selected washed potato for peeler (\(bucketPotatoCount)/\(bucketCapacity) left, washed \(washedPotatoCount)).")
             return
         }
 
@@ -975,18 +1000,14 @@ class GameScene: SKScene {
         showMessage("Washed potatoes at spigot (washed \(washedPotatoCount)/\(bucketPotatoCount)).")
     }
 
-    private func handlePotatoMakerInteraction(config: InteractableConfig) {
-        if makerHasLoadedPotato {
-            makerHasLoadedPotato = false
-            GameState.shared.addCoins(config.rewardCoins)
-            updateCoinLabel()
-            updateMakerLoadedIndicator()
-            showMessage("Made potato chips! +\(config.rewardCoins) coins")
+    private func handlePotatoPeelerInteraction() {
+        if peelerHasSlicedPotatoes {
+            showMessage("Potato peeler has slices ready. Put them in the basket.")
             return
         }
 
         guard isBucketCarried else {
-            showMessage("Bring the bucket to the chip maker.")
+            showMessage("Bring the bucket to the potato peeler.")
             return
         }
 
@@ -997,13 +1018,73 @@ class GameScene: SKScene {
             }
             selectedPotatoForLoading = false
             selectedPotatoIsWashed = false
-            makerHasLoadedPotato = true
+            peelerHasSlicedPotatoes = true
             updateMakerLoadedIndicator()
-            showMessage("Loaded potato into chip maker.")
+            showMessage("Potato peeled and sliced. Move slices into basket.")
             return
         }
 
-        showMessage("Select a potato from the bucket first.")
+        showMessage("Select a washed potato from the bucket first.")
+    }
+
+    private func handleChipsBasketInteraction(node: SKSpriteNode) {
+        if !isChipsBasketCarried {
+            isChipsBasketCarried = true
+            showMessage("Picked up basket.")
+            return
+        }
+
+        if isPlayerNearInteractable(withID: potatoPeelerID) {
+            guard peelerHasSlicedPotatoes else {
+                showMessage("No sliced potatoes ready in peeler.")
+                return
+            }
+            guard !chipsBasketContainsChips else {
+                showMessage("Basket already has finished chips.")
+                return
+            }
+
+            peelerHasSlicedPotatoes = false
+            basketHasSlicedPotatoes = true
+            updateMakerLoadedIndicator()
+            showMessage("Added sliced potatoes to basket.")
+            return
+        }
+
+        isChipsBasketCarried = false
+        node.position = player.position
+        showMessage("Dropped basket.")
+    }
+
+    private func handleDeepFryerInteraction() {
+        guard isChipsBasketCarried else {
+            showMessage("Bring the basket to the deep fryer.")
+            return
+        }
+
+        if basketHasSlicedPotatoes && !fryerHasSlicedPotatoes {
+            basketHasSlicedPotatoes = false
+            fryerHasSlicedPotatoes = true
+            showMessage("Put sliced potatoes into deep fryer.")
+            return
+        }
+
+        if fryerHasSlicedPotatoes && !chipsBasketContainsChips {
+            fryerHasSlicedPotatoes = false
+            chipsBasketContainsChips = true
+            let rewardCoins = interactableConfigsByID[potatoPeelerID]?.rewardCoins ?? 5
+            GameState.shared.addCoins(rewardCoins)
+            updateCoinLabel()
+            showMessage("Fried chips returned to basket. +\(rewardCoins) coins")
+            return
+        }
+
+        if chipsBasketContainsChips {
+            showMessage("Basket already holds finished chips.")
+            return
+        }
+
+        showMessage("Put sliced potatoes into the fryer first.")
     }
 
     private func handleTennisRacketInteraction(node: SKSpriteNode) {
@@ -1156,7 +1237,11 @@ class GameScene: SKScene {
         washedPotatoCount = 0
         selectedPotatoForLoading = false
         selectedPotatoIsWashed = false
-        makerHasLoadedPotato = false
+        peelerHasSlicedPotatoes = false
+        fryerHasSlicedPotatoes = false
+        isChipsBasketCarried = false
+        basketHasSlicedPotatoes = false
+        chipsBasketContainsChips = false
         isTennisRacketCarried = false
         isShovelCarried = false
         nextBatSpawnMove = BatEventSettings.randomSpawnIntervalMoves()
