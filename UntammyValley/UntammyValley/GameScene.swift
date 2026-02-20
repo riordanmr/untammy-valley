@@ -120,6 +120,7 @@ class GameScene: SKScene {
     private var menuPanelNode: SKShapeNode!
     private var menuStatusLabel: SKLabelNode!
     private var menuResetLabel: SKLabelNode!
+    private var menuMove20Label: SKLabelNode!
     private var warningIconContainerNode: SKNode!
     private var warningBatIconNode: SKSpriteNode!
     private var warningToiletIconNode: SKSpriteNode!
@@ -376,6 +377,11 @@ class GameScene: SKScene {
         }
         if hudNodes.contains(where: { $0.name == "menuResetItem" || $0.parent?.name == "menuResetItem" }) {
             resetGameToInitialState()
+            setMenuVisible(false)
+            return
+        }
+        if hudNodes.contains(where: { $0.name == "menuMove20Item" || $0.parent?.name == "menuMove20Item" }) {
+            simulateMoves(20)
             setMenuVisible(false)
             return
         }
@@ -797,12 +803,12 @@ class GameScene: SKScene {
             menuButtonNode.addChild(line)
         }
 
-        menuPanelNode = SKShapeNode(rectOf: CGSize(width: 150, height: 92), cornerRadius: 9)
+        menuPanelNode = SKShapeNode(rectOf: CGSize(width: 170, height: 132), cornerRadius: 9)
         menuPanelNode.name = "menuPanel"
         menuPanelNode.fillColor = UIColor.black.withAlphaComponent(0.6)
         menuPanelNode.strokeColor = .white
         menuPanelNode.lineWidth = 1.5
-        menuPanelNode.position = CGPoint(x: rightX - 75, y: topY - 95)
+        menuPanelNode.position = CGPoint(x: rightX - 85, y: topY - 115)
         menuPanelNode.zPosition = 520
         menuPanelNode.isHidden = true
         cameraNode.addChild(menuPanelNode)
@@ -814,7 +820,7 @@ class GameScene: SKScene {
         menuStatusLabel.fontColor = .white
         menuStatusLabel.verticalAlignmentMode = .center
         menuStatusLabel.horizontalAlignmentMode = .center
-        menuStatusLabel.position = CGPoint(x: 0, y: 20)
+        menuStatusLabel.position = CGPoint(x: 0, y: 36)
         menuStatusLabel.zPosition = 521
         menuPanelNode.addChild(menuStatusLabel)
 
@@ -825,9 +831,20 @@ class GameScene: SKScene {
         menuResetLabel.fontColor = .white
         menuResetLabel.verticalAlignmentMode = .center
         menuResetLabel.horizontalAlignmentMode = .center
-        menuResetLabel.position = CGPoint(x: 0, y: -22)
+        menuResetLabel.position = CGPoint(x: 0, y: 0)
         menuResetLabel.zPosition = 521
         menuPanelNode.addChild(menuResetLabel)
+
+        menuMove20Label = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        menuMove20Label.name = "menuMove20Item"
+        menuMove20Label.text = "Move 20"
+        menuMove20Label.fontSize = 23
+        menuMove20Label.fontColor = .white
+        menuMove20Label.verticalAlignmentMode = .center
+        menuMove20Label.horizontalAlignmentMode = .center
+        menuMove20Label.position = CGPoint(x: 0, y: -36)
+        menuMove20Label.zPosition = 521
+        menuPanelNode.addChild(menuMove20Label)
     }
 
     private func configureStatusWindow() {
@@ -1423,6 +1440,20 @@ class GameScene: SKScene {
         if remainingCoins != previousCoins {
             updateCoinLabel()
         }
+    }
+
+    private func simulateMoves(_ count: Int) {
+        guard count > 0 else { return }
+        moveTarget = nil
+        player.physicsBody?.velocity = .zero
+
+        for _ in 0..<count {
+            completedMoveCount += 1
+            processInteractableRespawns()
+        }
+
+        updateStatusWindowBody()
+        showMessage("Simulated \(count) moves.")
     }
 
     private func scenePointForTile(_ tile: TileCoordinate) -> CGPoint? {
