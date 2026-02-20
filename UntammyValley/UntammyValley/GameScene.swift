@@ -77,7 +77,7 @@ class GameScene: SKScene {
     }
 
     private enum BatEventSettings {
-        static let spawnIntervalMoves = 44
+        static let spawnIntervalMoves = 84
         static let defeatDeadlineMoves = 22
 
         static var minSpawnIntervalMoves: Int {
@@ -202,8 +202,8 @@ class GameScene: SKScene {
     private var completedMoveCount = 0
     private let worldConfig = WorldConfig.current
 
-    private let worldColumns = 80
-    private let worldRows = 60
+    private let worldColumns = 104
+    private let worldRows = 46
     private let tileSize = CGSize(width: 64, height: 64)
     private let playerMoveSpeed: CGFloat = 500
 

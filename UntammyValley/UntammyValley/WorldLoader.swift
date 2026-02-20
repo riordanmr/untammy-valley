@@ -12,7 +12,7 @@ enum WorldLoader {
         static let objectScale: CGFloat = 1.2
         static let baseObjectSize: CGFloat = 48
 
-        static let minColumn = 24
+        static let minColumn = 48
         static let minRow = 18
         static let singleRoomWidth = 8
         static let diningRoomExtraWidth = 3
