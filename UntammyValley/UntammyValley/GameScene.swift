@@ -849,13 +849,16 @@ class GameScene: SKScene {
         return nil
     }
 
-    private func processInteractableRespawns() {
-        processToiletEventProgress()
+    @discardableResult
+    private func processInteractableRespawns() -> Bool {
+        var intervalMessages: [String] = []
+
+        processToiletEventProgress(messages: &intervalMessages)
 
         for (interactableID, respawnMove) in respawnAtMoveByInteractableID where completedMoveCount >= respawnMove {
             interactableNodesByID[interactableID]?.isHidden = false
             if interactableConfigsByID[interactableID]?.kind == .chaseGoats {
-                showMessage("Goat returned to the parking lot.")
+                intervalMessages.append("Goat returned to the parking lot.")
             }
             respawnAtMoveByInteractableID.removeValue(forKey: interactableID)
         }
@@ -871,7 +874,7 @@ class GameScene: SKScene {
             batDefeatDeadlineMove = nil
             nextBatSpawnMove = completedMoveCount + BatEventSettings.randomSpawnIntervalMoves()
             updateCoinLabel()
-            showMessage("Bat escaped. Exterminator called: -\(lostCoins) coins.")
+            intervalMessages.append("Bat escaped. Exterminator called: -\(lostCoins) coins.")
         }
 
         if batDefeatDeadlineMove == nil,
@@ -881,8 +884,15 @@ class GameScene: SKScene {
             batNode.position = interactableHomePositionByID[bedroomBatID] ?? batNode.position
             batNode.isHidden = false
             batDefeatDeadlineMove = completedMoveCount + BatEventSettings.defeatDeadlineMoves
-            showMessage("A bat appeared in the bedroom! Use the tennis racket within \(BatEventSettings.defeatDeadlineMoves) moves.")
+            intervalMessages.append("A bat appeared in the bedroom! Use the tennis racket within \(BatEventSettings.defeatDeadlineMoves) moves.")
         }
+
+        if !intervalMessages.isEmpty {
+            showMessage(intervalMessages.joined(separator: "  |  "))
+            return true
+        }
+
+        return false
     }
 
     private func updateMakerLoadedIndicator() {
@@ -1163,9 +1173,7 @@ class GameScene: SKScene {
     private func updateWarningIcons() {
         var activeIcons: [SKSpriteNode] = []
 
-        if let batNode = interactableNodesByID[bedroomBatID],
-           batDefeatDeadlineMove != nil,
-           !batNode.isHidden {
+        if batDefeatDeadlineMove != nil {
             activeIcons.append(warningBatIconNode)
         }
 
@@ -1979,7 +1987,8 @@ class GameScene: SKScene {
         return true
     }
 
-    private func processToiletEventProgress() {
+    private func processToiletEventProgress(messages: inout [String]) {
+
         if !isToiletDirty,
            completedMoveCount >= nextToiletDirtyMove,
            isPlayerInBarRooms() {
@@ -1987,7 +1996,7 @@ class GameScene: SKScene {
             toiletCleanDeadlineMove = completedMoveCount + ToiletEventSettings.cleanDeadlineMoves
             hasShownToiletPenaltyStartMessage = false
             updateToiletVisualState()
-            showMessage("The toilet became dirty! Clean it with the brush within \(ToiletEventSettings.cleanDeadlineMoves) moves.")
+            messages.append("The toilet became dirty! Clean it with the brush within \(ToiletEventSettings.cleanDeadlineMoves) moves.")
         }
 
         guard isToiletDirty,
@@ -1998,7 +2007,7 @@ class GameScene: SKScene {
 
         if !hasShownToiletPenaltyStartMessage {
             hasShownToiletPenaltyStartMessage = true
-            showMessage("Toilet is overdue. Losing 1 coin per move until cleaned.")
+            messages.append("Toilet is overdue. Losing 1 coin per move until cleaned.")
         }
 
         let previousCoins = GameState.shared.coins
@@ -2012,14 +2021,19 @@ class GameScene: SKScene {
         guard count > 0 else { return }
         moveTarget = nil
         player.physicsBody?.velocity = .zero
+        var showedEventMessage = false
 
         for _ in 0..<count {
             completedMoveCount += 1
-            processInteractableRespawns()
+            if processInteractableRespawns() {
+                showedEventMessage = true
+            }
         }
 
         updateStatusWindowBody()
-        showMessage("Simulated \(count) moves.")
+        if !showedEventMessage {
+            showMessage("Simulated \(count) moves.")
+        }
     }
 
     private func scenePointForTile(_ tile: TileCoordinate) -> CGPoint? {
