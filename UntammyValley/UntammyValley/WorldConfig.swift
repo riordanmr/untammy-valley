@@ -24,10 +24,25 @@ struct FloorRegion {
     let region: TileRegion
 }
 
+enum DecorationKind {
+    case largeTextSign
+}
+
+struct DecorationConfig {
+    let id: String
+    let kind: DecorationKind
+    let spriteName: String
+    let labelText: String?
+    let tile: TileCoordinate
+    let size: CGSize
+    let blocksMovement: Bool
+}
+
 enum InteractableKind {
     case potatoChips
     case deepFryer
     case chipsBasket
+    case snowmobile
     case toilet
     case toiletBowlBrush
     case potatoBin
@@ -54,9 +69,11 @@ struct WorldConfig {
     let defaultFloorTileName: String
     let floorRegions: [FloorRegion]
     let doorwayFloorOverrides: [FloorRegion]
+    let carrollSalesRegion: TileRegion
     let septicDigTiles: Set<TileCoordinate>
     let roomLabels: [(name: String, tile: TileCoordinate)]
     let spawnTile: TileCoordinate
+    let decorations: [DecorationConfig]
     let interactables: [InteractableConfig]
 
     static let current = WorldLoader.makeInitialBarWorld()

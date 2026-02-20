@@ -34,8 +34,18 @@ enum WorldLoader {
             scaledSize(width: baseObjectSize * 1.25, height: baseObjectSize * 1.25)
         }
 
+        static var largeSignSize: CGSize {
+            scaledSize(width: baseObjectSize * 3, height: baseObjectSize * 2)
+        }
+
+        static var snowmobileSize: CGSize {
+            scaledSize(width: baseObjectSize * 2, height: baseObjectSize * 2)
+        }
+
         static var maxColumnExclusive: Int { minColumn + bedroomRoomWidth + diningRoomWidth + kitchenRoomWidth }
         static var maxRowExclusive: Int { minRow + roomHeight }
+
+        static var barWidth: Int { bedroomRoomWidth + diningRoomWidth + kitchenRoomWidth }
 
         static var bedroomDiningWallColumn: Int { minColumn + bedroomRoomWidth }
         static var diningKitchenWallColumn: Int { bedroomDiningWallColumn + diningRoomWidth }
@@ -80,6 +90,41 @@ enum WorldLoader {
 
         static var goatChaseTile: TileCoordinate {
             TileCoordinate(column: minColumn + singleRoomWidth + 4, row: minRow - 3)
+        }
+
+        static var carrollSignTile: TileCoordinate {
+            TileCoordinate(
+                column: max(2, minColumn - (barWidth * 2) + (barWidth / 2)),
+                row: minRow + roomHeight / 2
+            )
+        }
+
+        static var snowmobileTiles: [TileCoordinate] {
+            [
+                TileCoordinate(column: carrollSignTile.column + 5, row: carrollSignTile.row + 2),
+                TileCoordinate(column: carrollSignTile.column + 6, row: carrollSignTile.row + 3),
+                TileCoordinate(column: carrollSignTile.column + 7, row: carrollSignTile.row + 1),
+                TileCoordinate(column: carrollSignTile.column + 8, row: carrollSignTile.row - 2),
+                TileCoordinate(column: carrollSignTile.column + 6, row: carrollSignTile.row - 3),
+                TileCoordinate(column: carrollSignTile.column + 7, row: carrollSignTile.row - 1)
+            ]
+        }
+
+        static var carrollSalesRegion: TileRegion {
+            let allColumns = [carrollSignTile.column] + snowmobileTiles.map { $0.column }
+            let allRows = [carrollSignTile.row] + snowmobileTiles.map { $0.row }
+
+            let minCol = max(0, (allColumns.min() ?? carrollSignTile.column) - 2)
+            let maxColExclusive = (allColumns.max() ?? carrollSignTile.column) + 3
+            let minRow = max(0, (allRows.min() ?? carrollSignTile.row) - 2)
+            let maxRowExclusive = (allRows.max() ?? carrollSignTile.row) + 3
+
+            return TileRegion(
+                minColumn: minCol,
+                maxColumnExclusive: maxColExclusive,
+                minRow: minRow,
+                maxRowExclusive: maxRowExclusive
+            )
         }
 
         static var potatoBinTile: TileCoordinate {
@@ -288,6 +333,10 @@ enum WorldLoader {
             FloorRegion(
                 tileName: "septic_cover",
                 region: BarLayout.rightSepticRegion
+            ),
+            FloorRegion(
+                tileName: "floor_carroll_sales",
+                region: BarLayout.carrollSalesRegion
             )
         ]
 
@@ -454,15 +503,39 @@ enum WorldLoader {
             interactionRange: 95
         )
 
+        let snowmobiles: [InteractableConfig] = BarLayout.snowmobileTiles.enumerated().map { index, tile in
+            InteractableConfig(
+                id: "snowmobile\(index + 1)",
+                kind: .snowmobile,
+                spriteName: "snowmobile\(index + 1)",
+                tile: tile,
+                size: BarLayout.snowmobileSize,
+                rewardCoins: 0,
+                interactionRange: 125
+            )
+        }
+
+        let carrollSign = DecorationConfig(
+            id: "carrollSnowmobileSign",
+            kind: .largeTextSign,
+            spriteName: "carroll_snowmobile_sales_sign",
+            labelText: "Carroll's Snowmobile Sales",
+            tile: BarLayout.carrollSignTile,
+            size: BarLayout.largeSignSize,
+            blocksMovement: false
+        )
+
         return WorldConfig(
             wallTiles: wallTiles,
             defaultFloorTileName: "floor_outdoor",
             floorRegions: floorRegions,
             doorwayFloorOverrides: doorwayFloorOverrides,
+            carrollSalesRegion: BarLayout.carrollSalesRegion,
             septicDigTiles: BarLayout.septicDigTiles,
             roomLabels: roomLabels,
             spawnTile: BarLayout.spawnTile,
-            interactables: [potatoPeeler, deepFryer, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, bedroomBat, shovel, goatChaseSpot]
+            decorations: [carrollSign],
+            interactables: [potatoPeeler, deepFryer, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, bedroomBat, shovel, goatChaseSpot] + snowmobiles
         )
     }
 }

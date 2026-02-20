@@ -57,6 +57,7 @@ func makeBasicTileSet() -> SKTileSet {
         "floor_linoleum",
         "floor_carpet",
         "floor_outdoor",
+        "floor_carroll_sales",
         "septic_cover",
         "septic_trench",
         "wall_vertical"
@@ -142,6 +143,8 @@ class GameScene: SKScene {
     private var interactableNodesByID: [String: SKSpriteNode] = [:]
     private var interactableConfigsByID: [String: InteractableConfig] = [:]
     private var interactableHomePositionByID: [String: CGPoint] = [:]
+    private var snowmobileBadgeNodesByID: [String: SKNode] = [:]
+    private var decorationNodesByID: [String: SKSpriteNode] = [:]
     private var respawnAtMoveByInteractableID: [String: Int] = [:]
 
     private let bucketID = "bucket"
@@ -157,6 +160,7 @@ class GameScene: SKScene {
     private let tennisRacketID = "tennisRacket"
     private let bedroomBatID = "bedroomBat"
     private let shovelID = "shovel"
+    private let snowmobilePriceCoins = 100
     private let bucketCapacity = 5
     private let coinsPerTrenchTile = 1
     private let septicCompletionBonusCoins = 100
@@ -178,6 +182,8 @@ class GameScene: SKScene {
     private var hasShownToiletPenaltyStartMessage = false
     private var isTennisRacketCarried = false
     private var isShovelCarried = false
+    private var ownedSnowmobileIDs: Set<String> = []
+    private var selectedOwnedSnowmobileID: String?
     private var nextBatSpawnMove = BatEventSettings.randomSpawnIntervalMoves()
     private var batDefeatDeadlineMove: Int?
     private var trenchedSepticTiles: Set<TileCoordinate> = []
@@ -300,6 +306,7 @@ class GameScene: SKScene {
 
         addDebugRoomLabelsIfNeeded(on: objectTileMap, labels: worldConfig.roomLabels)
 
+        buildDecorations(on: objectTileMap)
         buildInteractables(on: objectTileMap)
 
         // --- PLAYER ---
@@ -350,6 +357,7 @@ class GameScene: SKScene {
             bucketSelectedIndicatorNode?.position = CGPoint(x: bucketNode.position.x, y: bucketNode.position.y + 22)
         }
         updateWarningIcons()
+        updateSnowmobileOwnershipVisuals()
         updateBucketSelectedIndicator()
         if !isMapViewMode {
             cameraNode.position = player.position
@@ -547,6 +555,7 @@ class GameScene: SKScene {
         interactableNodesByID.removeAll()
         interactableConfigsByID.removeAll()
         interactableHomePositionByID.removeAll()
+        snowmobileBadgeNodesByID.removeAll()
         makerLoadedIndicatorNode?.removeFromParent()
         makerLoadedIndicatorNode = nil
         bucketSelectedIndicatorNode?.removeFromParent()
@@ -570,6 +579,9 @@ class GameScene: SKScene {
                 } else if config.kind == .chipsBasket {
                     let basketTexture = makeLabeledMarkerTexture(size: config.size, emoji: "B", color: .systemOrange)
                     node = SKSpriteNode(texture: basketTexture, color: .clear, size: config.size)
+                } else if config.kind == .snowmobile {
+                    let snowmobileTexture = makeLabeledMarkerTexture(size: config.size, emoji: "S", color: .systemTeal)
+                    node = SKSpriteNode(texture: snowmobileTexture, color: .clear, size: config.size)
                 } else if config.kind == .toilet {
                     let toiletTexture = makeLabeledMarkerTexture(size: config.size, emoji: "T", color: .white)
                     node = SKSpriteNode(texture: toiletTexture, color: .clear, size: config.size)
@@ -619,6 +631,29 @@ class GameScene: SKScene {
                 node.isHidden = true
             }
 
+            if config.kind == .snowmobile {
+                let badge = SKShapeNode(circleOfRadius: 10)
+                badge.fillColor = .systemYellow
+                badge.strokeColor = .white
+                badge.lineWidth = 1.5
+                badge.position = CGPoint(x: node.size.width * 0.33, y: node.size.height * 0.33)
+                badge.zPosition = 3
+                badge.isHidden = true
+
+                let badgeLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+                badgeLabel.text = "$"
+                badgeLabel.fontSize = 14
+                badgeLabel.fontColor = .white
+                badgeLabel.horizontalAlignmentMode = .center
+                badgeLabel.verticalAlignmentMode = .center
+                badgeLabel.position = CGPoint(x: 0, y: -1)
+                badgeLabel.zPosition = 4
+                badge.addChild(badgeLabel)
+
+                node.addChild(badge)
+                snowmobileBadgeNodesByID[config.id] = badge
+            }
+
             if config.id == potatoPeelerID {
                 let radius = max(node.size.width, node.size.height) * 0.62
                 let indicator = SKShapeNode(circleOfRadius: radius)
@@ -644,13 +679,91 @@ class GameScene: SKScene {
         }
 
         updateToiletVisualState()
+        updateSnowmobileOwnershipVisuals()
 
         updateMakerLoadedIndicator()
         updateBucketSelectedIndicator()
     }
 
+    private func updateSnowmobileOwnershipVisuals() {
+        for (id, config) in interactableConfigsByID where config.kind == .snowmobile {
+            let owned = ownedSnowmobileIDs.contains(id)
+
+            if let badgeNode = snowmobileBadgeNodesByID[id] as? SKShapeNode {
+                badgeNode.isHidden = owned
+                badgeNode.fillColor = .systemYellow
+            }
+        }
+    }
+
+    private func buildDecorations(on tileMap: SKTileMapNode) {
+        decorationNodesByID.removeAll()
+
+        for config in worldConfig.decorations {
+            let center = tileMap.centerOfTile(atColumn: config.tile.column, row: config.tile.row)
+            let position = tileMap.convert(center, to: self)
+
+            let node: SKSpriteNode
+            if let image = UIImage(named: config.spriteName) {
+                let texture = SKTexture(image: image)
+                node = SKSpriteNode(texture: texture, color: .clear, size: config.size)
+            } else {
+                switch config.kind {
+                case .largeTextSign:
+                    let signTexture = makeLargeSignTexture(size: config.size, text: config.labelText ?? "Sign")
+                    node = SKSpriteNode(texture: signTexture, color: .clear, size: config.size)
+                }
+            }
+
+            node.name = "decoration:\(config.id)"
+            node.position = position
+            node.zPosition = 18
+
+            if config.blocksMovement {
+                let body = SKPhysicsBody(rectangleOf: node.size)
+                body.isDynamic = false
+                body.categoryBitMask = PhysicsCategory.wall
+                body.collisionBitMask = PhysicsCategory.player
+                body.contactTestBitMask = PhysicsCategory.none
+                node.physicsBody = body
+            }
+
+            addChild(node)
+            decorationNodesByID[config.id] = node
+        }
+    }
+
     private func makeGoatMarkerTexture(size: CGSize) -> SKTexture {
         makeLabeledMarkerTexture(size: size, emoji: "🐐", color: .systemGreen)
+    }
+
+    private func makeLargeSignTexture(size: CGSize, text: String) -> SKTexture {
+        let image = UIGraphicsImageRenderer(size: size).image { _ in
+            let outerRect = CGRect(origin: .zero, size: size)
+            UIColor(red: 0.18, green: 0.12, blue: 0.05, alpha: 0.95).setFill()
+            UIBezierPath(roundedRect: outerRect, cornerRadius: size.height * 0.12).fill()
+
+            let innerInset = max(6, min(size.width, size.height) * 0.06)
+            let innerRect = outerRect.insetBy(dx: innerInset, dy: innerInset)
+            UIColor(red: 0.95, green: 0.86, blue: 0.62, alpha: 1.0).setFill()
+            UIBezierPath(roundedRect: innerRect, cornerRadius: size.height * 0.09).fill()
+
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.alignment = .center
+            paragraph.lineBreakMode = .byWordWrapping
+
+            let fontSize = min(size.width * 0.13, size.height * 0.28)
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: UIFont.boldSystemFont(ofSize: fontSize),
+                .foregroundColor: UIColor(red: 0.20, green: 0.12, blue: 0.05, alpha: 1.0),
+                .paragraphStyle: paragraph
+            ]
+
+            let textRect = innerRect.insetBy(dx: innerInset, dy: innerInset * 0.8)
+            (text as NSString).draw(in: textRect, withAttributes: attributes)
+        }
+
+        return SKTexture(image: image)
     }
 
     private func makeLabeledMarkerTexture(size: CGSize, emoji: String, color: UIColor) -> SKTexture {
@@ -1111,6 +1224,7 @@ class GameScene: SKScene {
         let statusLines = [
             "Coins: \(GameState.shared.coins)",
             "Moves: \(completedMoveCount)",
+            "Snowmobiles owned: \(ownedSnowmobileIDs.count)/6",
             "Bucket carried: \(isBucketCarried ? "Yes" : "No")",
             "Bucket potatoes: \(bucketPotatoCount)/\(bucketCapacity)",
             "Washed in bucket: \(washedPotatoCount)",
@@ -1234,6 +1348,9 @@ class GameScene: SKScene {
             return
         case .chipsBasket:
             handleChipsBasketInteraction(node: node)
+            return
+        case .snowmobile:
+            handleSnowmobileInteraction(interactableID: interactableID)
             return
         case .toilet:
             handleToiletInteraction()
@@ -1436,6 +1553,52 @@ class GameScene: SKScene {
         }
 
         showMessage("Put sliced potatoes into the fryer first.")
+    }
+
+    private func handleSnowmobileInteraction(interactableID: String) {
+        guard let snowmobileConfig = interactableConfigsByID[interactableID] else { return }
+
+        guard tileRegionContains(worldConfig.carrollSalesRegion, tile: snowmobileConfig.tile),
+              isPlayerInCarrollSalesArea() else {
+            if ownedSnowmobileIDs.contains(interactableID) {
+                if selectedOwnedSnowmobileID == interactableID {
+                    selectedOwnedSnowmobileID = nil
+                    showMessage("Snowmobile selection cleared.")
+                } else {
+                    selectedOwnedSnowmobileID = interactableID
+                    showMessage("Selected owned snowmobile.")
+                }
+                updateSnowmobileOwnershipVisuals()
+                return
+            }
+
+            showMessage("Buy/sell snowmobiles inside Carroll's Snowmobile Sales area.")
+            return
+        }
+
+        if ownedSnowmobileIDs.contains(interactableID) {
+            ownedSnowmobileIDs.remove(interactableID)
+            if selectedOwnedSnowmobileID == interactableID {
+                selectedOwnedSnowmobileID = nil
+            }
+            GameState.shared.addCoins(snowmobilePriceCoins)
+            updateCoinLabel()
+            updateSnowmobileOwnershipVisuals()
+            showMessage("Sold snowmobile back for \(snowmobilePriceCoins) coins.")
+            return
+        }
+
+        guard GameState.shared.coins >= snowmobilePriceCoins else {
+            showMessage("Need \(snowmobilePriceCoins) coins to buy this snowmobile.")
+            return
+        }
+
+        _ = GameState.shared.removeCoins(snowmobilePriceCoins)
+        ownedSnowmobileIDs.insert(interactableID)
+        selectedOwnedSnowmobileID = interactableID
+        updateCoinLabel()
+        updateSnowmobileOwnershipVisuals()
+        showMessage("Bought snowmobile for \(snowmobilePriceCoins) coins.")
     }
 
     private func handleToiletBowlBrushInteraction(node: SKSpriteNode) {
@@ -1654,11 +1817,24 @@ class GameScene: SKScene {
     private func isPlayerInBarRooms() -> Bool {
         guard let playerTile = tileCoordinate(for: player.position) else { return false }
         return worldConfig.floorRegions.contains(where: { region in
+            region.tileName != "floor_carroll_sales" &&
             playerTile.column >= region.region.minColumn &&
             playerTile.column < region.region.maxColumnExclusive &&
             playerTile.row >= region.region.minRow &&
             playerTile.row < region.region.maxRowExclusive
         })
+    }
+
+    private func isPlayerInCarrollSalesArea() -> Bool {
+        guard let playerTile = tileCoordinate(for: player.position) else { return false }
+        return tileRegionContains(worldConfig.carrollSalesRegion, tile: playerTile)
+    }
+
+    private func tileRegionContains(_ region: TileRegion, tile: TileCoordinate) -> Bool {
+        tile.column >= region.minColumn &&
+        tile.column < region.maxColumnExclusive &&
+        tile.row >= region.minRow &&
+        tile.row < region.maxRowExclusive
     }
 
     private func tileCoordinate(for scenePoint: CGPoint) -> TileCoordinate? {
@@ -1704,6 +1880,9 @@ class GameScene: SKScene {
         updateToiletVisualState()
         isTennisRacketCarried = false
         isShovelCarried = false
+        ownedSnowmobileIDs.removeAll()
+        selectedOwnedSnowmobileID = nil
+        updateSnowmobileOwnershipVisuals()
         nextBatSpawnMove = BatEventSettings.randomSpawnIntervalMoves()
         batDefeatDeadlineMove = nil
         trenchedSepticTiles.removeAll()
@@ -1719,6 +1898,7 @@ class GameScene: SKScene {
         interactableNodesByID[bedroomBatID]?.isHidden = true
 
         GameState.shared.resetCoins()
+        GameState.shared.addCoins(200)
         updateCoinLabel()
         updateStatusWindowBody()
         showMessage("Progress reset.")
