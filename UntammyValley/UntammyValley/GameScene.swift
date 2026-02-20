@@ -120,6 +120,9 @@ class GameScene: SKScene {
     private var menuPanelNode: SKShapeNode!
     private var menuStatusLabel: SKLabelNode!
     private var menuResetLabel: SKLabelNode!
+    private var warningIconContainerNode: SKNode!
+    private var warningBatIconNode: SKSpriteNode!
+    private var warningToiletIconNode: SKSpriteNode!
     private var statusBackdropNode: SKShapeNode!
     private var statusPanelNode: SKShapeNode!
     private var statusTitleLabel: SKLabelNode!
@@ -336,8 +339,14 @@ class GameScene: SKScene {
         if let bucketNode = interactableNodesByID[bucketID] {
             bucketSelectedIndicatorNode?.position = CGPoint(x: bucketNode.position.x, y: bucketNode.position.y + 22)
         }
+        updateWarningIcons()
         updateBucketSelectedIndicator()
         cameraNode.position = player.position
+    }
+
+    override func didChangeSize(_ oldSize: CGSize) {
+        super.didChangeSize(oldSize)
+        updateWarningIconContainerPosition()
     }
     
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -691,7 +700,79 @@ class GameScene: SKScene {
         cameraNode.addChild(messageLabel)
 
         configureMenu()
+        configureWarningIcons()
         configureStatusWindow()
+    }
+
+    private func configureWarningIcons() {
+        warningIconContainerNode = SKNode()
+        warningIconContainerNode.zPosition = 515
+        cameraNode.addChild(warningIconContainerNode)
+        updateWarningIconContainerPosition()
+
+        let iconSize = CGSize(width: 24, height: 24)
+
+        if let batImage = UIImage(named: "bedroom_bat_marker") {
+            warningBatIconNode = SKSpriteNode(texture: SKTexture(image: batImage), color: .clear, size: iconSize)
+        } else {
+            let fallbackTexture = makeLabeledMarkerTexture(size: iconSize, emoji: "🦇", color: .systemPurple)
+            warningBatIconNode = SKSpriteNode(texture: fallbackTexture, color: .clear, size: iconSize)
+        }
+        warningBatIconNode.name = "warningBatIcon"
+        warningBatIconNode.isHidden = true
+        warningIconContainerNode.addChild(warningBatIconNode)
+
+        if let toiletDirtyImage = UIImage(named: toiletDirtySpriteName) {
+            warningToiletIconNode = SKSpriteNode(texture: SKTexture(image: toiletDirtyImage), color: .clear, size: iconSize)
+        } else {
+            let fallbackTexture = makeLabeledMarkerTexture(size: iconSize, emoji: "!", color: .systemBrown)
+            warningToiletIconNode = SKSpriteNode(texture: fallbackTexture, color: .clear, size: iconSize)
+        }
+        warningToiletIconNode.name = "warningToiletIcon"
+        warningToiletIconNode.isHidden = true
+        warningIconContainerNode.addChild(warningToiletIconNode)
+
+        updateWarningIcons()
+    }
+
+    private func updateWarningIconContainerPosition() {
+        guard warningIconContainerNode != nil else { return }
+
+        let safeAreaInsets = view?.safeAreaInsets ?? .zero
+        let leftInset = max(38, safeAreaInsets.left + 16)
+        let bottomInset = max(22, safeAreaInsets.bottom + 12)
+
+        warningIconContainerNode.position = CGPoint(
+            x: -size.width / 2 + leftInset,
+            y: -size.height / 2 + bottomInset
+        )
+    }
+
+    private func updateWarningIcons() {
+        var activeIcons: [SKSpriteNode] = []
+
+        if let batNode = interactableNodesByID[bedroomBatID],
+           batDefeatDeadlineMove != nil,
+           !batNode.isHidden {
+            activeIcons.append(warningBatIconNode)
+        }
+
+        if isToiletDirty {
+            activeIcons.append(warningToiletIconNode)
+        }
+
+        let spacing: CGFloat = 30
+        for (index, icon) in activeIcons.enumerated() {
+            icon.isHidden = false
+            icon.position = CGPoint(x: CGFloat(index) * spacing, y: 0)
+        }
+
+        if !activeIcons.contains(warningBatIconNode) {
+            warningBatIconNode.isHidden = true
+        }
+        if !activeIcons.contains(warningToiletIconNode) {
+            warningToiletIconNode.isHidden = true
+        }
     }
 
     private func configureMenu() {
