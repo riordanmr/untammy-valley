@@ -19,6 +19,8 @@ func makeBasicTileSet() -> SKTileSet {
     let tileSize = CGSize(width: 64, height: 64)
 
     func makeFallbackTexture(for name: String) -> SKTexture {
+        // Note: This is a global function, so we can't access instance cache directly.
+        // Fallback textures are created once per tile set and reused, so this is less critical.
         let image = UIGraphicsImageRenderer(size: tileSize).image { _ in
             let fillColor: UIColor
             if name.contains("wall") {
@@ -40,12 +42,10 @@ func makeBasicTileSet() -> SKTileSet {
     
     // Helper to create a tile group from an asset name
     func makeTile(named name: String) -> SKTileGroup {
-        let texture: SKTexture
-        if let image = UIImage(named: name) {
-            texture = SKTexture(image: image)
-        } else {
-            texture = makeFallbackTexture(for: name)
-        }
+        let candidateTexture = SKTexture(imageNamed: name)
+        let texture = candidateTexture.size() == .zero
+            ? makeFallbackTexture(for: name)
+            : candidateTexture
         let definition = SKTileDefinition(texture: texture, size: tileSize)
         let group = SKTileGroup(tileDefinition: definition)
         group.name = name
@@ -143,6 +143,8 @@ class GameScene: SKScene {
     private var bucketSelectedIndicatorNode: SKShapeNode?
     private var groundTileMap: SKTileMapNode?
     private var tileGroupsByName: [String: SKTileGroup] = [:]
+    private var cachedTexturesByName: [String: SKTexture] = [:]
+    private var cachedDynamicTextures: [String: SKTexture] = [:]
     private var interactableNodesByID: [String: SKSpriteNode] = [:]
     private var interactableConfigsByID: [String: InteractableConfig] = [:]
     private var interactableHomePositionByID: [String: CGPoint] = [:]
@@ -192,6 +194,8 @@ class GameScene: SKScene {
     private var batDefeatDeadlineMove: Int?
     private var trenchedSepticTiles: Set<TileCoordinate> = []
     private var hasAwardedSepticCompletionBonus = false
+    private var toiletCleanTexture: SKTexture?
+    private var toiletDirtyTexture: SKTexture?
 
     private var isStatusWindowVisible = false
     private var isDraggingStatusScroll = false
@@ -220,10 +224,28 @@ class GameScene: SKScene {
     private let mountedSnowmobileVerticalOffset: CGFloat = -12
     private let indoorSnowmobileBlockedFloorTiles: Set<String> = ["floor_wood", "floor_linoleum", "floor_carpet"]
 
+    override func willMove(from view: SKView) {
+        // Clean up resources when scene is removed
+        cachedTexturesByName.removeAll()
+        cachedDynamicTextures.removeAll()
+        tileGroupsByName.removeAll()
+        interactableNodesByID.removeAll()
+        interactableConfigsByID.removeAll()
+        interactableHomePositionByID.removeAll()
+        snowmobileBadgeNodesByID.removeAll()
+        decorationNodesByID.removeAll()
+        respawnAtMoveByInteractableID.removeAll()
+        groundTileMap = nil
+        toiletCleanTexture = nil
+        toiletDirtyTexture = nil
+    }
+    
     // This is called once per scene load.
     override func didMove(to view: SKView) {
         backgroundColor = .black
         physicsWorld.gravity = .zero
+        toiletCleanTexture = loadTexture(named: toiletCleanSpriteName)
+        toiletDirtyTexture = loadTexture(named: toiletDirtySpriteName)
 
         // --- TILE MAP ---
         let tileSet = makeBasicTileSet()
@@ -612,8 +634,7 @@ class GameScene: SKScene {
             let position = tileMap.convert(center, to: self)
 
             let node: SKSpriteNode
-            if let image = UIImage(named: config.spriteName) {
-                let texture = SKTexture(image: image)
+            if let texture = loadTexture(named: config.spriteName) {
                 node = SKSpriteNode(texture: texture, color: .clear, size: config.size)
             } else {
                 if config.kind == .chaseGoats {
@@ -750,15 +771,16 @@ class GameScene: SKScene {
             let position = tileMap.convert(center, to: self)
 
             let node: SKSpriteNode
-            if let image = UIImage(named: config.spriteName) {
-                let texture = SKTexture(image: image)
+            // For large text signs, use the dynamic texture path (cached by makeLargeSignTexture) since we have the text content
+            if config.kind == .largeTextSign {
+                let signTexture = makeLargeSignTexture(size: config.size, text: config.labelText ?? "Sign")
+                node = SKSpriteNode(texture: signTexture, color: .clear, size: config.size)
+            } else if let texture = loadTexture(named: config.spriteName), texture.size().width > 0, texture.size().height > 0 {
                 node = SKSpriteNode(texture: texture, color: .clear, size: config.size)
             } else {
-                switch config.kind {
-                case .largeTextSign:
-                    let signTexture = makeLargeSignTexture(size: config.size, text: config.labelText ?? "Sign")
-                    node = SKSpriteNode(texture: signTexture, color: .clear, size: config.size)
-                }
+                // Fallback to dynamic texture generation when asset is missing
+                let fallbackTexture = makeLabeledMarkerTexture(size: config.size, emoji: "?", color: .systemGray)
+                node = SKSpriteNode(texture: fallbackTexture, color: .clear, size: config.size)
             }
 
             node.name = "decoration:\(config.id)"
@@ -784,6 +806,13 @@ class GameScene: SKScene {
     }
 
     private func makeLargeSignTexture(size: CGSize, text: String) -> SKTexture {
+        // Cache sign textures by size and text content
+        let cacheKey = "sign_\(Int(size.width))x\(Int(size.height))_\(text)"
+        
+        if let cached = cachedDynamicTextures[cacheKey] {
+            return cached
+        }
+        
         let image = UIGraphicsImageRenderer(size: size).image { _ in
             let outerRect = CGRect(origin: .zero, size: size)
             UIColor(red: 0.18, green: 0.12, blue: 0.05, alpha: 0.95).setFill()
@@ -809,10 +838,36 @@ class GameScene: SKScene {
             (text as NSString).draw(in: textRect, withAttributes: attributes)
         }
 
-        return SKTexture(image: image)
+        let texture = SKTexture(image: image)
+        cachedDynamicTextures[cacheKey] = texture
+        return texture
     }
 
     private func makeLabeledMarkerTexture(size: CGSize, emoji: String, color: UIColor) -> SKTexture {
+        // Create a cache key based on size, emoji, and color RGBA components
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        var colorKey: String
+        if color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) {
+            colorKey = String(format: "r%.2fg%.2fb%.2fa%.2f", red, green, blue, alpha)
+        } else {
+            // Fallback: convert to RGB color space and extract components
+            let rgbColor = color.cgColor.converted(to: CGColorSpaceCreateDeviceRGB(), intent: .defaultIntent, options: nil) ?? color.cgColor
+            if let components = rgbColor.components, components.count >= 4 {
+                colorKey = String(format: "r%.2fg%.2fb%.2fa%.2f", components[0], components[1], components[2], components[3])
+            } else {
+                // Last resort: use a simple identifier
+                colorKey = "fallback_\(emoji)"
+            }
+        }
+        let cacheKey = "marker_\(Int(size.width))x\(Int(size.height))_\(emoji)_\(colorKey)"
+        
+        if let cached = cachedDynamicTextures[cacheKey] {
+            return cached
+        }
+        
         let image = UIGraphicsImageRenderer(size: size).image { _ in
             let markerRect = CGRect(origin: .zero, size: size)
             color.withAlphaComponent(0.92).setFill()
@@ -834,7 +889,9 @@ class GameScene: SKScene {
             )
             emojiText.draw(in: textRect, withAttributes: attributes)
         }
-        return SKTexture(image: image)
+        let texture = SKTexture(image: image)
+        cachedDynamicTextures[cacheKey] = texture
+        return texture
     }
 
     private func interactableID(at scenePoint: CGPoint) -> String? {
@@ -1134,8 +1191,8 @@ class GameScene: SKScene {
 
         let iconSize = CGSize(width: 24, height: 24)
 
-        if let batImage = UIImage(named: "bedroom_bat_marker") {
-            warningBatIconNode = SKSpriteNode(texture: SKTexture(image: batImage), color: .clear, size: iconSize)
+        if let batTexture = loadTexture(named: "bedroom_bat_marker") {
+            warningBatIconNode = SKSpriteNode(texture: batTexture, color: .clear, size: iconSize)
         } else {
             let fallbackTexture = makeLabeledMarkerTexture(size: iconSize, emoji: "🦇", color: .systemPurple)
             warningBatIconNode = SKSpriteNode(texture: fallbackTexture, color: .clear, size: iconSize)
@@ -1144,8 +1201,8 @@ class GameScene: SKScene {
         warningBatIconNode.isHidden = true
         warningIconContainerNode.addChild(warningBatIconNode)
 
-        if let toiletDirtyImage = UIImage(named: toiletDirtySpriteName) {
-            warningToiletIconNode = SKSpriteNode(texture: SKTexture(image: toiletDirtyImage), color: .clear, size: iconSize)
+        if let toiletDirtyTexture {
+            warningToiletIconNode = SKSpriteNode(texture: toiletDirtyTexture, color: .clear, size: iconSize)
         } else {
             let fallbackTexture = makeLabeledMarkerTexture(size: iconSize, emoji: "!", color: .systemBrown)
             warningToiletIconNode = SKSpriteNode(texture: fallbackTexture, color: .clear, size: iconSize)
@@ -2046,9 +2103,9 @@ class GameScene: SKScene {
         guard let toiletNode = interactableNodesByID[toiletID],
               let toiletConfig = interactableConfigsByID[toiletID] else { return }
 
-        let spriteName = isToiletDirty ? toiletDirtySpriteName : toiletCleanSpriteName
-        if let image = UIImage(named: spriteName) {
-            toiletNode.texture = SKTexture(image: image)
+        let texture = isToiletDirty ? toiletDirtyTexture : toiletCleanTexture
+        if let texture {
+            toiletNode.texture = texture
             toiletNode.size = toiletConfig.size
             toiletNode.colorBlendFactor = 0
             return
@@ -2062,6 +2119,32 @@ class GameScene: SKScene {
         toiletNode.texture = markerTexture
         toiletNode.size = toiletConfig.size
         toiletNode.colorBlendFactor = 0
+    }
+
+    private func loadTexture(named name: String) -> SKTexture? {
+        if let cachedTexture = cachedTexturesByName[name] {
+            return cachedTexture
+        }
+
+        let texture = SKTexture(imageNamed: name)
+        // Check if texture is valid - missing images may have non-zero size but invalid data
+        // A valid texture should have both width and height > 0
+        guard texture.size() != .zero, texture.size().width > 0, texture.size().height > 0 else {
+            return nil
+        }
+
+        // Limit cache size to prevent unbounded growth
+        // If cache gets too large, remove oldest entries (simple FIFO approach)
+        if cachedTexturesByName.count > 50 {
+            // Remove first 10 entries to make room
+            let keysToRemove = Array(cachedTexturesByName.keys.prefix(10))
+            for key in keysToRemove {
+                cachedTexturesByName.removeValue(forKey: key)
+            }
+        }
+        
+        cachedTexturesByName[name] = texture
+        return texture
     }
 
     private func applyTrench(at tile: TileCoordinate) {
