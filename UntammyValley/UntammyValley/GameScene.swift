@@ -107,6 +107,8 @@ class GameScene: SKScene {
     private var statusTitleLabel: SKLabelNode!
     private var statusScrollCropNode: SKCropNode!
     private var statusScrollContentNode: SKNode!
+    private var statusScrollTrackNode: SKShapeNode!
+    private var statusScrollThumbNode: SKShapeNode!
     private var statusDoneLabel: SKLabelNode!
     private var makerLoadedIndicatorNode: SKShapeNode?
     private var bucketSelectedIndicatorNode: SKShapeNode?
@@ -753,6 +755,23 @@ class GameScene: SKScene {
         statusScrollContentNode = SKNode()
         statusScrollCropNode.addChild(statusScrollContentNode)
 
+        let scrollTrackSize = CGSize(width: 6, height: statusScrollViewportHeight)
+        statusScrollTrackNode = SKShapeNode(rectOf: scrollTrackSize, cornerRadius: 3)
+        statusScrollTrackNode.fillColor = UIColor.white.withAlphaComponent(0.2)
+        statusScrollTrackNode.strokeColor = UIColor.white.withAlphaComponent(0.4)
+        statusScrollTrackNode.lineWidth = 1
+        statusScrollTrackNode.position = CGPoint(x: statusScrollViewportWidth / 2 + 12, y: statusScrollCropNode.position.y)
+        statusScrollTrackNode.zPosition = 702
+        statusPanelNode.addChild(statusScrollTrackNode)
+
+        statusScrollThumbNode = SKShapeNode(rectOf: CGSize(width: 6, height: 44), cornerRadius: 3)
+        statusScrollThumbNode.fillColor = UIColor.white.withAlphaComponent(0.85)
+        statusScrollThumbNode.strokeColor = .white
+        statusScrollThumbNode.lineWidth = 0.5
+        statusScrollThumbNode.position = statusScrollTrackNode.position
+        statusScrollThumbNode.zPosition = 703
+        statusPanelNode.addChild(statusScrollThumbNode)
+
         let doneButton = SKShapeNode(rectOf: CGSize(width: 120, height: 42), cornerRadius: 8)
         doneButton.name = "statusDoneItem"
         doneButton.fillColor = UIColor.systemBlue.withAlphaComponent(0.9)
@@ -841,6 +860,7 @@ class GameScene: SKScene {
         }
 
         setStatusScrollOffset(statusScrollOffset)
+        updateStatusScrollIndicator()
     }
 
     private func setStatusScrollOffset(_ offset: CGFloat) {
@@ -850,6 +870,34 @@ class GameScene: SKScene {
             x: 0,
             y: (statusScrollViewportHeight - statusScrollContentHeight) / 2 + statusScrollOffset
         )
+        updateStatusScrollIndicator()
+    }
+
+    private func updateStatusScrollIndicator() {
+        let maxOffset = max(0, statusScrollContentHeight - statusScrollViewportHeight)
+        guard maxOffset > 0 else {
+            statusScrollTrackNode.isHidden = true
+            statusScrollThumbNode.isHidden = true
+            return
+        }
+
+        statusScrollTrackNode.isHidden = false
+        statusScrollThumbNode.isHidden = false
+
+        let visibleRatio = statusScrollViewportHeight / statusScrollContentHeight
+        let thumbHeight = max(24, statusScrollViewportHeight * visibleRatio)
+        statusScrollThumbNode.path = CGPath(
+            roundedRect: CGRect(x: -3, y: -thumbHeight / 2, width: 6, height: thumbHeight),
+            cornerWidth: 3,
+            cornerHeight: 3,
+            transform: nil
+        )
+
+        let trackTopY = statusScrollTrackNode.position.y + statusScrollViewportHeight / 2
+        let travelRange = statusScrollViewportHeight - thumbHeight
+        let progress = statusScrollOffset / maxOffset
+        let thumbCenterY = trackTopY - thumbHeight / 2 - (travelRange * progress)
+        statusScrollThumbNode.position = CGPoint(x: statusScrollTrackNode.position.x, y: thumbCenterY)
     }
 
     private func setMenuVisible(_ visible: Bool) {
