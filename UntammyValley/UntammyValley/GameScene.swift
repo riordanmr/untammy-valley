@@ -93,6 +93,24 @@ class GameScene: SKScene {
         }
     }
 
+    private enum ToiletEventSettings {
+        static let dirtyIntervalMoves = 100
+        static let cleanDeadlineMoves = 20
+        static let cleanRewardCoins = 10
+
+        static var minDirtyIntervalMoves: Int {
+            max(1, Int(round(Double(dirtyIntervalMoves) * 0.5)))
+        }
+
+        static var maxDirtyIntervalMoves: Int {
+            Int(round(Double(dirtyIntervalMoves) * 1.5))
+        }
+
+        static func randomDirtyIntervalMoves() -> Int {
+            Int.random(in: minDirtyIntervalMoves...maxDirtyIntervalMoves)
+        }
+    }
+
     var player: PlayerNode!
     var cameraNode: SKCameraNode!
 
@@ -125,6 +143,10 @@ class GameScene: SKScene {
     private let deepFryerID = "deepFryer"
     private let chipsBasketID = "chipsBasket"
     private let spigotID = "spigot"
+    private let toiletID = "toilet"
+    private let toiletCleanSpriteName = "toilet"
+    private let toiletDirtySpriteName = "toilet_dirty"
+    private let toiletBowlBrushID = "toiletBowlBrush"
     private let tennisRacketID = "tennisRacket"
     private let bedroomBatID = "bedroomBat"
     private let shovelID = "shovel"
@@ -142,6 +164,11 @@ class GameScene: SKScene {
     private var isChipsBasketCarried = false
     private var basketHasSlicedPotatoes = false
     private var chipsBasketContainsChips = false
+    private var isToiletBowlBrushCarried = false
+    private var isToiletDirty = false
+    private var toiletCleanDeadlineMove: Int?
+    private var nextToiletDirtyMove = ToiletEventSettings.randomDirtyIntervalMoves()
+    private var hasShownToiletPenaltyStartMessage = false
     private var isTennisRacketCarried = false
     private var isShovelCarried = false
     private var nextBatSpawnMove = BatEventSettings.randomSpawnIntervalMoves()
@@ -299,6 +326,9 @@ class GameScene: SKScene {
         }
         if isTennisRacketCarried, let racketNode = interactableNodesByID[tennisRacketID] {
             racketNode.position = CGPoint(x: player.position.x - 24, y: player.position.y + 10)
+        }
+        if isToiletBowlBrushCarried, let brushNode = interactableNodesByID[toiletBowlBrushID] {
+            brushNode.position = CGPoint(x: player.position.x + 24, y: player.position.y + 10)
         }
         if isShovelCarried, let shovelNode = interactableNodesByID[shovelID] {
             shovelNode.position = CGPoint(x: player.position.x + 2, y: player.position.y - 24)
@@ -545,6 +575,8 @@ class GameScene: SKScene {
             }
         }
 
+        updateToiletVisualState()
+
         updateMakerLoadedIndicator()
         updateBucketSelectedIndicator()
     }
@@ -591,6 +623,8 @@ class GameScene: SKScene {
     }
 
     private func processInteractableRespawns() {
+        processToiletEventProgress()
+
         for (interactableID, respawnMove) in respawnAtMoveByInteractableID where completedMoveCount >= respawnMove {
             interactableNodesByID[interactableID]?.isHidden = false
             if interactableConfigsByID[interactableID]?.kind == .chaseGoats {
@@ -820,6 +854,17 @@ class GameScene: SKScene {
             batStatusText = "Waiting (avg \(BatEventSettings.spawnIntervalMoves), range \(BatEventSettings.minSpawnIntervalMoves)-\(BatEventSettings.maxSpawnIntervalMoves))"
         }
 
+        let toiletStatusText: String
+        if isToiletDirty {
+            if let deadline = toiletCleanDeadlineMove {
+                toiletStatusText = "Dirty (clean in \(max(0, deadline - completedMoveCount)) moves)"
+            } else {
+                toiletStatusText = "Dirty"
+            }
+        } else {
+            toiletStatusText = "Clean (next in avg \(ToiletEventSettings.dirtyIntervalMoves), range \(ToiletEventSettings.minDirtyIntervalMoves)-\(ToiletEventSettings.maxDirtyIntervalMoves))"
+        }
+
         let statusLines = [
             "Coins: \(GameState.shared.coins)",
             "Moves: \(completedMoveCount)",
@@ -832,6 +877,9 @@ class GameScene: SKScene {
             "Basket has slices: \(basketHasSlicedPotatoes ? "Yes" : "No")",
             "Basket has chips: \(chipsBasketContainsChips ? "Yes" : "No")",
             "Fryer loaded: \(fryerHasSlicedPotatoes ? "Yes" : "No")",
+            "Toilet dirty: \(isToiletDirty ? "Yes" : "No")",
+            "Brush carried: \(isToiletBowlBrushCarried ? "Yes" : "No")",
+            "Toilet event: \(toiletStatusText)",
             "Racket carried: \(isTennisRacketCarried ? "Yes" : "No")",
             "Shovel carried: \(isShovelCarried ? "Yes" : "No")",
             "Septic trenches: \(trenchedSepticTiles.count)/\(worldConfig.septicDigTiles.count)",
@@ -945,10 +993,10 @@ class GameScene: SKScene {
             handleChipsBasketInteraction(node: node)
             return
         case .toilet:
-            showMessage("Toilet is here.")
+            handleToiletInteraction()
             return
         case .toiletBowlBrush:
-            showMessage("Toilet bowl brush is here.")
+            handleToiletBowlBrushInteraction(node: node)
             return
         case .deepFryer:
             handleDeepFryerInteraction()
@@ -1147,6 +1195,40 @@ class GameScene: SKScene {
         showMessage("Put sliced potatoes into the fryer first.")
     }
 
+    private func handleToiletBowlBrushInteraction(node: SKSpriteNode) {
+        if isToiletBowlBrushCarried {
+            isToiletBowlBrushCarried = false
+            node.position = player.position
+            showMessage("Dropped toilet bowl brush.")
+            return
+        }
+
+        isToiletBowlBrushCarried = true
+        showMessage("Picked up toilet bowl brush.")
+    }
+
+    private func handleToiletInteraction() {
+        guard isToiletDirty else {
+            showMessage("The toilet is already clean.")
+            return
+        }
+
+        guard isToiletBowlBrushCarried else {
+            showMessage("Pick up the toilet bowl brush first.")
+            return
+        }
+
+        isToiletDirty = false
+        toiletCleanDeadlineMove = nil
+        hasShownToiletPenaltyStartMessage = false
+        nextToiletDirtyMove = completedMoveCount + ToiletEventSettings.randomDirtyIntervalMoves()
+        updateToiletVisualState()
+
+        GameState.shared.addCoins(ToiletEventSettings.cleanRewardCoins)
+        updateCoinLabel()
+        showMessage("Toilet cleaned. +\(ToiletEventSettings.cleanRewardCoins) coins")
+    }
+
     private func handleTennisRacketInteraction(node: SKSpriteNode) {
         if isTennisRacketCarried {
             isTennisRacketCarried = false
@@ -1233,10 +1315,61 @@ class GameScene: SKScene {
         return true
     }
 
+    private func processToiletEventProgress() {
+        if !isToiletDirty,
+           completedMoveCount >= nextToiletDirtyMove,
+           isPlayerInBarRooms() {
+            isToiletDirty = true
+            toiletCleanDeadlineMove = completedMoveCount + ToiletEventSettings.cleanDeadlineMoves
+            hasShownToiletPenaltyStartMessage = false
+            updateToiletVisualState()
+            showMessage("The toilet became dirty! Clean it with the brush within \(ToiletEventSettings.cleanDeadlineMoves) moves.")
+        }
+
+        guard isToiletDirty,
+              let deadline = toiletCleanDeadlineMove,
+              completedMoveCount > deadline else {
+            return
+        }
+
+        if !hasShownToiletPenaltyStartMessage {
+            hasShownToiletPenaltyStartMessage = true
+            showMessage("Toilet is overdue. Losing 1 coin per move until cleaned.")
+        }
+
+        let previousCoins = GameState.shared.coins
+        let remainingCoins = GameState.shared.removeCoins(1)
+        if remainingCoins != previousCoins {
+            updateCoinLabel()
+        }
+    }
+
     private func scenePointForTile(_ tile: TileCoordinate) -> CGPoint? {
         guard let map = groundTileMap else { return nil }
         let localCenter = map.centerOfTile(atColumn: tile.column, row: tile.row)
         return map.convert(localCenter, to: self)
+    }
+
+    private func updateToiletVisualState() {
+        guard let toiletNode = interactableNodesByID[toiletID],
+              let toiletConfig = interactableConfigsByID[toiletID] else { return }
+
+        let spriteName = isToiletDirty ? toiletDirtySpriteName : toiletCleanSpriteName
+        if let image = UIImage(named: spriteName) {
+            toiletNode.texture = SKTexture(image: image)
+            toiletNode.size = toiletConfig.size
+            toiletNode.colorBlendFactor = 0
+            return
+        }
+
+        let markerTexture = makeLabeledMarkerTexture(
+            size: toiletConfig.size,
+            emoji: isToiletDirty ? "!" : "T",
+            color: isToiletDirty ? .systemBrown : .white
+        )
+        toiletNode.texture = markerTexture
+        toiletNode.size = toiletConfig.size
+        toiletNode.colorBlendFactor = 0
     }
 
     private func applyTrench(at tile: TileCoordinate) {
@@ -1302,6 +1435,12 @@ class GameScene: SKScene {
         isChipsBasketCarried = false
         basketHasSlicedPotatoes = false
         chipsBasketContainsChips = false
+        isToiletBowlBrushCarried = false
+        isToiletDirty = false
+        toiletCleanDeadlineMove = nil
+        nextToiletDirtyMove = ToiletEventSettings.randomDirtyIntervalMoves()
+        hasShownToiletPenaltyStartMessage = false
+        updateToiletVisualState()
         isTennisRacketCarried = false
         isShovelCarried = false
         nextBatSpawnMove = BatEventSettings.randomSpawnIntervalMoves()

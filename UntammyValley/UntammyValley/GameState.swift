@@ -34,6 +34,12 @@ final class GameState {
         return coins
     }
 
+    @discardableResult
+    func removeCoins(_ amount: Int) -> Int {
+        coins = max(0, coins - max(0, amount))
+        return coins
+    }
+
     func resetCoins() {
         coins = 0
     }
