@@ -925,13 +925,13 @@ class GameScene: SKScene {
            let batNode = interactableNodesByID[bedroomBatID],
            !batNode.isHidden {
             let previousCoins = GameState.shared.coins
-            let remainingCoins = GameState.shared.halveCoins()
-            let lostCoins = previousCoins - remainingCoins
+            let penalty = min(previousCoins / 2, 200)
+            let remainingCoins = GameState.shared.removeCoins(penalty)
             batNode.isHidden = true
             batDefeatDeadlineMove = nil
             nextBatSpawnMove = completedMoveCount + BatEventSettings.randomSpawnIntervalMoves()
             updateCoinLabel()
-            intervalMessages.append("Bat escaped. Exterminator called: -\(lostCoins) coins.")
+            intervalMessages.append("Bat escaped. Exterminator called: -\(penalty) coins.")
         }
 
         if batDefeatDeadlineMove == nil,

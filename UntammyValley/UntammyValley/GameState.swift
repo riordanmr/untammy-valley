@@ -28,11 +28,6 @@ final class GameState {
         return coins
     }
 
-    @discardableResult
-    func halveCoins() -> Int {
-        coins /= 2
-        return coins
-    }
 
     @discardableResult
     func removeCoins(_ amount: Int) -> Int {
