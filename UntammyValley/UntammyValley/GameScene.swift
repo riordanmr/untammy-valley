@@ -2001,7 +2001,7 @@ class GameScene: SKScene {
             : Int(playerMoveSpeed * mountedSnowmobileSpeedMultiplier)
         let movementModeText = mountedSnowmobileID == nil ? "On foot" : "Mounted"
 
-        let statusLines = [
+        var statusLines = [
             "Coins: \(GameState.shared.coins)",
             "Moves: \(completedMoveCount)",
             "Snowmobiles owned: \(ownedSnowmobileIDs.count)/6",
@@ -2025,7 +2025,9 @@ class GameScene: SKScene {
             "Bat event: \(batStatusText)",
             "Goat respawn: \(goatRespawnText)"
         ]
-
+        if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
+            statusLines.append("Version: " + version)
+        }
         renderStatusLines(statusLines)
     }
 
