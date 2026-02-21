@@ -143,6 +143,16 @@ class GameScene: SKScene {
     private var mapCloseButtonNode: SKShapeNode!
     private var mapCloseLabel: SKLabelNode!
     private var settingsDialogNode: SettingsDialogNode!
+    private var studySubjectBackdropNode: SKShapeNode!
+    private var studySubjectPanelNode: SKShapeNode!
+    private var studyBackgroundBackdropNode: SKShapeNode!
+    private var studyBackgroundPanelNode: SKShapeNode!
+    private var studyBackgroundTitleLabel: SKLabelNode!
+    private var studyBackgroundScrollCropNode: SKCropNode!
+    private var studyBackgroundScrollContentNode: SKNode!
+    private var studyBackgroundScrollTrackNode: SKShapeNode!
+    private var studyBackgroundScrollThumbNode: SKShapeNode!
+    private var studyBackgroundDoneButtonNode: SKShapeNode!
     private var snowmobileChoiceBackdropNode: SKShapeNode!
     private var snowmobileChoicePanelNode: SKShapeNode!
     private var snowmobileChoiceSubtitleLabel: SKLabelNode!
@@ -178,6 +188,7 @@ class GameScene: SKScene {
     private let chipsBasketID = "chipsBasket"
     private let spigotID = "spigot"
     private let toiletID = "toilet"
+    private let deskID = "desk"
     private let toiletCleanSpriteName = "toilet"
     private let toiletDirtySpriteName = "toilet_dirty"
     private let toiletBowlBrushID = "toiletBowlBrush"
@@ -238,6 +249,14 @@ class GameScene: SKScene {
     private var toiletDirtyTexture: SKTexture?
 
     private var isStatusWindowVisible = false
+    private var isStudySubjectPromptVisible = false
+    private var isStudyBackgroundWindowVisible = false
+    private var isDraggingStudyBackgroundScroll = false
+    private var lastStudyBackgroundDragY: CGFloat = 0
+    private var studyBackgroundScrollOffset: CGFloat = 0
+    private var studyBackgroundScrollViewportHeight: CGFloat = 0
+    private var studyBackgroundScrollContentHeight: CGFloat = 0
+    private var studyBackgroundScrollViewportWidth: CGFloat = 0
     private var isDraggingStatusScroll = false
     private var lastStatusDragY: CGFloat = 0
     private var statusScrollOffset: CGFloat = 0
@@ -447,6 +466,7 @@ class GameScene: SKScene {
         updateWarningIconContainerPosition()
         updateMapCloseButtonPosition()
         settingsDialogNode?.updateLayout(sceneSize: size)
+        updateStudyUILayouts()
         if isMapViewMode {
             clampCameraPositionToWorldBounds()
         }
@@ -472,6 +492,31 @@ class GameScene: SKScene {
                 return
             }
             _ = settingsDialogNode.handleTap(hudNodes: hudNodes)
+            return
+        }
+
+        if isStudySubjectPromptVisible {
+            if hudNodes.contains(where: { $0.name == "studySubjectUSHistItem" || $0.parent?.name == "studySubjectUSHistItem" }) {
+                openStudyBackgroundWindow(for: "US History")
+            } else if hudNodes.contains(where: { $0.name == "studySubjectEnglishItem" || $0.parent?.name == "studySubjectEnglishItem" }) {
+                openStudyBackgroundWindow(for: "English")
+            } else if hudNodes.contains(where: { $0.name == "studySubjectScienceItem" || $0.parent?.name == "studySubjectScienceItem" }) {
+                openStudyBackgroundWindow(for: "Science")
+            } else {
+                setStudySubjectPromptVisible(false)
+            }
+            return
+        }
+
+        if isStudyBackgroundWindowVisible {
+            if hudNodes.contains(where: { $0.name == "studyBackgroundDoneItem" || $0.parent?.name == "studyBackgroundDoneItem" }) {
+                setStudyBackgroundWindowVisible(false)
+                isDraggingStudyBackgroundScroll = false
+                return
+            }
+            if endStudyBackgroundDrag() {
+                return
+            }
             return
         }
 
@@ -553,6 +598,18 @@ class GameScene: SKScene {
             return
         }
 
+        if isStudySubjectPromptVisible {
+            return
+        }
+
+        if isStudyBackgroundWindowVisible {
+            if studyBackgroundScrollCropNode.contains(hudLocation) {
+                isDraggingStudyBackgroundScroll = true
+                lastStudyBackgroundDragY = hudLocation.y
+            }
+            return
+        }
+
         if isMapViewMode {
             isDraggingMap = true
             lastMapDragPoint = hudLocation
@@ -571,6 +628,17 @@ class GameScene: SKScene {
 
         if settingsDialogNode?.isVisible == true {
             _ = settingsDialogNode.drag(to: hudLocation)
+            return
+        }
+
+        if isStudySubjectPromptVisible {
+            return
+        }
+
+        if isStudyBackgroundWindowVisible, isDraggingStudyBackgroundScroll {
+            let deltaY = hudLocation.y - lastStudyBackgroundDragY
+            lastStudyBackgroundDragY = hudLocation.y
+            setStudyBackgroundScrollOffset(studyBackgroundScrollOffset + deltaY)
             return
         }
 
@@ -717,6 +785,9 @@ class GameScene: SKScene {
                 } else if config.kind == .toilet {
                     let toiletTexture = makeLabeledMarkerTexture(size: config.size, emoji: "T", color: .white)
                     node = SKSpriteNode(texture: toiletTexture, color: .clear, size: config.size)
+                } else if config.kind == .desk {
+                    let deskTexture = makeLabeledMarkerTexture(size: config.size, emoji: "D", color: .systemBrown)
+                    node = SKSpriteNode(texture: deskTexture, color: .clear, size: config.size)
                 } else if config.kind == .toiletBowlBrush {
                     let brushTexture = makeLabeledMarkerTexture(size: config.size, emoji: "B", color: .systemPink)
                     node = SKSpriteNode(texture: brushTexture, color: .clear, size: config.size)
@@ -1053,6 +1124,8 @@ class GameScene: SKScene {
         configureWarningIcons()
         configureMapCloseButton()
         configureSnowmobileChoiceDialog()
+        configureStudySubjectPrompt()
+        configureStudyBackgroundWindow()
         configureStatusWindow()
         configureSettingsDialog()
     }
@@ -1173,6 +1246,347 @@ class GameScene: SKScene {
         cancelLabel.position = .zero
         cancelLabel.zPosition = 743
         cancelButton.addChild(cancelLabel)
+    }
+
+    private func configureStudySubjectPrompt() {
+        studySubjectBackdropNode = SKShapeNode(rectOf: CGSize(width: size.width, height: size.height))
+        studySubjectBackdropNode.name = "studySubjectBackdrop"
+        studySubjectBackdropNode.fillColor = UIColor.black.withAlphaComponent(0.45)
+        studySubjectBackdropNode.strokeColor = .clear
+        studySubjectBackdropNode.position = .zero
+        studySubjectBackdropNode.zPosition = 744
+        studySubjectBackdropNode.isHidden = true
+        cameraNode.addChild(studySubjectBackdropNode)
+
+        studySubjectPanelNode = SKShapeNode(rectOf: CGSize(width: min(size.width - 100, 460), height: 320), cornerRadius: 14)
+        studySubjectPanelNode.name = "studySubjectPanel"
+        studySubjectPanelNode.fillColor = UIColor(white: 0.14, alpha: 0.97)
+        studySubjectPanelNode.strokeColor = .white
+        studySubjectPanelNode.lineWidth = 2
+        studySubjectPanelNode.position = .zero
+        studySubjectPanelNode.zPosition = 745
+        studySubjectPanelNode.isHidden = true
+        cameraNode.addChild(studySubjectPanelNode)
+
+        let titleLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        titleLabel.text = "Study Subject"
+        titleLabel.fontSize = 30
+        titleLabel.fontColor = .white
+        titleLabel.horizontalAlignmentMode = .center
+        titleLabel.verticalAlignmentMode = .center
+        titleLabel.position = CGPoint(x: 0, y: 126)
+        titleLabel.zPosition = 746
+        studySubjectPanelNode.addChild(titleLabel)
+
+        func makeSubjectButton(name: String, text: String, y: CGFloat) -> SKShapeNode {
+            let button = SKShapeNode(rectOf: CGSize(width: 280, height: 46), cornerRadius: 8)
+            button.name = name
+            button.fillColor = UIColor.systemBlue.withAlphaComponent(0.9)
+            button.strokeColor = .white
+            button.lineWidth = 1.5
+            button.position = CGPoint(x: 0, y: y)
+            button.zPosition = 746
+
+            let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
+            label.name = name
+            label.text = text
+            label.fontSize = 21
+            label.fontColor = .white
+            label.horizontalAlignmentMode = .center
+            label.verticalAlignmentMode = .center
+            label.position = .zero
+            label.zPosition = 747
+            button.addChild(label)
+            return button
+        }
+
+        studySubjectPanelNode.addChild(makeSubjectButton(name: "studySubjectUSHistItem", text: "US History", y: 58))
+        studySubjectPanelNode.addChild(makeSubjectButton(name: "studySubjectEnglishItem", text: "English", y: 2))
+        studySubjectPanelNode.addChild(makeSubjectButton(name: "studySubjectScienceItem", text: "Science", y: -54))
+
+        let cancelButton = SKShapeNode(rectOf: CGSize(width: 180, height: 42), cornerRadius: 8)
+        cancelButton.name = "studySubjectCancelItem"
+        cancelButton.fillColor = UIColor.darkGray.withAlphaComponent(0.9)
+        cancelButton.strokeColor = .white
+        cancelButton.lineWidth = 1.5
+        cancelButton.position = CGPoint(x: 0, y: -120)
+        cancelButton.zPosition = 746
+        studySubjectPanelNode.addChild(cancelButton)
+
+        let cancelLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        cancelLabel.name = "studySubjectCancelItem"
+        cancelLabel.text = "Cancel"
+        cancelLabel.fontSize = 20
+        cancelLabel.fontColor = .white
+        cancelLabel.horizontalAlignmentMode = .center
+        cancelLabel.verticalAlignmentMode = .center
+        cancelLabel.position = .zero
+        cancelLabel.zPosition = 747
+        cancelButton.addChild(cancelLabel)
+    }
+
+    private func configureStudyBackgroundWindow() {
+        studyBackgroundBackdropNode = SKShapeNode(rectOf: CGSize(width: size.width, height: size.height))
+        studyBackgroundBackdropNode.name = "studyBackgroundBackdrop"
+        studyBackgroundBackdropNode.fillColor = UIColor.black.withAlphaComponent(0.45)
+        studyBackgroundBackdropNode.strokeColor = .clear
+        studyBackgroundBackdropNode.position = .zero
+        studyBackgroundBackdropNode.zPosition = 746
+        studyBackgroundBackdropNode.isHidden = true
+        cameraNode.addChild(studyBackgroundBackdropNode)
+
+        // Make the study window taller: use more of the screen height
+        studyBackgroundPanelNode = SKShapeNode(rectOf: CGSize(width: min(size.width - 80, 760), height: min(size.height * 0.85, 760)), cornerRadius: 14)
+        studyBackgroundPanelNode.name = "studyBackgroundPanel"
+        studyBackgroundPanelNode.fillColor = UIColor(white: 0.10, alpha: 0.97)
+        studyBackgroundPanelNode.strokeColor = .white
+        studyBackgroundPanelNode.lineWidth = 2
+        studyBackgroundPanelNode.position = .zero
+        studyBackgroundPanelNode.zPosition = 747
+        studyBackgroundPanelNode.isHidden = true
+        cameraNode.addChild(studyBackgroundPanelNode)
+
+        studyBackgroundTitleLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        studyBackgroundTitleLabel.text = ""
+        studyBackgroundTitleLabel.fontSize = 30
+        studyBackgroundTitleLabel.fontColor = .white
+        studyBackgroundTitleLabel.horizontalAlignmentMode = .center
+        studyBackgroundTitleLabel.verticalAlignmentMode = .center
+        studyBackgroundTitleLabel.zPosition = 748
+        studyBackgroundPanelNode.addChild(studyBackgroundTitleLabel)
+
+        studyBackgroundScrollCropNode = SKCropNode()
+        studyBackgroundScrollCropNode.zPosition = 748
+        studyBackgroundPanelNode.addChild(studyBackgroundScrollCropNode)
+
+        let scrollMask = SKSpriteNode(color: .white, size: CGSize(width: 100, height: 100))
+        scrollMask.position = .zero
+        studyBackgroundScrollCropNode.maskNode = scrollMask
+
+        studyBackgroundScrollContentNode = SKNode()
+        studyBackgroundScrollCropNode.addChild(studyBackgroundScrollContentNode)
+
+        studyBackgroundScrollTrackNode = SKShapeNode(rectOf: CGSize(width: 6, height: 100), cornerRadius: 3)
+        studyBackgroundScrollTrackNode.fillColor = UIColor.white.withAlphaComponent(0.2)
+        studyBackgroundScrollTrackNode.strokeColor = UIColor.white.withAlphaComponent(0.4)
+        studyBackgroundScrollTrackNode.lineWidth = 1
+        studyBackgroundScrollTrackNode.zPosition = 748
+        studyBackgroundPanelNode.addChild(studyBackgroundScrollTrackNode)
+
+        studyBackgroundScrollThumbNode = SKShapeNode(rectOf: CGSize(width: 6, height: 44), cornerRadius: 3)
+        studyBackgroundScrollThumbNode.fillColor = UIColor.white.withAlphaComponent(0.85)
+        studyBackgroundScrollThumbNode.strokeColor = .white
+        studyBackgroundScrollThumbNode.lineWidth = 0.5
+        studyBackgroundScrollThumbNode.zPosition = 749
+        studyBackgroundPanelNode.addChild(studyBackgroundScrollThumbNode)
+
+        studyBackgroundDoneButtonNode = SKShapeNode(rectOf: CGSize(width: 140, height: 44), cornerRadius: 8)
+        studyBackgroundDoneButtonNode.name = "studyBackgroundDoneItem"
+        studyBackgroundDoneButtonNode.fillColor = UIColor.systemBlue.withAlphaComponent(0.9)
+        studyBackgroundDoneButtonNode.strokeColor = .white
+        studyBackgroundDoneButtonNode.lineWidth = 1.5
+        studyBackgroundDoneButtonNode.zPosition = 748
+        studyBackgroundPanelNode.addChild(studyBackgroundDoneButtonNode)
+
+        let doneLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        doneLabel.name = "studyBackgroundDoneItem"
+        doneLabel.text = "Done"
+        doneLabel.fontSize = 22
+        doneLabel.fontColor = .white
+        doneLabel.horizontalAlignmentMode = .center
+        doneLabel.verticalAlignmentMode = .center
+        doneLabel.position = .zero
+        doneLabel.zPosition = 749
+        studyBackgroundDoneButtonNode.addChild(doneLabel)
+
+        updateStudyUILayouts()
+    }
+
+    private func updateStudyUILayouts() {
+        guard studySubjectBackdropNode != nil,
+              studySubjectPanelNode != nil,
+              studyBackgroundBackdropNode != nil,
+              studyBackgroundPanelNode != nil,
+              studyBackgroundTitleLabel != nil,
+              studyBackgroundScrollCropNode != nil,
+              studyBackgroundScrollTrackNode != nil,
+              studyBackgroundScrollThumbNode != nil,
+                            studyBackgroundDoneButtonNode != nil,
+                            let scrollMask = studyBackgroundScrollCropNode.maskNode as? SKSpriteNode else {
+            return
+        }
+
+        studySubjectBackdropNode.path = CGPath(rect: CGRect(x: -size.width / 2, y: -size.height / 2, width: size.width, height: size.height), transform: nil)
+        let subjectPanelSize = CGSize(width: min(size.width - 100, 460), height: 320)
+        studySubjectPanelNode.path = CGPath(roundedRect: CGRect(x: -subjectPanelSize.width / 2, y: -subjectPanelSize.height / 2, width: subjectPanelSize.width, height: subjectPanelSize.height), cornerWidth: 14, cornerHeight: 14, transform: nil)
+
+        studyBackgroundBackdropNode.path = CGPath(rect: CGRect(x: -size.width / 2, y: -size.height / 2, width: size.width, height: size.height), transform: nil)
+        // Make the study window taller: use more of the screen height
+        let panelSize = CGSize(width: min(size.width - 80, 760), height: min(size.height * 0.85, 760))
+        studyBackgroundPanelNode.path = CGPath(roundedRect: CGRect(x: -panelSize.width / 2, y: -panelSize.height / 2, width: panelSize.width, height: panelSize.height), cornerWidth: 14, cornerHeight: 14, transform: nil)
+
+        studyBackgroundTitleLabel.position = CGPoint(x: 0, y: panelSize.height / 2 + 1000)
+
+        studyBackgroundScrollViewportWidth = panelSize.width - 84
+        studyBackgroundScrollViewportHeight = panelSize.height - 96
+
+        studyBackgroundScrollCropNode.position = CGPoint(x: -10, y: 10)
+        scrollMask.size = CGSize(width: studyBackgroundScrollViewportWidth, height: studyBackgroundScrollViewportHeight)
+
+        let trackSize = CGSize(width: 6, height: studyBackgroundScrollViewportHeight)
+        studyBackgroundScrollTrackNode.path = CGPath(roundedRect: CGRect(x: -trackSize.width / 2, y: -trackSize.height / 2, width: trackSize.width, height: trackSize.height), cornerWidth: 3, cornerHeight: 3, transform: nil)
+        studyBackgroundScrollTrackNode.position = CGPoint(x: studyBackgroundScrollViewportWidth / 2 + 12 + studyBackgroundScrollCropNode.position.x, y: studyBackgroundScrollCropNode.position.y)
+
+        studyBackgroundDoneButtonNode.position = CGPoint(x: 0, y: -panelSize.height / 2 + 34)
+
+        setStudyBackgroundScrollOffset(studyBackgroundScrollOffset)
+    }
+
+    private func setStudySubjectPromptVisible(_ visible: Bool) {
+        isStudySubjectPromptVisible = visible
+        studySubjectBackdropNode.isHidden = !visible
+        studySubjectPanelNode.isHidden = !visible
+    }
+
+    private func setStudyBackgroundWindowVisible(_ visible: Bool) {
+        isStudyBackgroundWindowVisible = visible
+        if !visible {
+            isDraggingStudyBackgroundScroll = false
+        }
+        studyBackgroundBackdropNode.isHidden = !visible
+        studyBackgroundPanelNode.isHidden = !visible
+    }
+
+    private func endStudyBackgroundDrag() -> Bool {
+        if isDraggingStudyBackgroundScroll {
+            isDraggingStudyBackgroundScroll = false
+            return true
+        }
+        return false
+    }
+
+    private func openStudyBackgroundWindow(for subject: String) {
+        setStudySubjectPromptVisible(false)
+
+        let matchingBackgrounds = quizQuestions
+            .filter { $0.subject == subject }
+            .compactMap { $0.background?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        renderStudyBackgroundParagraphs(matchingBackgrounds)
+        setStudyBackgroundWindowVisible(true)
+    }
+
+    private func renderStudyBackgroundParagraphs(_ paragraphs: [String]) {
+        studyBackgroundScrollContentNode.removeAllChildren()
+
+        let fontName = "AvenirNext-Medium"
+        let fontSize: CGFloat = 21
+        let lineHeight: CGFloat = 27
+        let topPadding: CGFloat = 8
+        let bottomPadding: CGFloat = 8
+        let maxCharsPerLine = max(40, Int(studyBackgroundScrollViewportWidth / 11))
+        let textX = -studyBackgroundScrollViewportWidth / 2 + 8
+
+        var renderedLines: [String] = []
+        if paragraphs.isEmpty {
+            renderedLines.append("No study notes available for this subject.")
+        } else {
+            for (index, paragraph) in paragraphs.enumerated() {
+                renderedLines.append(contentsOf: wrappedLines(paragraph, maxCharacters: maxCharsPerLine))
+                if index < paragraphs.count - 1 {
+                    renderedLines.append("")
+                }
+            }
+        }
+
+        let contentHeight = topPadding + bottomPadding + CGFloat(renderedLines.count) * lineHeight
+        studyBackgroundScrollContentHeight = max(contentHeight, studyBackgroundScrollViewportHeight)
+
+        let topY = studyBackgroundScrollContentHeight / 2 - topPadding
+        for (index, lineText) in renderedLines.enumerated() {
+            let lineNode = SKLabelNode(fontNamed: fontName)
+            lineNode.text = lineText
+            lineNode.fontSize = fontSize
+            lineNode.fontColor = .white
+            lineNode.horizontalAlignmentMode = .left
+            lineNode.verticalAlignmentMode = .top
+            lineNode.position = CGPoint(x: textX, y: topY - CGFloat(index) * lineHeight)
+            lineNode.zPosition = 748
+            studyBackgroundScrollContentNode.addChild(lineNode)
+        }
+
+        studyBackgroundScrollOffset = 0
+        setStudyBackgroundScrollOffset(0)
+        updateStudyBackgroundScrollIndicator()
+    }
+
+    private func wrappedLines(_ text: String, maxCharacters: Int) -> [String] {
+        guard maxCharacters > 0 else { return [text] }
+        let words = text.split(separator: " ")
+        guard !words.isEmpty else { return [""] }
+
+        var lines: [String] = []
+        var currentLine = ""
+
+        for wordPart in words {
+            let word = String(wordPart)
+            if currentLine.isEmpty {
+                currentLine = word
+                continue
+            }
+
+            let candidate = currentLine + " " + word
+            if candidate.count <= maxCharacters {
+                currentLine = candidate
+            } else {
+                lines.append(currentLine)
+                currentLine = word
+            }
+        }
+
+        if !currentLine.isEmpty {
+            lines.append(currentLine)
+        }
+
+        return lines
+    }
+
+    private func setStudyBackgroundScrollOffset(_ offset: CGFloat) {
+        let maxOffset = max(0, studyBackgroundScrollContentHeight - studyBackgroundScrollViewportHeight)
+        studyBackgroundScrollOffset = min(max(0, offset), maxOffset)
+        studyBackgroundScrollContentNode.position = CGPoint(
+            x: 0,
+            y: (studyBackgroundScrollViewportHeight - studyBackgroundScrollContentHeight) / 2 + studyBackgroundScrollOffset
+        )
+        updateStudyBackgroundScrollIndicator()
+    }
+
+    private func updateStudyBackgroundScrollIndicator() {
+        let maxOffset = max(0, studyBackgroundScrollContentHeight - studyBackgroundScrollViewportHeight)
+        guard maxOffset > 0 else {
+            studyBackgroundScrollTrackNode.isHidden = true
+            studyBackgroundScrollThumbNode.isHidden = true
+            return
+        }
+
+        studyBackgroundScrollTrackNode.isHidden = false
+        studyBackgroundScrollThumbNode.isHidden = false
+
+        let visibleRatio = studyBackgroundScrollViewportHeight / studyBackgroundScrollContentHeight
+        let thumbHeight = max(30, studyBackgroundScrollViewportHeight * visibleRatio)
+        studyBackgroundScrollThumbNode.path = CGPath(
+            roundedRect: CGRect(x: -3, y: -thumbHeight / 2, width: 6, height: thumbHeight),
+            cornerWidth: 3,
+            cornerHeight: 3,
+            transform: nil
+        )
+
+        let trackTopY = studyBackgroundScrollTrackNode.position.y + studyBackgroundScrollViewportHeight / 2
+        let travelRange = studyBackgroundScrollViewportHeight - thumbHeight
+        let progress = studyBackgroundScrollOffset / maxOffset
+        let thumbCenterY = trackTopY - thumbHeight / 2 - (travelRange * progress)
+        studyBackgroundScrollThumbNode.position = CGPoint(x: studyBackgroundScrollTrackNode.position.x, y: thumbCenterY)
     }
 
     private func setSnowmobileChoiceDialogVisible(_ visible: Bool, snowmobileID: String? = nil) {
@@ -1728,6 +2142,9 @@ class GameScene: SKScene {
         case .toilet:
             handleToiletInteraction()
             return
+        case .desk:
+            handleDeskInteraction()
+            return
         case .toiletBowlBrush:
             handleToiletBowlBrushInteraction(node: node)
             return
@@ -1758,6 +2175,13 @@ class GameScene: SKScene {
             showMessage("Chased goats off cars! +\(goatChaseRewardCoins) coins")
             return
         }
+    }
+
+    private func handleDeskInteraction() {
+        setMenuVisible(false)
+        setStatusWindowVisible(false)
+        setStudyBackgroundWindowVisible(false)
+        setStudySubjectPromptVisible(true)
     }
 
     private func handleBucketInteraction(node: SKSpriteNode) {

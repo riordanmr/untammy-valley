@@ -30,6 +30,10 @@ enum WorldLoader {
             scaledSize(width: baseObjectSize, height: baseObjectSize)
         }
 
+        static var deskSize: CGSize {
+            CGSize(width: 128, height: 64)
+        }
+
         static var chipMakerSize: CGSize {
             scaledSize(width: baseObjectSize * 1.25, height: baseObjectSize * 1.25)
         }
@@ -154,6 +158,10 @@ enum WorldLoader {
 
         static var bedroomBatTile: TileCoordinate {
             TileCoordinate(column: minColumn + 5, row: minRow + 8)
+        }
+
+        static var deskTile: TileCoordinate {
+            TileCoordinate(column: bedroomDiningWallColumn - 2, row: maxRowExclusive - 2)
         }
 
         static var shovelTile: TileCoordinate {
@@ -488,6 +496,16 @@ enum WorldLoader {
             interactionRange: 95
         )
 
+        let desk = InteractableConfig(
+            id: "desk",
+            kind: .desk,
+            spriteName: "desk",
+            tile: BarLayout.deskTile,
+            size: BarLayout.deskSize,
+            rewardCoins: 0,
+            interactionRange: 120
+        )
+
         let bedroomBat = InteractableConfig(
             id: "bedroomBat",
             kind: .bedroomBat,
@@ -550,7 +568,7 @@ enum WorldLoader {
             roomLabels: roomLabels,
             spawnTile: BarLayout.spawnTile,
             decorations: [carrollSign, cramerSign],
-            interactables: [potatoPeeler, deepFryer, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, bedroomBat, shovel, goatChaseSpot] + snowmobiles
+            interactables: [potatoPeeler, deepFryer, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, desk, bedroomBat, shovel, goatChaseSpot] + snowmobiles
         )
     }
 }
