@@ -78,15 +78,20 @@ class GameScene: SKScene {
     }
 
     private enum BatEventSettings {
-        static let spawnIntervalMoves = 84
-        static let defeatDeadlineMoves = 22
+        static var spawnIntervalMoves: Int {
+            (minSpawnIntervalMoves + maxSpawnIntervalMoves) / 2
+        }
+
+        static var defeatDeadlineMoves: Int {
+            UTSettings.shared.counts.batDefeatDeadlineMoves
+        }
 
         static var minSpawnIntervalMoves: Int {
-            max(1, Int(round(Double(spawnIntervalMoves) * 0.5)))
+            UTSettings.shared.counts.batSpawnMinMoves
         }
 
         static var maxSpawnIntervalMoves: Int {
-            Int(round(Double(spawnIntervalMoves) * 1.5))
+            UTSettings.shared.counts.batSpawnMaxMoves
         }
 
         static func randomSpawnIntervalMoves() -> Int {
@@ -95,9 +100,21 @@ class GameScene: SKScene {
     }
 
     private enum ToiletEventSettings {
-        static let dirtyIntervalMoves = 100
-        static let cleanDeadlineMoves = 20
-        static let cleanRewardCoins = 10
+        static var dirtyIntervalMoves: Int {
+            UTSettings.shared.counts.toiletDirtyIntervalMoves
+        }
+
+        static var cleanDeadlineMoves: Int {
+            UTSettings.shared.counts.toiletCleanDeadlineMoves
+        }
+
+        static var cleanRewardCoins: Int {
+            UTSettings.shared.counts.toiletCleanRewardCoins
+        }
+
+        static var overduePenaltyCoinsPerMove: Int {
+            UTSettings.shared.counts.toiletOverduePenaltyCoinsPerMove
+        }
 
         static var minDirtyIntervalMoves: Int {
             max(1, Int(round(Double(dirtyIntervalMoves) * 0.5)))
@@ -125,8 +142,10 @@ class GameScene: SKScene {
     private var menuMapLabel: SKLabelNode!
     private var mapCloseButtonNode: SKShapeNode!
     private var mapCloseLabel: SKLabelNode!
+    private var settingsDialogNode: SettingsDialogNode!
     private var snowmobileChoiceBackdropNode: SKShapeNode!
     private var snowmobileChoicePanelNode: SKShapeNode!
+    private var snowmobileChoiceSubtitleLabel: SKLabelNode!
     private var pendingLotSnowmobileID: String?
     private var warningIconContainerNode: SKNode!
     private var warningBatIconNode: SKSpriteNode!
@@ -165,10 +184,31 @@ class GameScene: SKScene {
     private let tennisRacketID = "tennisRacket"
     private let bedroomBatID = "bedroomBat"
     private let shovelID = "shovel"
-    private let snowmobilePriceCoins = 100
     private let bucketCapacity = 5
-    private let coinsPerTrenchTile = 1
-    private let septicCompletionBonusCoins = 100
+
+    private var snowmobilePriceCoins: Int {
+        UTSettings.shared.counts.snowmobilePriceCoins
+    }
+
+    private var coinsPerTrenchTile: Int {
+        UTSettings.shared.counts.septicTrenchTileRewardCoins
+    }
+
+    private var septicCompletionBonusCoins: Int {
+        UTSettings.shared.counts.septicCompletionBonusCoins
+    }
+
+    private var potatoChipRewardPerPotato: Int {
+        UTSettings.shared.counts.potatoChipRewardPerPotato
+    }
+
+    private var goatChaseRewardCoins: Int {
+        UTSettings.shared.counts.goatChaseRewardCoins
+    }
+
+    private var batEscapePenaltyMaxCoins: Int {
+        UTSettings.shared.counts.batEscapePenaltyMaxCoins
+    }
 
     private var isBucketCarried = false
     private var bucketPotatoCount = 0
@@ -406,6 +446,7 @@ class GameScene: SKScene {
         super.didChangeSize(oldSize)
         updateWarningIconContainerPosition()
         updateMapCloseButtonPosition()
+        settingsDialogNode?.updateLayout(sceneSize: size)
         if isMapViewMode {
             clampCameraPositionToWorldBounds()
         }
@@ -423,6 +464,14 @@ class GameScene: SKScene {
             if hudNodes.contains(where: { $0.name == "mapCloseItem" || $0.parent?.name == "mapCloseItem" }) {
                 setMapViewMode(false)
             }
+            return
+        }
+
+        if settingsDialogNode?.isVisible == true {
+            if settingsDialogNode.endDrag() {
+                return
+            }
+            _ = settingsDialogNode.handleTap(hudNodes: hudNodes)
             return
         }
 
@@ -470,6 +519,11 @@ class GameScene: SKScene {
             setMenuVisible(false)
             return
         }
+        if hudNodes.contains(where: { $0.name == "menuSettingsItem" || $0.parent?.name == "menuSettingsItem" }) {
+            settingsDialogNode.setVisible(true)
+            setMenuVisible(false)
+            return
+        }
         if !menuPanelNode.isHidden {
             setMenuVisible(false)
             return
@@ -492,13 +546,19 @@ class GameScene: SKScene {
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first else { return }
+        let hudLocation = touch.location(in: cameraNode)
+
+        if settingsDialogNode?.isVisible == true {
+            settingsDialogNode.beginDrag(at: hudLocation)
+            return
+        }
+
         if isMapViewMode {
             isDraggingMap = true
-            lastMapDragPoint = touch.location(in: cameraNode)
+            lastMapDragPoint = hudLocation
             return
         }
         guard isStatusWindowVisible else { return }
-        let hudLocation = touch.location(in: cameraNode)
         if statusScrollCropNode.contains(hudLocation) {
             isDraggingStatusScroll = true
             lastStatusDragY = hudLocation.y
@@ -507,8 +567,14 @@ class GameScene: SKScene {
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first else { return }
+        let hudLocation = touch.location(in: cameraNode)
+
+        if settingsDialogNode?.isVisible == true {
+            _ = settingsDialogNode.drag(to: hudLocation)
+            return
+        }
+
         if isMapViewMode, isDraggingMap {
-            let hudLocation = touch.location(in: cameraNode)
             let deltaX = hudLocation.x - lastMapDragPoint.x
             let deltaY = hudLocation.y - lastMapDragPoint.y
             lastMapDragPoint = hudLocation
@@ -522,7 +588,6 @@ class GameScene: SKScene {
         }
 
         guard isStatusWindowVisible, isDraggingStatusScroll else { return }
-        let hudLocation = touch.location(in: cameraNode)
         let deltaY = hudLocation.y - lastStatusDragY
         lastStatusDragY = hudLocation.y
         setStatusScrollOffset(statusScrollOffset + deltaY)
@@ -925,8 +990,8 @@ class GameScene: SKScene {
            let batNode = interactableNodesByID[bedroomBatID],
            !batNode.isHidden {
             let previousCoins = GameState.shared.coins
-            let penalty = min(previousCoins / 2, 200)
-            let remainingCoins = GameState.shared.removeCoins(penalty)
+            let penalty = min(previousCoins / 2, batEscapePenaltyMaxCoins)
+            _ = GameState.shared.removeCoins(penalty)
             batNode.isHidden = true
             batDefeatDeadlineMove = nil
             nextBatSpawnMove = completedMoveCount + BatEventSettings.randomSpawnIntervalMoves()
@@ -989,6 +1054,23 @@ class GameScene: SKScene {
         configureMapCloseButton()
         configureSnowmobileChoiceDialog()
         configureStatusWindow()
+        configureSettingsDialog()
+    }
+
+    private func configureSettingsDialog() {
+        settingsDialogNode = SettingsDialogNode(sceneSize: size)
+        settingsDialogNode.zPosition = 760
+        settingsDialogNode.onClose = { [weak self] in
+            self?.refreshSettingsDependentUI()
+        }
+        cameraNode.addChild(settingsDialogNode)
+    }
+
+    private func refreshSettingsDependentUI() {
+        snowmobileChoiceSubtitleLabel?.text = "Sell returns \(snowmobilePriceCoins) coins"
+        if isStatusWindowVisible {
+            updateStatusWindowBody()
+        }
     }
 
     private func configureSnowmobileChoiceDialog() {
@@ -1022,15 +1104,15 @@ class GameScene: SKScene {
         titleLabel.zPosition = 742
         snowmobileChoicePanelNode.addChild(titleLabel)
 
-        let subtitleLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
-        subtitleLabel.text = "Sell returns \(snowmobilePriceCoins) coins"
-        subtitleLabel.fontSize = 19
-        subtitleLabel.fontColor = UIColor.white.withAlphaComponent(0.9)
-        subtitleLabel.horizontalAlignmentMode = .center
-        subtitleLabel.verticalAlignmentMode = .center
-        subtitleLabel.position = CGPoint(x: 0, y: 74)
-        subtitleLabel.zPosition = 742
-        snowmobileChoicePanelNode.addChild(subtitleLabel)
+        snowmobileChoiceSubtitleLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
+        snowmobileChoiceSubtitleLabel.text = "Sell returns \(snowmobilePriceCoins) coins"
+        snowmobileChoiceSubtitleLabel.fontSize = 19
+        snowmobileChoiceSubtitleLabel.fontColor = UIColor.white.withAlphaComponent(0.9)
+        snowmobileChoiceSubtitleLabel.horizontalAlignmentMode = .center
+        snowmobileChoiceSubtitleLabel.verticalAlignmentMode = .center
+        snowmobileChoiceSubtitleLabel.position = CGPoint(x: 0, y: 74)
+        snowmobileChoiceSubtitleLabel.zPosition = 742
+        snowmobileChoicePanelNode.addChild(snowmobileChoiceSubtitleLabel)
 
         let mountButton = SKShapeNode(rectOf: CGSize(width: 180, height: 52), cornerRadius: 8)
         mountButton.name = "snowmobileChoiceMountItem"
@@ -1096,6 +1178,7 @@ class GameScene: SKScene {
     private func setSnowmobileChoiceDialogVisible(_ visible: Bool, snowmobileID: String? = nil) {
         if visible {
             pendingLotSnowmobileID = snowmobileID
+            snowmobileChoiceSubtitleLabel?.text = "Sell returns \(snowmobilePriceCoins) coins"
         } else {
             pendingLotSnowmobileID = nil
         }
@@ -1276,7 +1359,7 @@ class GameScene: SKScene {
 
         // Slightly narrower panel so it stays on-screen; compute X so panel sits left of the hamburger button
         let menuPanelWidth: CGFloat = 190
-        let menuPanelHeight: CGFloat = 220
+        let menuPanelHeight: CGFloat = 264
         menuPanelNode = SKShapeNode(rectOf: CGSize(width: menuPanelWidth, height: menuPanelHeight), cornerRadius: 9)
         menuPanelNode.name = "menuPanel"
         menuPanelNode.fillColor = UIColor.black.withAlphaComponent(0.6)
@@ -1323,16 +1406,19 @@ class GameScene: SKScene {
         }
 
         // Create menu buttons (invisible targets) and add them to the panel
-        let statusButton = makeMenuButton(name: "menuStatusItem", labelText: "Status", y: 66)
+        let statusButton = makeMenuButton(name: "menuStatusItem", labelText: "Status", y: 88)
         menuPanelNode.addChild(statusButton)
 
-        let resetButton = makeMenuButton(name: "menuResetItem", labelText: "Reset", y: 22)
+        let settingsButton = makeMenuButton(name: "menuSettingsItem", labelText: "Settings", y: 44)
+        menuPanelNode.addChild(settingsButton)
+
+        let resetButton = makeMenuButton(name: "menuResetItem", labelText: "Reset", y: 0)
         menuPanelNode.addChild(resetButton)
 
-        let move20Button = makeMenuButton(name: "menuMove20Item", labelText: "Move 20", y: -22)
+        let move20Button = makeMenuButton(name: "menuMove20Item", labelText: "Move 20", y: -44)
         menuPanelNode.addChild(move20Button)
 
-        let mapButton = makeMenuButton(name: "menuMapItem", labelText: "Map", y: -66)
+        let mapButton = makeMenuButton(name: "menuMapItem", labelText: "Map", y: -88)
         menuPanelNode.addChild(mapButton)
     }
 
@@ -1665,11 +1751,11 @@ class GameScene: SKScene {
             return
         case .chaseGoats:
             node.isHidden = true
-            let respawnAfterMoves = Int.random(in: 10...20)
+            let respawnAfterMoves = Int.random(in: UTSettings.shared.counts.goatRespawnMinMoves...UTSettings.shared.counts.goatRespawnMaxMoves)
             respawnAtMoveByInteractableID[interactableID] = completedMoveCount + respawnAfterMoves
-            GameState.shared.addCoins(config.rewardCoins)
+            GameState.shared.addCoins(goatChaseRewardCoins)
             updateCoinLabel()
-            showMessage("Chased goats off cars! +\(config.rewardCoins) coins")
+            showMessage("Chased goats off cars! +\(goatChaseRewardCoins) coins")
             return
         }
     }
@@ -1828,8 +1914,7 @@ class GameScene: SKScene {
             let friedPotatoCount = fryerSlicedPotatoCount
             fryerSlicedPotatoCount = 0
             chipsBasketContainsChips = true
-            let rewardPerPotato = interactableConfigsByID[potatoPeelerID]?.rewardCoins ?? 5
-            let rewardCoins = rewardPerPotato * friedPotatoCount
+            let rewardCoins = potatoChipRewardPerPotato * friedPotatoCount
             GameState.shared.addCoins(rewardCoins)
             updateCoinLabel()
             showMessage("Fried chips from \(friedPotatoCount) potato\(friedPotatoCount == 1 ? "" : "es") returned to basket. +\(rewardCoins) coins")
@@ -2071,13 +2156,16 @@ class GameScene: SKScene {
 
         if !hasShownToiletPenaltyStartMessage {
             hasShownToiletPenaltyStartMessage = true
-            messages.append("Toilet is overdue. Losing 1 coin per move until cleaned.")
+            messages.append("Toilet is overdue. Losing \(ToiletEventSettings.overduePenaltyCoinsPerMove) coin\(ToiletEventSettings.overduePenaltyCoinsPerMove == 1 ? "" : "s") per move until cleaned.")
         }
 
-        let previousCoins = GameState.shared.coins
-        let remainingCoins = GameState.shared.removeCoins(1)
-        if remainingCoins != previousCoins {
-            updateCoinLabel()
+        let penalty = ToiletEventSettings.overduePenaltyCoinsPerMove
+        if penalty > 0 {
+            let previousCoins = GameState.shared.coins
+            let remainingCoins = GameState.shared.removeCoins(penalty)
+            if remainingCoins != previousCoins {
+                updateCoinLabel()
+            }
         }
     }
 
