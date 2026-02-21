@@ -99,6 +99,11 @@ enum WorldLoader {
             )
         }
 
+        /// Sign below the bar, between dining room and kitchen.
+        static var cramerSignTile: TileCoordinate {
+            TileCoordinate(column: diningKitchenWallColumn, row: minRow - 3)
+        }
+
         static var snowmobileTiles: [TileCoordinate] {
             [
                 TileCoordinate(column: carrollSignTile.column + 5, row: carrollSignTile.row + 2),
@@ -525,6 +530,16 @@ enum WorldLoader {
             blocksMovement: false
         )
 
+        let cramerSign = DecorationConfig(
+            id: "cramersLittleValleySign",
+            kind: .largeTextSign,
+            spriteName: "cramers_little_valley_sign",
+            labelText: "Cramer's Little Valley",
+            tile: BarLayout.cramerSignTile,
+            size: BarLayout.largeSignSize,
+            blocksMovement: false
+        )
+
         return WorldConfig(
             wallTiles: wallTiles,
             defaultFloorTileName: "floor_outdoor",
@@ -534,7 +549,7 @@ enum WorldLoader {
             septicDigTiles: BarLayout.septicDigTiles,
             roomLabels: roomLabels,
             spawnTile: BarLayout.spawnTile,
-            decorations: [carrollSign],
+            decorations: [carrollSign, cramerSign],
             interactables: [potatoPeeler, deepFryer, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, bedroomBat, shovel, goatChaseSpot] + snowmobiles
         )
     }
