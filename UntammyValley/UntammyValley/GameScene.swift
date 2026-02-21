@@ -1274,59 +1274,66 @@ class GameScene: SKScene {
             menuButtonNode.addChild(line)
         }
 
-        menuPanelNode = SKShapeNode(rectOf: CGSize(width: 170, height: 168), cornerRadius: 9)
+        // Slightly narrower panel so it stays on-screen; compute X so panel sits left of the hamburger button
+        let menuPanelWidth: CGFloat = 190
+        let menuPanelHeight: CGFloat = 220
+        menuPanelNode = SKShapeNode(rectOf: CGSize(width: menuPanelWidth, height: menuPanelHeight), cornerRadius: 9)
         menuPanelNode.name = "menuPanel"
         menuPanelNode.fillColor = UIColor.black.withAlphaComponent(0.6)
         menuPanelNode.strokeColor = .white
         menuPanelNode.lineWidth = 1.5
-        menuPanelNode.position = CGPoint(x: rightX - 85, y: topY - 133)
+        // Compute the hamburger button X (same as menuButtonNode.position.x above)
+        let menuButtonX = rightX - 18
+        // Place the panel so its right edge is 8pt left of the hamburger button (safe gap)
+        var panelCenterX = (menuButtonX - 8) - (menuPanelWidth / 2)
+        // Clamp to screen bounds (prevent panel from moving off the left/right edges)
+        let maxRightCenterX = (size.width / 2) - 8 - (menuPanelWidth / 2)
+        let minLeftCenterX = (-size.width / 2) + 8 + (menuPanelWidth / 2)
+        panelCenterX = min(panelCenterX, maxRightCenterX)
+        panelCenterX = max(panelCenterX, minLeftCenterX)
+
+        menuPanelNode.position = CGPoint(x: panelCenterX, y: topY - 133)
         menuPanelNode.zPosition = 520
         menuPanelNode.isHidden = true
         cameraNode.addChild(menuPanelNode)
 
-        menuStatusLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        menuStatusLabel.name = "menuStatusItem"
-        menuStatusLabel.text = "Status"
-        menuStatusLabel.fontSize = 23
-        menuStatusLabel.fontColor = .white
-        menuStatusLabel.verticalAlignmentMode = .center
-        menuStatusLabel.horizontalAlignmentMode = .center
-        menuStatusLabel.position = CGPoint(x: 0, y: 54)
-        menuStatusLabel.zPosition = 521
-        menuPanelNode.addChild(menuStatusLabel)
+        // Helper to create an invisible button with a label child. The button keeps the existing "menu...Item" names
+        func makeMenuButton(name: String, labelText: String, y: CGFloat) -> SKShapeNode {
+            let buttonSize = CGSize(width: menuPanelWidth - 28, height: 56)
+            let button = SKShapeNode(rectOf: buttonSize, cornerRadius: 8)
+            button.name = name
+            button.fillColor = .clear
+            button.strokeColor = .clear
+            button.position = CGPoint(x: 0, y: y)
+            button.zPosition = 521
 
-        menuResetLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        menuResetLabel.name = "menuResetItem"
-        menuResetLabel.text = "Reset"
-        menuResetLabel.fontSize = 23
-        menuResetLabel.fontColor = .white
-        menuResetLabel.verticalAlignmentMode = .center
-        menuResetLabel.horizontalAlignmentMode = .center
-        menuResetLabel.position = CGPoint(x: 0, y: 18)
-        menuResetLabel.zPosition = 521
-        menuPanelNode.addChild(menuResetLabel)
+            let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
+            // Keep a distinct label name to avoid collisions, but touch logic matches parent name
+            label.name = name + "Label"
+            label.text = labelText
+            label.fontSize = 30
+            label.fontColor = .white
+            label.verticalAlignmentMode = .center
+            label.horizontalAlignmentMode = .center
+            label.position = .zero
+            label.zPosition = 522
+            button.addChild(label)
 
-        menuMove20Label = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        menuMove20Label.name = "menuMove20Item"
-        menuMove20Label.text = "Move 20"
-        menuMove20Label.fontSize = 23
-        menuMove20Label.fontColor = .white
-        menuMove20Label.verticalAlignmentMode = .center
-        menuMove20Label.horizontalAlignmentMode = .center
-        menuMove20Label.position = CGPoint(x: 0, y: -18)
-        menuMove20Label.zPosition = 521
-        menuPanelNode.addChild(menuMove20Label)
+            return button
+        }
 
-        menuMapLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        menuMapLabel.name = "menuMapItem"
-        menuMapLabel.text = "Map"
-        menuMapLabel.fontSize = 23
-        menuMapLabel.fontColor = .white
-        menuMapLabel.verticalAlignmentMode = .center
-        menuMapLabel.horizontalAlignmentMode = .center
-        menuMapLabel.position = CGPoint(x: 0, y: -54)
-        menuMapLabel.zPosition = 521
-        menuPanelNode.addChild(menuMapLabel)
+        // Create menu buttons (invisible targets) and add them to the panel
+        let statusButton = makeMenuButton(name: "menuStatusItem", labelText: "Status", y: 66)
+        menuPanelNode.addChild(statusButton)
+
+        let resetButton = makeMenuButton(name: "menuResetItem", labelText: "Reset", y: 22)
+        menuPanelNode.addChild(resetButton)
+
+        let move20Button = makeMenuButton(name: "menuMove20Item", labelText: "Move 20", y: -22)
+        menuPanelNode.addChild(move20Button)
+
+        let mapButton = makeMenuButton(name: "menuMapItem", labelText: "Map", y: -66)
+        menuPanelNode.addChild(mapButton)
     }
 
     private func setMapViewMode(_ enabled: Bool) {
@@ -2250,6 +2257,7 @@ class GameScene: SKScene {
         toiletCleanDeadlineMove = nil
         nextToiletDirtyMove = ToiletEventSettings.randomDirtyIntervalMoves()
         hasShownToiletPenaltyStartMessage = false
+        // Restore visual state of the toilet to match the reset logical state
         updateToiletVisualState()
         isTennisRacketCarried = false
         isShovelCarried = false
