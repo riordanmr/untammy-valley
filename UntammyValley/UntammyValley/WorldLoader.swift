@@ -8,6 +8,19 @@
 import CoreGraphics
 
 enum WorldLoader {
+    private struct SeededGenerator: RandomNumberGenerator {
+        private var state: UInt64
+
+        init(seed: UInt64) {
+            state = seed == 0 ? 0x9E3779B97F4A7C15 : seed
+        }
+
+        mutating func next() -> UInt64 {
+            state = state &* 6364136223846793005 &+ 1442695040888963407
+            return state
+        }
+    }
+
     private enum BarLayout {
         static let objectScale: CGFloat = 1.2
         static let baseObjectSize: CGFloat = 48
@@ -703,6 +716,14 @@ enum WorldLoader {
             blocksMovement: false
         )
 
+        let allInteractables = [potatoPeeler, deepFryer, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, desk, bedroomBat, shovel, goatChaseSpot] + snowmobiles
+
+        let staticDecorations = [carrollSign, cramerSign, schoolSign]
+        let treeDecorations = makeTreeDecorations(
+            wallTiles: wallTiles,
+            blockedTiles: Set(allInteractables.map { $0.tile }).union(Set(staticDecorations.map { $0.tile }))
+        )
+
         return WorldConfig(
             wallTiles: wallTiles,
             defaultFloorTileName: "floor_outdoor",
@@ -713,8 +734,95 @@ enum WorldLoader {
             septicDigTiles: BarLayout.septicDigTiles,
             roomLabels: roomLabels,
             spawnTile: BarLayout.spawnTile,
-            decorations: [carrollSign, cramerSign, schoolSign],
-            interactables: [potatoPeeler, deepFryer, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, desk, bedroomBat, shovel, goatChaseSpot] + snowmobiles
+            decorations: staticDecorations + treeDecorations,
+            interactables: allInteractables
         )
+    }
+
+    private static func makeTreeDecorations(wallTiles: Set<TileCoordinate>, blockedTiles: Set<TileCoordinate>) -> [DecorationConfig] {
+        let minTreeColumn = BarLayout.maxColumnExclusive + 2
+        let maxTreeColumn = SchoolLayout.minColumn - 2
+        guard minTreeColumn <= maxTreeColumn else { return [] }
+
+        let corridorCenterRow = SchoolLayout.hallMinRow + 1
+        let corridorMinRow = max(0, corridorCenterRow - 2)
+        let corridorMaxRow = min(45, corridorMinRow + 4)
+
+        var septicTiles: Set<TileCoordinate> = []
+        for column in BarLayout.leftSepticRegion.minColumn..<BarLayout.leftSepticRegion.maxColumnExclusive {
+            for row in BarLayout.leftSepticRegion.minRow..<BarLayout.leftSepticRegion.maxRowExclusive {
+                septicTiles.insert(TileCoordinate(column: column, row: row))
+            }
+        }
+        for column in BarLayout.rightSepticRegion.minColumn..<BarLayout.rightSepticRegion.maxColumnExclusive {
+            for row in BarLayout.rightSepticRegion.minRow..<BarLayout.rightSepticRegion.maxRowExclusive {
+                septicTiles.insert(TileCoordinate(column: column, row: row))
+            }
+        }
+        septicTiles.formUnion(BarLayout.septicDigTiles)
+
+        let minTreeRow = max(2, min(BarLayout.minRow, SchoolLayout.minRow) - 6)
+        let maxTreeRow = min(44, max(BarLayout.maxRowExclusive, SchoolLayout.maxRowExclusive) + 1)
+        guard minTreeRow <= maxTreeRow else { return [] }
+
+        let treeSpriteNames = ["fir", "maple", "birch"]
+        let treeSizes: [CGSize] = [
+            CGSize(width: 172, height: 240),
+            CGSize(width: 184, height: 256),
+            CGSize(width: 196, height: 272)
+        ]
+
+        var rng = SeededGenerator(seed: 20260221)
+        var placedTiles = Set<TileCoordinate>()
+        var treeDecorations: [DecorationConfig] = []
+
+        for column in stride(from: minTreeColumn, through: maxTreeColumn, by: 3) {
+            for row in stride(from: minTreeRow, through: maxTreeRow, by: 3) {
+                if row >= corridorMinRow && row <= corridorMaxRow {
+                    continue
+                }
+
+                let tile = TileCoordinate(column: column, row: row)
+                if wallTiles.contains(tile) || blockedTiles.contains(tile) {
+                    continue
+                }
+
+                let isNearSepticSystem = septicTiles.contains { septicTile in
+                    abs(septicTile.column - tile.column) <= 3 && abs(septicTile.row - tile.row) <= 3
+                }
+                if isNearSepticSystem {
+                    continue
+                }
+
+                let shouldPlaceTree = Int.random(in: 0..<100, using: &rng) < 20
+                if !shouldPlaceTree {
+                    continue
+                }
+
+                let tooClose = placedTiles.contains { placed in
+                    abs(placed.column - tile.column) <= 2 && abs(placed.row - tile.row) <= 2
+                }
+                if tooClose {
+                    continue
+                }
+
+                let spriteName = treeSpriteNames[Int.random(in: 0..<treeSpriteNames.count, using: &rng)]
+                let size = treeSizes[Int.random(in: 0..<treeSizes.count, using: &rng)]
+                treeDecorations.append(
+                    DecorationConfig(
+                        id: "tree_\(column)_\(row)",
+                        kind: .sprite,
+                        spriteName: spriteName,
+                        labelText: nil,
+                        tile: tile,
+                        size: size,
+                        blocksMovement: true
+                    )
+                )
+                placedTiles.insert(tile)
+            }
+        }
+
+        return treeDecorations
     }
 }

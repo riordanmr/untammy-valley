@@ -26,6 +26,7 @@ struct FloorRegion {
 
 enum DecorationKind {
     case largeTextSign
+    case sprite
 }
 
 struct DecorationConfig {
