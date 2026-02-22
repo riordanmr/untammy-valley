@@ -275,6 +275,10 @@ class GameScene: SKScene {
     private var stalledMoveFrameCount = 0
     private let stalledMoveFrameLimit = 8
     private var lastUpdateTime: TimeInterval = 0
+    private var isSaveDirty = false
+    private var lastAutosaveTimestamp: TimeInterval = 0
+    private let autosaveIntervalSeconds: TimeInterval = 2.0
+    private var hasAttemptedSaveRestore = false
     private var playerSpawnPosition: CGPoint = .zero
     private var completedMoveCount = 0
     private let worldConfig = WorldConfig.current
@@ -297,6 +301,18 @@ class GameScene: SKScene {
         moveTarget = point
         previousMoveTargetDistance = nil
         stalledMoveFrameCount = 0
+    }
+
+    private func markSaveDirty() {
+        isSaveDirty = true
+    }
+
+    private func savedPoint(from point: CGPoint) -> SavedPoint {
+        SavedPoint(x: Double(point.x), y: Double(point.y))
+    }
+
+    private func point(from savedPoint: SavedPoint) -> CGPoint {
+        CGPoint(x: savedPoint.x, y: savedPoint.y)
     }
 
     private func isWallBlocked(at scenePoint: CGPoint) -> Bool {
@@ -443,6 +459,7 @@ class GameScene: SKScene {
         configureHUD()
         updateCoinLabel()
         updateStatusWindowBody()
+        restoreGameFromDiskIfAvailable()
 
     }
 
@@ -596,6 +613,7 @@ class GameScene: SKScene {
         }
 
         if handleSepticDigTap(at: location) {
+            markSaveDirty()
             return
         }
 
@@ -603,6 +621,7 @@ class GameScene: SKScene {
             clearMoveTarget()
             player.physicsBody?.velocity = .zero
             performInteractionIfPossible(interactableID: interactableID)
+            markSaveDirty()
             return
         }
 
@@ -694,6 +713,11 @@ class GameScene: SKScene {
         }
         lastUpdateTime = currentTime
 
+        if isSaveDirty, currentTime - lastAutosaveTimestamp >= autosaveIntervalSeconds {
+            saveGameStateNow()
+            lastAutosaveTimestamp = currentTime
+        }
+
         if isMapViewMode {
             body.velocity = .zero
             return
@@ -714,6 +738,7 @@ class GameScene: SKScene {
             body.velocity = .zero
             completedMoveCount += 1
             processInteractableRespawns()
+            markSaveDirty()
             return
         }
 
@@ -751,6 +776,7 @@ class GameScene: SKScene {
                 clearMoveTarget()
                 completedMoveCount += 1
                 processInteractableRespawns()
+                markSaveDirty()
             }
             return
         }
@@ -2245,7 +2271,7 @@ class GameScene: SKScene {
     private func handleBucketInteraction(node: SKSpriteNode) {
         if !isBucketCarried {
             isBucketCarried = true
-            showMessage("Picked up bucket (0/\(bucketCapacity)).")
+            showMessage("Picked up bucket (\(bucketPotatoCount)/\(bucketCapacity), washed \(washedPotatoCount)).")
             return
         }
 
@@ -2665,8 +2691,133 @@ class GameScene: SKScene {
         }
 
         updateStatusWindowBody()
+        markSaveDirty()
         if !showedEventMessage {
             showMessage("Simulated \(count) moves.")
+        }
+    }
+
+    private func makeSaveSnapshot() -> GameSaveSnapshot {
+        var interactablePositionsByID: [String: SavedPoint] = [:]
+        var hiddenInteractableIDs: [String] = []
+
+        for (id, node) in interactableNodesByID {
+            interactablePositionsByID[id] = savedPoint(from: node.position)
+            if node.isHidden {
+                hiddenInteractableIDs.append(id)
+            }
+        }
+
+        return GameSaveSnapshot(
+            schemaVersion: 1,
+            appVersion: (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "0",
+            savedAt: Date(),
+            coins: GameState.shared.coins,
+            completedMoveCount: completedMoveCount,
+            playerPosition: savedPoint(from: player.position),
+            interactablePositionsByID: interactablePositionsByID,
+            hiddenInteractableIDs: hiddenInteractableIDs,
+            respawnAtMoveByInteractableID: respawnAtMoveByInteractableID,
+            isBucketCarried: isBucketCarried,
+            bucketPotatoCount: bucketPotatoCount,
+            washedPotatoCount: washedPotatoCount,
+            selectedPotatoForLoading: selectedPotatoForLoading,
+            selectedPotatoIsWashed: selectedPotatoIsWashed,
+            peelerHasSlicedPotatoes: peelerHasSlicedPotatoes,
+            fryerSlicedPotatoCount: fryerSlicedPotatoCount,
+            isChipsBasketCarried: isChipsBasketCarried,
+            basketSlicedPotatoCount: basketSlicedPotatoCount,
+            chipsBasketContainsChips: chipsBasketContainsChips,
+            isToiletBowlBrushCarried: isToiletBowlBrushCarried,
+            isTennisRacketCarried: isTennisRacketCarried,
+            isShovelCarried: isShovelCarried,
+            ownedSnowmobileIDs: Array(ownedSnowmobileIDs),
+            selectedOwnedSnowmobileID: selectedOwnedSnowmobileID,
+            mountedSnowmobileID: mountedSnowmobileID,
+            isToiletDirty: isToiletDirty,
+            toiletCleanDeadlineMove: toiletCleanDeadlineMove,
+            nextToiletDirtyMove: nextToiletDirtyMove,
+            hasShownToiletPenaltyStartMessage: hasShownToiletPenaltyStartMessage,
+            nextBatSpawnMove: nextBatSpawnMove,
+            batDefeatDeadlineMove: batDefeatDeadlineMove,
+            trenchedSepticTiles: Array(trenchedSepticTiles),
+            hasAwardedSepticCompletionBonus: hasAwardedSepticCompletionBonus
+        )
+    }
+
+    private func applySaveSnapshot(_ snapshot: GameSaveSnapshot) {
+        GameState.shared.setCoins(snapshot.coins)
+        completedMoveCount = max(0, snapshot.completedMoveCount)
+        player.position = point(from: snapshot.playerPosition)
+
+        for (id, savedPosition) in snapshot.interactablePositionsByID {
+            interactableNodesByID[id]?.position = point(from: savedPosition)
+        }
+
+        let hiddenIDs = Set(snapshot.hiddenInteractableIDs)
+        for (id, node) in interactableNodesByID {
+            node.isHidden = hiddenIDs.contains(id)
+        }
+
+        respawnAtMoveByInteractableID = snapshot.respawnAtMoveByInteractableID
+
+        isBucketCarried = snapshot.isBucketCarried
+        bucketPotatoCount = max(0, min(bucketCapacity, snapshot.bucketPotatoCount))
+        washedPotatoCount = max(0, min(bucketPotatoCount, snapshot.washedPotatoCount))
+        selectedPotatoForLoading = snapshot.selectedPotatoForLoading
+        selectedPotatoIsWashed = snapshot.selectedPotatoIsWashed
+        peelerHasSlicedPotatoes = snapshot.peelerHasSlicedPotatoes
+        fryerSlicedPotatoCount = max(0, snapshot.fryerSlicedPotatoCount)
+        isChipsBasketCarried = snapshot.isChipsBasketCarried
+        basketSlicedPotatoCount = max(0, snapshot.basketSlicedPotatoCount)
+        chipsBasketContainsChips = snapshot.chipsBasketContainsChips
+        isToiletBowlBrushCarried = snapshot.isToiletBowlBrushCarried
+        isTennisRacketCarried = snapshot.isTennisRacketCarried
+        isShovelCarried = snapshot.isShovelCarried
+
+        ownedSnowmobileIDs = Set(snapshot.ownedSnowmobileIDs)
+        selectedOwnedSnowmobileID = snapshot.selectedOwnedSnowmobileID
+        mountedSnowmobileID = snapshot.mountedSnowmobileID
+
+        isToiletDirty = snapshot.isToiletDirty
+        toiletCleanDeadlineMove = snapshot.toiletCleanDeadlineMove
+        nextToiletDirtyMove = max(0, snapshot.nextToiletDirtyMove)
+        hasShownToiletPenaltyStartMessage = snapshot.hasShownToiletPenaltyStartMessage
+
+        nextBatSpawnMove = max(0, snapshot.nextBatSpawnMove)
+        batDefeatDeadlineMove = snapshot.batDefeatDeadlineMove
+
+        trenchedSepticTiles = Set(snapshot.trenchedSepticTiles.filter { worldConfig.septicDigTiles.contains($0) })
+        hasAwardedSepticCompletionBonus = snapshot.hasAwardedSepticCompletionBonus
+
+        resetSepticDigTiles()
+        for tile in trenchedSepticTiles {
+            applyTrench(at: tile)
+        }
+
+        updateMountedSnowmobileUI()
+        updateSnowmobileOwnershipVisuals()
+        updateToiletVisualState()
+        updateMakerLoadedIndicator()
+        updateBucketSelectedIndicator()
+        updateCoinLabel()
+        updateStatusWindowBody()
+
+        clearMoveTarget()
+    }
+
+    private func restoreGameFromDiskIfAvailable() {
+        guard !hasAttemptedSaveRestore else { return }
+        hasAttemptedSaveRestore = true
+
+        guard let snapshot = SaveManager.shared.loadSnapshot() else { return }
+        applySaveSnapshot(snapshot)
+    }
+
+    func saveGameStateNow() {
+        let snapshot = makeSaveSnapshot()
+        if SaveManager.shared.saveSnapshot(snapshot) {
+            isSaveDirty = false
         }
     }
 
@@ -2851,6 +3002,8 @@ class GameScene: SKScene {
         GameState.shared.addCoins(200)
         updateCoinLabel()
         updateStatusWindowBody()
+        markSaveDirty()
+        saveGameStateNow()
         showMessage("Progress reset.")
     }
 

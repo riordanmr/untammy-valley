@@ -7,7 +7,7 @@
 
 import CoreGraphics
 
-struct TileCoordinate: Hashable {
+struct TileCoordinate: Hashable, Codable {
     let column: Int
     let row: Int
 }

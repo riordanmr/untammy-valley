@@ -11,6 +11,12 @@ import GameplayKit
 
 class GameViewController: UIViewController {
 
+    func saveGameStateIfPossible() {
+        guard let skView = self.view as? SKView,
+              let scene = skView.scene as? GameScene else { return }
+        scene.saveGameStateNow()
+    }
+
     override func loadView() {
         self.view = SKView(frame: UIScreen.main.bounds)
     }

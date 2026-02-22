@@ -21,4 +21,17 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         self.window = window
         window.makeKeyAndVisible()
     }
+
+    func sceneWillResignActive(_ scene: UIScene) {
+        persistGameStateIfPossible()
+    }
+
+    func sceneDidEnterBackground(_ scene: UIScene) {
+        persistGameStateIfPossible()
+    }
+
+    private func persistGameStateIfPossible() {
+        guard let gameViewController = window?.rootViewController as? GameViewController else { return }
+        gameViewController.saveGameStateIfPossible()
+    }
 }
