@@ -271,17 +271,38 @@ class GameScene: SKScene {
     private let mapViewZoomOutScale: CGFloat = 2.5
 
     private var moveTarget: CGPoint?
+    private var previousMoveTargetDistance: CGFloat?
+    private var stalledMoveFrameCount = 0
+    private let stalledMoveFrameLimit = 8
+    private var lastUpdateTime: TimeInterval = 0
     private var playerSpawnPosition: CGPoint = .zero
     private var completedMoveCount = 0
     private let worldConfig = WorldConfig.current
 
-    private let worldColumns = 104
+    private var worldColumns: Int { worldConfig.recommendedWorldColumns }
     private let worldRows = 46
     private let tileSize = CGSize(width: 64, height: 64)
     private let playerMoveSpeed: CGFloat = 500
-    private let mountedSnowmobileSpeedMultiplier: CGFloat = 3.0
+    private let mountedSnowmobileSpeedMultiplier: CGFloat = 4.0
     private let mountedSnowmobileVerticalOffset: CGFloat = -12
     private let indoorSnowmobileBlockedFloorTiles: Set<String> = ["floor_wood", "floor_linoleum", "floor_carpet"]
+
+    private func clearMoveTarget() {
+        moveTarget = nil
+        previousMoveTargetDistance = nil
+        stalledMoveFrameCount = 0
+    }
+
+    private func setMoveTarget(_ point: CGPoint) {
+        moveTarget = point
+        previousMoveTargetDistance = nil
+        stalledMoveFrameCount = 0
+    }
+
+    private func isWallBlocked(at scenePoint: CGPoint) -> Bool {
+        guard let tile = tileCoordinate(for: scenePoint) else { return true }
+        return worldConfig.wallTiles.contains(tile)
+    }
 
     override func willMove(from view: SKView) {
         // Clean up resources when scene is removed
@@ -579,14 +600,14 @@ class GameScene: SKScene {
         }
 
         if let interactableID = interactableID(at: location) {
-            moveTarget = nil
+            clearMoveTarget()
             player.physicsBody?.velocity = .zero
             performInteractionIfPossible(interactableID: interactableID)
             return
         }
 
         setMenuVisible(false)
-        moveTarget = location
+        setMoveTarget(location)
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -663,12 +684,24 @@ class GameScene: SKScene {
 
     override func update(_ currentTime: TimeInterval) {
         guard let body = player.physicsBody else { return }
+
+        let deltaTime: CGFloat
+        if lastUpdateTime > 0 {
+            let rawDelta = currentTime - lastUpdateTime
+            deltaTime = CGFloat(min(max(rawDelta, 1.0 / 120.0), 1.0 / 20.0))
+        } else {
+            deltaTime = 1.0 / 60.0
+        }
+        lastUpdateTime = currentTime
+
         if isMapViewMode {
             body.velocity = .zero
             return
         }
         guard let target = moveTarget else {
             body.velocity = .zero
+            previousMoveTargetDistance = nil
+            stalledMoveFrameCount = 0
             return
         }
 
@@ -677,34 +710,57 @@ class GameScene: SKScene {
         let distance = hypot(dx, dy)
 
         if distance < 12 {
-            moveTarget = nil
+            clearMoveTarget()
             body.velocity = .zero
             completedMoveCount += 1
             processInteractableRespawns()
             return
         }
 
-        let moveSpeed = mountedSnowmobileID == nil
-            ? playerMoveSpeed
-            : playerMoveSpeed * mountedSnowmobileSpeedMultiplier
-        let vx = (dx / distance) * moveSpeed
-        let vy = (dy / distance) * moveSpeed
-
         if mountedSnowmobileID != nil {
-            let probeDistance = min(distance, max(12, tileSize.width * 0.35))
+            previousMoveTargetDistance = nil
+            stalledMoveFrameCount = 0
+
+            let moveSpeed = playerMoveSpeed * mountedSnowmobileSpeedMultiplier
+            let stepDistance = min(distance, moveSpeed * deltaTime)
             let nextProbePoint = CGPoint(
-                x: player.position.x + (dx / distance) * probeDistance,
-                y: player.position.y + (dy / distance) * probeDistance
+                x: player.position.x + (dx / distance) * stepDistance,
+                y: player.position.y + (dy / distance) * stepDistance
             )
 
+            guard !isWallBlocked(at: nextProbePoint) else {
+                clearMoveTarget()
+                body.velocity = .zero
+                return
+            }
+
             guard isSnowmobileDrivable(at: nextProbePoint) else {
-                moveTarget = nil
+                clearMoveTarget()
                 body.velocity = .zero
                 showMessage("Snowmobiles cannot go inside buildings.")
                 return
             }
+
+            player.position = nextProbePoint
+            body.velocity = .zero
+
+            let remainingDx = target.x - player.position.x
+            let remainingDy = target.y - player.position.y
+            let remainingDistance = hypot(remainingDx, remainingDy)
+            if remainingDistance < 12 {
+                clearMoveTarget()
+                completedMoveCount += 1
+                processInteractableRespawns()
+            }
+            return
         }
 
+        previousMoveTargetDistance = nil
+        stalledMoveFrameCount = 0
+
+        let moveSpeed = playerMoveSpeed
+        let vx = (dx / distance) * moveSpeed
+        let vy = (dy / distance) * moveSpeed
         body.velocity = CGVector(dx: vx, dy: vy)
     }
 
@@ -1844,7 +1900,7 @@ class GameScene: SKScene {
             mapModeSavedCameraScale = cameraNode.xScale
             isMapViewMode = true
             isDraggingMap = false
-            moveTarget = nil
+            clearMoveTarget()
             player.physicsBody?.velocity = .zero
             cameraNode.setScale(mapViewZoomOutScale)
             clampCameraPositionToWorldBounds()
@@ -2431,7 +2487,7 @@ class GameScene: SKScene {
 
             player.position = dismountPoint
             player.physicsBody?.velocity = .zero
-            moveTarget = nil
+            clearMoveTarget()
             mountedSnowmobileID = nil
             selectedOwnedSnowmobileID = mountedID
             updateMountedSnowmobileUI()
@@ -2597,7 +2653,7 @@ class GameScene: SKScene {
 
     private func simulateMoves(_ count: Int) {
         guard count > 0 else { return }
-        moveTarget = nil
+        clearMoveTarget()
         player.physicsBody?.velocity = .zero
         var showedEventMessage = false
 
@@ -2692,12 +2748,8 @@ class GameScene: SKScene {
 
     private func isPlayerInBarRooms() -> Bool {
         guard let playerTile = tileCoordinate(for: player.position) else { return false }
-        return worldConfig.floorRegions.contains(where: { region in
-            region.tileName != "floor_carroll_sales" &&
-            playerTile.column >= region.region.minColumn &&
-            playerTile.column < region.region.maxColumnExclusive &&
-            playerTile.row >= region.region.minRow &&
-            playerTile.row < region.region.maxRowExclusive
+        return worldConfig.barInteriorRegions.contains(where: { region in
+            tileRegionContains(region, tile: playerTile)
         })
     }
 
@@ -2719,6 +2771,7 @@ class GameScene: SKScene {
 
     private func updateMountedSnowmobileUI() {
         let isMounted = mountedSnowmobileID != nil
+        player.physicsBody?.collisionBitMask = isMounted ? PhysicsCategory.none : PhysicsCategory.wall
         player.alpha = 1.0
         player.zPosition = isMounted ? 21 : 20
     }
@@ -2745,7 +2798,7 @@ class GameScene: SKScene {
     }
 
     private func resetGameToInitialState() {
-        moveTarget = nil
+        clearMoveTarget()
         player.physicsBody?.velocity = .zero
         isMapViewMode = false
         isDraggingMap = false

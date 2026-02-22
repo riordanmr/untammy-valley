@@ -237,6 +237,11 @@ enum WorldLoader {
 
     static func makeInitialBarWorld() -> WorldConfig {
         var wallTiles = Set<TileCoordinate>()
+        SchoolLayout.configure(
+            barWidth: BarLayout.barWidth,
+            barRightWallColumn: BarLayout.maxColumnExclusive - 1,
+            minRow: BarLayout.minRow
+        )
 
         for column in BarLayout.minColumn..<BarLayout.maxColumnExclusive {
             if !BarLayout.kitchenCellarDoorColumns.contains(column) {
@@ -283,11 +288,54 @@ enum WorldLoader {
             wallTiles.insert(TileCoordinate(column: BarLayout.cellarMaxColumnExclusive - 1, row: row))
         }
 
+        // --- School shell ---
+        for column in SchoolLayout.minColumn..<SchoolLayout.maxColumnExclusive {
+            wallTiles.insert(TileCoordinate(column: column, row: SchoolLayout.minRow))
+            wallTiles.insert(TileCoordinate(column: column, row: SchoolLayout.maxRowExclusive - 1))
+        }
+
+        for row in SchoolLayout.minRow..<SchoolLayout.maxRowExclusive {
+            if !SchoolLayout.leftExteriorDoorRows.contains(row) {
+                wallTiles.insert(TileCoordinate(column: SchoolLayout.minColumn, row: row))
+            }
+            wallTiles.insert(TileCoordinate(column: SchoolLayout.maxColumnExclusive - 1, row: row))
+        }
+
+        // Horizontal walls separating classrooms and hall (with 2-tile doors per classroom).
+        for column in (SchoolLayout.minColumn + 1)..<SchoolLayout.gymDividerColumn {
+            if !SchoolLayout.classroomDoorColumns.contains(column) {
+                wallTiles.insert(TileCoordinate(column: column, row: SchoolLayout.topClassroomDividerRow))
+                wallTiles.insert(TileCoordinate(column: column, row: SchoolLayout.bottomClassroomDividerRow))
+            }
+        }
+
+        // Vertical divider between left and right classrooms above/below hall.
+        for row in (SchoolLayout.minRow + 1)..<(SchoolLayout.maxRowExclusive - 1) {
+            if row >= SchoolLayout.hallMinRow && row < SchoolLayout.hallMaxRowExclusive {
+                continue
+            }
+            wallTiles.insert(TileCoordinate(column: SchoolLayout.classroomVerticalDividerColumn, row: row))
+        }
+
+        // Divider between hall/classrooms block and gym, with a 4-tile hall door.
+        for row in (SchoolLayout.minRow + 1)..<(SchoolLayout.maxRowExclusive - 1) {
+            if SchoolLayout.hallToGymDoorRows.contains(row) {
+                continue
+            }
+            wallTiles.insert(TileCoordinate(column: SchoolLayout.gymDividerColumn, row: row))
+        }
+
         let roomLabels: [(name: String, tile: TileCoordinate)] = [
             ("Bedroom", BarLayout.bedroomLabelTile),
             ("Dining", BarLayout.diningLabelTile),
             ("Kitchen", BarLayout.kitchenLabelTile),
-            ("Cellar", BarLayout.cellarLabelTile)
+            ("Cellar", BarLayout.cellarLabelTile),
+            ("School Hall", SchoolLayout.hallLabelTile),
+            ("Classroom A", SchoolLayout.classroomTopLeftLabelTile),
+            ("Classroom B", SchoolLayout.classroomTopRightLabelTile),
+            ("Classroom C", SchoolLayout.classroomBottomLeftLabelTile),
+            ("Classroom D", SchoolLayout.classroomBottomRightLabelTile),
+            ("Gym", SchoolLayout.gymLabelTile)
         ]
 
         let interiorMinRow = BarLayout.minRow + 1
@@ -350,6 +398,78 @@ enum WorldLoader {
             FloorRegion(
                 tileName: "floor_carroll_sales",
                 region: BarLayout.carrollSalesRegion
+            ),
+            FloorRegion(
+                tileName: "floor_linoleum",
+                region: TileRegion(
+                    minColumn: SchoolLayout.minColumn + 1,
+                    maxColumnExclusive: SchoolLayout.gymDividerColumn,
+                    minRow: SchoolLayout.hallMinRow,
+                    maxRowExclusive: SchoolLayout.hallMaxRowExclusive
+                )
+            ),
+            FloorRegion(
+                tileName: "floor_carpet",
+                region: TileRegion(
+                    minColumn: SchoolLayout.minColumn + 1,
+                    maxColumnExclusive: SchoolLayout.classroomVerticalDividerColumn,
+                    minRow: SchoolLayout.hallMaxRowExclusive,
+                    maxRowExclusive: SchoolLayout.maxRowExclusive - 1
+                )
+            ),
+            FloorRegion(
+                tileName: "floor_carpet",
+                region: TileRegion(
+                    minColumn: SchoolLayout.classroomVerticalDividerColumn + 1,
+                    maxColumnExclusive: SchoolLayout.gymDividerColumn,
+                    minRow: SchoolLayout.hallMaxRowExclusive,
+                    maxRowExclusive: SchoolLayout.maxRowExclusive - 1
+                )
+            ),
+            FloorRegion(
+                tileName: "floor_carpet",
+                region: TileRegion(
+                    minColumn: SchoolLayout.minColumn + 1,
+                    maxColumnExclusive: SchoolLayout.classroomVerticalDividerColumn,
+                    minRow: SchoolLayout.minRow + 1,
+                    maxRowExclusive: SchoolLayout.hallMinRow
+                )
+            ),
+            FloorRegion(
+                tileName: "floor_carpet",
+                region: TileRegion(
+                    minColumn: SchoolLayout.classroomVerticalDividerColumn + 1,
+                    maxColumnExclusive: SchoolLayout.gymDividerColumn,
+                    minRow: SchoolLayout.minRow + 1,
+                    maxRowExclusive: SchoolLayout.hallMinRow
+                )
+            ),
+            FloorRegion(
+                tileName: "floor_wood",
+                region: TileRegion(
+                    minColumn: SchoolLayout.gymDividerColumn + 1,
+                    maxColumnExclusive: SchoolLayout.maxColumnExclusive - 1,
+                    minRow: SchoolLayout.minRow + 1,
+                    maxRowExclusive: SchoolLayout.maxRowExclusive - 1
+                )
+            ),
+            FloorRegion(
+                tileName: "floor_wood",
+                region: TileRegion(
+                    minColumn: SchoolLayout.gymDividerColumn + 1,
+                    maxColumnExclusive: SchoolLayout.gymDividerColumn + 2,
+                    minRow: SchoolLayout.hallToGymTransitionMinRow,
+                    maxRowExclusive: SchoolLayout.hallToGymTransitionMaxRowExclusive
+                )
+            ),
+            FloorRegion(
+                tileName: "floor_linoleum",
+                region: TileRegion(
+                    minColumn: SchoolLayout.gymDividerColumn,
+                    maxColumnExclusive: SchoolLayout.gymDividerColumn + 1,
+                    minRow: SchoolLayout.hallToGymDoorRows.min() ?? SchoolLayout.hallMinRow,
+                    maxRowExclusive: (SchoolLayout.hallToGymDoorRows.max() ?? (SchoolLayout.hallMinRow + 1)) + 1
+                )
             )
         ]
 
@@ -393,6 +513,21 @@ enum WorldLoader {
                     minRow: BarLayout.cellarMinRow,
                     maxRowExclusive: BarLayout.cellarMinRow + 1
                 )
+            )
+        ]
+
+        let barInteriorRegions: [TileRegion] = [
+            TileRegion(
+                minColumn: BarLayout.minColumn,
+                maxColumnExclusive: BarLayout.maxColumnExclusive,
+                minRow: BarLayout.minRow,
+                maxRowExclusive: BarLayout.maxRowExclusive
+            ),
+            TileRegion(
+                minColumn: BarLayout.cellarMinColumn,
+                maxColumnExclusive: BarLayout.cellarMaxColumnExclusive,
+                minRow: BarLayout.cellarMinRow,
+                maxRowExclusive: BarLayout.cellarMaxRowExclusive
             )
         ]
 
@@ -558,16 +693,27 @@ enum WorldLoader {
             blocksMovement: false
         )
 
+        let schoolSign = DecorationConfig(
+            id: "suringHighSchoolSign",
+            kind: .largeTextSign,
+            spriteName: "suring_high_school_sign",
+            labelText: "Suring High School",
+            tile: SchoolLayout.schoolSignTile,
+            size: BarLayout.largeSignSize,
+            blocksMovement: false
+        )
+
         return WorldConfig(
             wallTiles: wallTiles,
             defaultFloorTileName: "floor_outdoor",
             floorRegions: floorRegions,
             doorwayFloorOverrides: doorwayFloorOverrides,
+            barInteriorRegions: barInteriorRegions,
             carrollSalesRegion: BarLayout.carrollSalesRegion,
             septicDigTiles: BarLayout.septicDigTiles,
             roomLabels: roomLabels,
             spawnTile: BarLayout.spawnTile,
-            decorations: [carrollSign, cramerSign],
+            decorations: [carrollSign, cramerSign, schoolSign],
             interactables: [potatoPeeler, deepFryer, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, desk, bedroomBat, shovel, goatChaseSpot] + snowmobiles
         )
     }

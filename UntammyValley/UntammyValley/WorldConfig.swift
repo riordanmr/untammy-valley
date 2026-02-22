@@ -70,6 +70,7 @@ struct WorldConfig {
     let defaultFloorTileName: String
     let floorRegions: [FloorRegion]
     let doorwayFloorOverrides: [FloorRegion]
+    let barInteriorRegions: [TileRegion]
     let carrollSalesRegion: TileRegion
     let septicDigTiles: Set<TileCoordinate>
     let roomLabels: [(name: String, tile: TileCoordinate)]
@@ -78,4 +79,26 @@ struct WorldConfig {
     let interactables: [InteractableConfig]
 
     static let current = WorldLoader.makeInitialBarWorld()
+
+    private var maxConfiguredColumn: Int {
+        var candidates: [Int] = []
+
+        candidates.append(contentsOf: wallTiles.map { $0.column })
+        candidates.append(contentsOf: septicDigTiles.map { $0.column })
+        candidates.append(contentsOf: roomLabels.map { $0.tile.column })
+        candidates.append(contentsOf: decorations.map { $0.tile.column })
+        candidates.append(contentsOf: interactables.map { $0.tile.column })
+        candidates.append(spawnTile.column)
+
+        candidates.append(contentsOf: floorRegions.map { $0.region.maxColumnExclusive - 1 })
+        candidates.append(contentsOf: doorwayFloorOverrides.map { $0.region.maxColumnExclusive - 1 })
+        candidates.append(carrollSalesRegion.maxColumnExclusive - 1)
+
+        return candidates.max() ?? 0
+    }
+
+    var recommendedWorldColumns: Int {
+        let rightPadding = 8
+        return max(104, maxConfiguredColumn + rightPadding + 1)
+    }
 }
