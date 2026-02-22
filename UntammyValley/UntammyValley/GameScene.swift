@@ -494,8 +494,20 @@ class GameScene: SKScene {
         updateWarningIcons()
         updateSnowmobileOwnershipVisuals()
         updateBucketSelectedIndicator()
+        clampPlayerPositionToWorldBounds()
         if !isMapViewMode {
             cameraNode.position = player.position
+        }
+    }
+
+    private func clampPlayerPositionToWorldBounds() {
+        let halfWorldWidth = CGFloat(worldColumns) * tileSize.width * 0.5
+        let halfWorldHeight = CGFloat(worldRows) * tileSize.height * 0.5
+        let clampedX = min(max(player.position.x, -halfWorldWidth), halfWorldWidth)
+        let clampedY = min(max(player.position.y, -halfWorldHeight), halfWorldHeight)
+        if clampedX != player.position.x || clampedY != player.position.y {
+            player.position = CGPoint(x: clampedX, y: clampedY)
+            player.physicsBody?.velocity = .zero
         }
     }
 
