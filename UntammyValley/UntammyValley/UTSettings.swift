@@ -8,6 +8,24 @@ import Foundation
 final class UTSettings {
     static let shared = UTSettings()
 
+    enum Avatar: String, CaseIterable {
+        case tam
+        case jc
+        case casey
+        case mark
+
+        var assetName: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .tam: return "Tam"
+            case .jc: return "JC"
+            case .casey: return "Casey"
+            case .mark: return "Mark"
+            }
+        }
+    }
+
     struct Counts: Codable {
         var batSpawnMinMoves: Int = 50
         var batSpawnMaxMoves: Int = 120
@@ -161,10 +179,17 @@ final class UTSettings {
     }
 
     private static let countsStorageKey = "ut.settings.counts"
+    private static let avatarStorageKey = "ut.settings.avatar"
 
     private(set) var counts: Counts {
         didSet {
             saveCounts()
+        }
+    }
+
+    private(set) var avatar: Avatar {
+        didSet {
+            saveAvatar()
         }
     }
 
@@ -176,6 +201,13 @@ final class UTSettings {
             counts = normalized
         } else {
             counts = Counts()
+        }
+
+        if let rawAvatar = UserDefaults.standard.string(forKey: Self.avatarStorageKey),
+           let persistedAvatar = Avatar(rawValue: rawAvatar) {
+            avatar = persistedAvatar
+        } else {
+            avatar = .tam
         }
     }
 
@@ -204,8 +236,21 @@ final class UTSettings {
         counts = defaults
     }
 
+    func resetToDefaults() {
+        resetCountsToDefaults()
+        avatar = .tam
+    }
+
+    func setAvatar(_ avatar: Avatar) {
+        self.avatar = avatar
+    }
+
     private func saveCounts() {
         guard let data = try? JSONEncoder().encode(counts) else { return }
         UserDefaults.standard.set(data, forKey: Self.countsStorageKey)
+    }
+
+    private func saveAvatar() {
+        UserDefaults.standard.set(avatar.rawValue, forKey: Self.avatarStorageKey)
     }
 }

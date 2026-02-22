@@ -1215,6 +1215,10 @@ class GameScene: SKScene {
     private func configureSettingsDialog() {
         settingsDialogNode = SettingsDialogNode(sceneSize: size)
         settingsDialogNode.zPosition = 760
+        settingsDialogNode.onAvatarChanged = { [weak self] in
+            self?.player?.refreshAvatarTexture()
+            self?.markSaveDirty()
+        }
         settingsDialogNode.onClose = { [weak self] in
             self?.refreshSettingsDependentUI()
         }
@@ -1222,6 +1226,7 @@ class GameScene: SKScene {
     }
 
     private func refreshSettingsDependentUI() {
+        player?.refreshAvatarTexture()
         snowmobileChoiceSubtitleLabel?.text = "Sell returns \(snowmobilePriceCoins) coins"
         if isStatusWindowVisible {
             updateStatusWindowBody()

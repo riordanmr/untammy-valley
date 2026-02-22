@@ -9,29 +9,47 @@ import UIKit
 final class SettingsDialogNode: SKNode {
     private enum Tab: String {
         case counts
+        case avatar
     }
 
     private let backdropNode = SKShapeNode()
     private let panelNode = SKShapeNode()
     private let leftPaneNode = SKShapeNode()
     private let rightPaneNode = SKShapeNode()
+    private let countsTabButtonNode = SKShapeNode()
+    private let avatarTabButtonNode = SKShapeNode()
     private let countsScrollCropNode = SKCropNode()
     private let countsScrollContentNode = SKNode()
     private let countsScrollTrackNode = SKShapeNode()
     private let countsScrollThumbNode = SKShapeNode()
+    private let avatarScrollCropNode = SKCropNode()
+    private let avatarScrollContentNode = SKNode()
+    private let avatarScrollTrackNode = SKShapeNode()
+    private let avatarScrollThumbNode = SKShapeNode()
+    private let resetFeedbackLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
 
     private var valueLabelsByField: [UTSettings.CountField: SKLabelNode] = [:]
+    private var avatarSelectionBorderByAvatar: [UTSettings.Avatar: SKShapeNode] = [:]
     private var currentTab: Tab = .counts
     private var countsScrollOffset: CGFloat = 0
     private var countsScrollViewportHeight: CGFloat = 0
     private var countsScrollContentHeight: CGFloat = 0
     private var countsScrollContentBaseY: CGFloat = 0
     private var countsViewportRect: CGRect = .zero
+    private var avatarScrollOffset: CGFloat = 0
+    private var avatarScrollViewportHeight: CGFloat = 0
+    private var avatarScrollContentHeight: CGFloat = 0
+    private var avatarScrollContentBaseY: CGFloat = 0
+    private var avatarViewportRect: CGRect = .zero
     private var isDraggingCountsScroll = false
     private var didDragCountsScroll = false
     private var lastCountsDragY: CGFloat = 0
+    private var isDraggingAvatarScroll = false
+    private var didDragAvatarScroll = false
+    private var lastAvatarDragY: CGFloat = 0
 
     var onClose: (() -> Void)?
+    var onAvatarChanged: (() -> Void)?
 
     var isVisible: Bool {
         !backdropNode.isHidden
@@ -62,38 +80,68 @@ final class SettingsDialogNode: SKNode {
         if !visible {
             isDraggingCountsScroll = false
             didDragCountsScroll = false
+            isDraggingAvatarScroll = false
+            didDragAvatarScroll = false
         }
     }
 
     func beginDrag(at hudLocation: CGPoint) {
         guard isVisible else { return }
-        if countsScrollCropNode.contains(hudLocation) {
+        if currentTab == .counts, countsScrollCropNode.contains(hudLocation) {
             isDraggingCountsScroll = true
             didDragCountsScroll = false
             lastCountsDragY = hudLocation.y
+        } else if currentTab == .avatar, avatarScrollCropNode.contains(hudLocation) {
+            isDraggingAvatarScroll = true
+            didDragAvatarScroll = false
+            lastAvatarDragY = hudLocation.y
         }
     }
 
     @discardableResult
     func drag(to hudLocation: CGPoint) -> Bool {
-        guard isVisible, isDraggingCountsScroll else { return false }
+        guard isVisible else { return false }
 
-        let deltaY = hudLocation.y - lastCountsDragY
-        lastCountsDragY = hudLocation.y
-        if abs(deltaY) > 0.5 {
-            didDragCountsScroll = true
+        if isDraggingCountsScroll {
+            let deltaY = hudLocation.y - lastCountsDragY
+            lastCountsDragY = hudLocation.y
+            if abs(deltaY) > 0.5 {
+                didDragCountsScroll = true
+            }
+            setCountsScrollOffset(countsScrollOffset + deltaY)
+            return true
         }
-        setCountsScrollOffset(countsScrollOffset + deltaY)
-        return true
+
+        if isDraggingAvatarScroll {
+            let deltaY = hudLocation.y - lastAvatarDragY
+            lastAvatarDragY = hudLocation.y
+            if abs(deltaY) > 0.5 {
+                didDragAvatarScroll = true
+            }
+            setAvatarScrollOffset(avatarScrollOffset + deltaY)
+            return true
+        }
+
+        return false
     }
 
     @discardableResult
     func endDrag() -> Bool {
-        guard isDraggingCountsScroll else { return false }
-        isDraggingCountsScroll = false
-        let wasDragging = didDragCountsScroll
-        didDragCountsScroll = false
-        return wasDragging
+        if isDraggingCountsScroll {
+            isDraggingCountsScroll = false
+            let wasDragging = didDragCountsScroll
+            didDragCountsScroll = false
+            return wasDragging
+        }
+
+        if isDraggingAvatarScroll {
+            isDraggingAvatarScroll = false
+            let wasDragging = didDragAvatarScroll
+            didDragAvatarScroll = false
+            return wasDragging
+        }
+
+        return false
     }
 
     @discardableResult
@@ -103,8 +151,13 @@ final class SettingsDialogNode: SKNode {
         let names = hudNodes.compactMap { resolvedName(from: $0) }
 
         if names.contains("settingsResetItem") {
-            UTSettings.shared.resetCountsToDefaults()
+            let previousAvatar = UTSettings.shared.avatar
+            UTSettings.shared.resetToDefaults()
+            if previousAvatar != UTSettings.shared.avatar {
+                onAvatarChanged?()
+            }
             refreshValues()
+            showResetFeedback()
             return true
         }
 
@@ -116,6 +169,23 @@ final class SettingsDialogNode: SKNode {
 
         if names.contains("settingsTabCounts") {
             currentTab = .counts
+            refreshValues()
+            return true
+        }
+
+        if names.contains("settingsTabAvatar") {
+            currentTab = .avatar
+            refreshValues()
+            return true
+        }
+
+        if let avatarName = names.first(where: { $0.hasPrefix("settingsAvatar:") }),
+           let raw = avatarName.split(separator: ":", maxSplits: 1).last,
+           let avatar = UTSettings.Avatar(rawValue: String(raw)) {
+            if UTSettings.shared.avatar != avatar {
+                UTSettings.shared.setAvatar(avatar)
+                onAvatarChanged?()
+            }
             refreshValues()
             return true
         }
@@ -143,6 +213,19 @@ final class SettingsDialogNode: SKNode {
         for field in UTSettings.CountField.allCases {
             valueLabelsByField[field]?.text = "\(UTSettings.shared.value(for: field))"
         }
+
+        let selectedAvatar = UTSettings.shared.avatar
+        for (avatar, borderNode) in avatarSelectionBorderByAvatar {
+            if avatar == selectedAvatar {
+                borderNode.lineWidth = 5
+                borderNode.strokeColor = UIColor.systemBlue
+            } else {
+                borderNode.lineWidth = 1.5
+                borderNode.strokeColor = UIColor.white.withAlphaComponent(0.35)
+            }
+        }
+
+        applyTabState()
     }
 
     private func setCountsScrollOffset(_ offset: CGFloat) {
@@ -173,6 +256,72 @@ final class SettingsDialogNode: SKNode {
         let travel = trackHeight - thumbHeight
         let thumbCenterY = countsViewportRect.maxY - (thumbHeight / 2) - (progress * travel)
         countsScrollThumbNode.position = CGPoint(x: countsViewportRect.maxX - 6, y: thumbCenterY)
+    }
+
+    private func setAvatarScrollOffset(_ offset: CGFloat) {
+        let maxOffset = max(0, avatarScrollContentHeight - avatarScrollViewportHeight)
+        avatarScrollOffset = min(max(0, offset), maxOffset)
+
+        avatarScrollContentNode.position = CGPoint(x: 0, y: avatarScrollContentBaseY + avatarScrollOffset)
+
+        let canScroll = maxOffset > 0.5
+        avatarScrollTrackNode.isHidden = !canScroll
+        avatarScrollThumbNode.isHidden = !canScroll
+
+        guard canScroll else { return }
+
+        let trackHeight = avatarViewportRect.height
+        let visibleRatio = min(1, avatarScrollViewportHeight / max(1, avatarScrollContentHeight))
+        let thumbHeight = max(20, trackHeight * visibleRatio)
+        let thumbWidth: CGFloat = 6
+
+        avatarScrollThumbNode.path = CGPath(
+            roundedRect: CGRect(x: -thumbWidth / 2, y: -thumbHeight / 2, width: thumbWidth, height: thumbHeight),
+            cornerWidth: thumbWidth / 2,
+            cornerHeight: thumbWidth / 2,
+            transform: nil
+        )
+
+        let progress = avatarScrollOffset / maxOffset
+        let travel = trackHeight - thumbHeight
+        let thumbCenterY = avatarViewportRect.maxY - (thumbHeight / 2) - (progress * travel)
+        avatarScrollThumbNode.position = CGPoint(x: avatarViewportRect.maxX - 6, y: thumbCenterY)
+    }
+
+    private func applyTabState() {
+        let countsSelected = currentTab == .counts
+
+        countsTabButtonNode.fillColor = countsSelected
+            ? UIColor.systemBlue.withAlphaComponent(0.85)
+            : UIColor(white: 0.22, alpha: 1.0)
+        avatarTabButtonNode.fillColor = countsSelected
+            ? UIColor(white: 0.22, alpha: 1.0)
+            : UIColor.systemBlue.withAlphaComponent(0.85)
+
+        countsScrollCropNode.isHidden = !countsSelected
+        countsScrollTrackNode.isHidden = !countsSelected
+        countsScrollThumbNode.isHidden = !countsSelected
+
+        avatarScrollCropNode.isHidden = countsSelected
+        avatarScrollTrackNode.isHidden = countsSelected
+        avatarScrollThumbNode.isHidden = countsSelected
+    }
+
+    private func showResetFeedback() {
+        resetFeedbackLabel.removeAllActions()
+        resetFeedbackLabel.text = "Reset complete"
+        resetFeedbackLabel.isHidden = false
+        resetFeedbackLabel.alpha = 0
+
+        let sequence: [SKAction] = [
+            .fadeAlpha(to: 1, duration: 0.12),
+            .wait(forDuration: 1.0),
+            .fadeOut(withDuration: 0.25),
+            .run { [weak self] in
+                self?.resetFeedbackLabel.isHidden = true
+            }
+        ]
+        resetFeedbackLabel.run(.sequence(sequence))
     }
 
     private func buildUI(sceneSize: CGSize) {
@@ -212,14 +361,13 @@ final class SettingsDialogNode: SKNode {
         rightPaneNode.zPosition = 762
         panelNode.addChild(rightPaneNode)
 
-        let countsTabButton = SKShapeNode(rectOf: CGSize(width: leftPaneWidth - 28, height: 42), cornerRadius: 8)
-        countsTabButton.name = "settingsTabCounts"
-        countsTabButton.fillColor = UIColor.systemBlue.withAlphaComponent(0.85)
-        countsTabButton.strokeColor = .white
-        countsTabButton.lineWidth = 1.5
-        countsTabButton.position = CGPoint(x: -panelWidth / 2 + 12 + leftPaneWidth / 2, y: panelHeight / 2 - 44)
-        countsTabButton.zPosition = 763
-        panelNode.addChild(countsTabButton)
+        countsTabButtonNode.path = CGPath(roundedRect: CGRect(x: -(leftPaneWidth - 28) / 2, y: -21, width: leftPaneWidth - 28, height: 42), cornerWidth: 8, cornerHeight: 8, transform: nil)
+        countsTabButtonNode.name = "settingsTabCounts"
+        countsTabButtonNode.strokeColor = .white
+        countsTabButtonNode.lineWidth = 1.5
+        countsTabButtonNode.position = CGPoint(x: -panelWidth / 2 + 12 + leftPaneWidth / 2, y: panelHeight / 2 - 44)
+        countsTabButtonNode.zPosition = 763
+        panelNode.addChild(countsTabButtonNode)
 
         let countsTabLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
         countsTabLabel.name = "settingsTabCounts"
@@ -229,7 +377,25 @@ final class SettingsDialogNode: SKNode {
         countsTabLabel.horizontalAlignmentMode = .center
         countsTabLabel.verticalAlignmentMode = .center
         countsTabLabel.zPosition = 764
-        countsTabButton.addChild(countsTabLabel)
+        countsTabButtonNode.addChild(countsTabLabel)
+
+        avatarTabButtonNode.path = CGPath(roundedRect: CGRect(x: -(leftPaneWidth - 28) / 2, y: -21, width: leftPaneWidth - 28, height: 42), cornerWidth: 8, cornerHeight: 8, transform: nil)
+        avatarTabButtonNode.name = "settingsTabAvatar"
+        avatarTabButtonNode.strokeColor = .white
+        avatarTabButtonNode.lineWidth = 1.5
+        avatarTabButtonNode.position = CGPoint(x: -panelWidth / 2 + 12 + leftPaneWidth / 2, y: panelHeight / 2 - 96)
+        avatarTabButtonNode.zPosition = 763
+        panelNode.addChild(avatarTabButtonNode)
+
+        let avatarTabLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        avatarTabLabel.name = "settingsTabAvatar"
+        avatarTabLabel.text = "Avatar"
+        avatarTabLabel.fontSize = 21
+        avatarTabLabel.fontColor = .white
+        avatarTabLabel.horizontalAlignmentMode = .center
+        avatarTabLabel.verticalAlignmentMode = .center
+        avatarTabLabel.zPosition = 764
+        avatarTabButtonNode.addChild(avatarTabLabel)
 
         let viewportInsetX: CGFloat = 10
         let viewportTopInset: CGFloat = 12
@@ -241,6 +407,12 @@ final class SettingsDialogNode: SKNode {
             height: rightPaneHeight - viewportTopInset - viewportBottomInset
         )
         countsViewportRect = viewportRect
+        avatarViewportRect = viewportRect
+
+        countsScrollContentNode.removeAllChildren()
+        avatarScrollContentNode.removeAllChildren()
+        valueLabelsByField.removeAll()
+        avatarSelectionBorderByAvatar.removeAll()
 
         countsScrollViewportHeight = viewportRect.height
         countsScrollCropNode.zPosition = 763
@@ -269,6 +441,34 @@ final class SettingsDialogNode: SKNode {
         countsScrollThumbNode.strokeColor = .clear
         countsScrollThumbNode.zPosition = 765
         panelNode.addChild(countsScrollThumbNode)
+
+        avatarScrollViewportHeight = viewportRect.height
+        avatarScrollCropNode.zPosition = 763
+        avatarScrollCropNode.position = .zero
+        panelNode.addChild(avatarScrollCropNode)
+
+        let avatarMaskNode = SKShapeNode(rect: viewportRect)
+        avatarMaskNode.fillColor = .white
+        avatarMaskNode.strokeColor = .clear
+        avatarScrollCropNode.maskNode = avatarMaskNode
+        avatarScrollCropNode.addChild(avatarScrollContentNode)
+
+        avatarScrollTrackNode.path = CGPath(
+            roundedRect: CGRect(x: -2, y: -avatarViewportRect.height / 2, width: 4, height: avatarViewportRect.height),
+            cornerWidth: 2,
+            cornerHeight: 2,
+            transform: nil
+        )
+        avatarScrollTrackNode.fillColor = UIColor.white.withAlphaComponent(0.18)
+        avatarScrollTrackNode.strokeColor = .clear
+        avatarScrollTrackNode.zPosition = 764
+        avatarScrollTrackNode.position = CGPoint(x: avatarViewportRect.maxX - 6, y: avatarViewportRect.midY)
+        panelNode.addChild(avatarScrollTrackNode)
+
+        avatarScrollThumbNode.fillColor = UIColor.white.withAlphaComponent(0.82)
+        avatarScrollThumbNode.strokeColor = .clear
+        avatarScrollThumbNode.zPosition = 765
+        panelNode.addChild(avatarScrollThumbNode)
 
         let rightStartX = viewportRect.minX + 6
         let controlsMinusX = viewportRect.maxX - 116
@@ -353,6 +553,62 @@ final class SettingsDialogNode: SKNode {
 
         setCountsScrollOffset(0)
 
+        let avatars = UTSettings.Avatar.allCases
+        let avatarColumns = 2
+        let cellSpacingX: CGFloat = 16
+        let cellPaddingX: CGFloat = 12
+        let cellWidth = (viewportRect.width - (cellPaddingX * 2) - cellSpacingX) / CGFloat(avatarColumns)
+        let imageSize = max(80, min(170, cellWidth - 30))
+        let avatarRowHeight = imageSize + 56
+        let rows = Int(ceil(Double(avatars.count) / Double(avatarColumns)))
+        let avatarTopPadding: CGFloat = 10
+        let avatarBottomPadding: CGFloat = 10
+        avatarScrollContentHeight = max(
+            avatarScrollViewportHeight,
+            avatarTopPadding + avatarBottomPadding + CGFloat(rows) * avatarRowHeight
+        )
+        let avatarTopY = avatarScrollContentHeight / 2 - avatarTopPadding - avatarRowHeight / 2
+        avatarScrollContentBaseY = viewportRect.maxY - (avatarScrollContentHeight / 2)
+
+        for (index, avatar) in avatars.enumerated() {
+            let row = index / avatarColumns
+            let column = index % avatarColumns
+            let centerX = viewportRect.minX + cellPaddingX + cellWidth / 2 + CGFloat(column) * (cellWidth + cellSpacingX)
+            let centerY = avatarTopY - CGFloat(row) * avatarRowHeight
+
+            let itemName = "settingsAvatar:\(avatar.rawValue)"
+            let itemSize = CGSize(width: cellWidth, height: avatarRowHeight - 8)
+
+            let container = SKShapeNode(rectOf: itemSize, cornerRadius: 10)
+            container.name = itemName
+            container.fillColor = UIColor(white: 0.18, alpha: 1.0)
+            container.strokeColor = UIColor.white.withAlphaComponent(0.25)
+            container.lineWidth = 1
+            container.position = CGPoint(x: centerX, y: centerY)
+            container.zPosition = 763
+            avatarScrollContentNode.addChild(container)
+
+            let selectionBorder = SKShapeNode(rectOf: CGSize(width: itemSize.width - 4, height: itemSize.height - 4), cornerRadius: 9)
+            selectionBorder.name = itemName
+            selectionBorder.fillColor = .clear
+            selectionBorder.strokeColor = UIColor.white.withAlphaComponent(0.35)
+            selectionBorder.lineWidth = 1.5
+            selectionBorder.zPosition = 764
+            container.addChild(selectionBorder)
+            avatarSelectionBorderByAvatar[avatar] = selectionBorder
+
+            let avatarTexture = SKTexture(imageNamed: avatar.assetName)
+            let resolvedTexture = avatarTexture.size() == .zero ? SKTexture(imageNamed: "player_icon") : avatarTexture
+            let avatarSprite = SKSpriteNode(texture: resolvedTexture)
+            avatarSprite.name = itemName
+            avatarSprite.size = CGSize(width: imageSize, height: imageSize)
+            avatarSprite.position = CGPoint(x: 0, y: 0)
+            avatarSprite.zPosition = 764
+            container.addChild(avatarSprite)
+        }
+
+        setAvatarScrollOffset(0)
+
         let resetButton = SKShapeNode(rectOf: CGSize(width: 130, height: 40), cornerRadius: 8)
         resetButton.name = "settingsResetItem"
         resetButton.fillColor = UIColor.systemOrange.withAlphaComponent(0.9)
@@ -392,6 +648,19 @@ final class SettingsDialogNode: SKNode {
         doneLabel.position = .zero
         doneLabel.zPosition = 764
         doneButton.addChild(doneLabel)
+
+        resetFeedbackLabel.text = ""
+        resetFeedbackLabel.fontSize = 18
+        resetFeedbackLabel.fontColor = UIColor.systemGreen
+        resetFeedbackLabel.horizontalAlignmentMode = .center
+        resetFeedbackLabel.verticalAlignmentMode = .center
+        resetFeedbackLabel.position = CGPoint(x: 0, y: -panelHeight / 2 + 34)
+        resetFeedbackLabel.zPosition = 764
+        resetFeedbackLabel.isHidden = true
+        resetFeedbackLabel.alpha = 1
+        panelNode.addChild(resetFeedbackLabel)
+
+        applyTabState()
     }
 
     private func resolvedName(from node: SKNode) -> String? {
