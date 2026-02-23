@@ -88,4 +88,20 @@ enum SchoolLayout {
     static var gymLabelTile: TileCoordinate {
         TileCoordinate(column: gymDividerColumn + (gymWidth / 2), row: minRow + ((maxRowExclusive - minRow) / 2))
     }
+
+    static var classroomTopLeftDeskTile: TileCoordinate {
+        TileCoordinate(column: classroomVerticalDividerColumn - 2, row: classroomTopLeftLabelTile.row)
+    }
+
+    static var classroomTopRightDeskTile: TileCoordinate {
+        TileCoordinate(column: gymDividerColumn - 2, row: classroomTopRightLabelTile.row)
+    }
+
+    static var classroomBottomLeftDeskTile: TileCoordinate {
+        TileCoordinate(column: classroomVerticalDividerColumn - 2, row: classroomBottomLeftLabelTile.row)
+    }
+
+    static var classroomBottomRightDeskTile: TileCoordinate {
+        TileCoordinate(column: gymDividerColumn - 2, row: classroomBottomRightLabelTile.row)
+    }
 }

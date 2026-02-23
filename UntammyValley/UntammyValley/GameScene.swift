@@ -1861,6 +1861,8 @@ class GameScene: SKScene {
         case .desk:
             handleDeskInteraction()
             return
+        case .teachersDesk:
+            return
         case .toiletBowlBrush:
             handleToiletBowlBrushInteraction(node: node)
             return
@@ -2383,6 +2385,9 @@ class GameScene: SKScene {
         player.position = point(from: snapshot.playerPosition)
 
         for (id, savedPosition) in snapshot.interactablePositionsByID {
+            if interactableConfigsByID[id]?.kind == .teachersDesk {
+                continue
+            }
             interactableNodesByID[id]?.position = point(from: savedPosition)
         }
 

@@ -47,6 +47,10 @@ enum WorldLoader {
             CGSize(width: 128, height: 64)
         }
 
+        static var teachersDeskSize: CGSize {
+            CGSize(width: 64, height: 128)
+        }
+
         static var chipMakerSize: CGSize {
             scaledSize(width: baseObjectSize * 1.25, height: baseObjectSize * 1.25)
         }
@@ -344,10 +348,10 @@ enum WorldLoader {
             ("Kitchen", BarLayout.kitchenLabelTile),
             ("Cellar", BarLayout.cellarLabelTile),
             ("School Hall", SchoolLayout.hallLabelTile),
-            ("Classroom A", SchoolLayout.classroomTopLeftLabelTile),
-            ("Classroom B", SchoolLayout.classroomTopRightLabelTile),
-            ("Classroom C", SchoolLayout.classroomBottomLeftLabelTile),
-            ("Classroom D", SchoolLayout.classroomBottomRightLabelTile),
+            ("English", SchoolLayout.classroomTopLeftLabelTile),
+            ("History", SchoolLayout.classroomTopRightLabelTile),
+            ("Mathematics", SchoolLayout.classroomBottomLeftLabelTile),
+            ("Science", SchoolLayout.classroomBottomRightLabelTile),
             ("Gym", SchoolLayout.gymLabelTile)
         ]
 
@@ -654,6 +658,53 @@ enum WorldLoader {
             interactionRange: 120
         )
 
+        let teacherDeskEnglish = InteractableConfig(
+            id: "teacherDeskEnglish",
+            kind: .teachersDesk,
+            spriteName: "teachers_desk",
+            tile: SchoolLayout.classroomTopLeftDeskTile,
+            size: BarLayout.teachersDeskSize,
+            rewardCoins: 0,
+            interactionRange: 110
+        )
+
+        let teacherDeskHistory = InteractableConfig(
+            id: "teacherDeskHistory",
+            kind: .teachersDesk,
+            spriteName: "teachers_desk",
+            tile: SchoolLayout.classroomTopRightDeskTile,
+            size: BarLayout.teachersDeskSize,
+            rewardCoins: 0,
+            interactionRange: 110
+        )
+
+        let teacherDeskMathematics = InteractableConfig(
+            id: "teacherDeskMathematics",
+            kind: .teachersDesk,
+            spriteName: "teachers_desk",
+            tile: SchoolLayout.classroomBottomLeftDeskTile,
+            size: BarLayout.teachersDeskSize,
+            rewardCoins: 0,
+            interactionRange: 110
+        )
+
+        let teacherDeskScience = InteractableConfig(
+            id: "teacherDeskScience",
+            kind: .teachersDesk,
+            spriteName: "teachers_desk",
+            tile: SchoolLayout.classroomBottomRightDeskTile,
+            size: BarLayout.teachersDeskSize,
+            rewardCoins: 0,
+            interactionRange: 110
+        )
+
+        let teachersDesks: [TeachersDeskConfig] = [
+            TeachersDeskConfig(interactableID: teacherDeskEnglish.id, subject: .english),
+            TeachersDeskConfig(interactableID: teacherDeskHistory.id, subject: .history),
+            TeachersDeskConfig(interactableID: teacherDeskMathematics.id, subject: .mathematics),
+            TeachersDeskConfig(interactableID: teacherDeskScience.id, subject: .science)
+        ]
+
         let bedroomBat = InteractableConfig(
             id: "bedroomBat",
             kind: .bedroomBat,
@@ -716,7 +767,7 @@ enum WorldLoader {
             blocksMovement: false
         )
 
-        let allInteractables = [potatoPeeler, deepFryer, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, desk, bedroomBat, shovel, goatChaseSpot] + snowmobiles
+        let allInteractables = [potatoPeeler, deepFryer, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, desk, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, goatChaseSpot] + snowmobiles
 
         let staticDecorations = [carrollSign, cramerSign, schoolSign]
         let treeDecorations = makeTreeDecorations(
@@ -735,7 +786,8 @@ enum WorldLoader {
             roomLabels: roomLabels,
             spawnTile: BarLayout.spawnTile,
             decorations: staticDecorations + treeDecorations,
-            interactables: allInteractables
+            interactables: allInteractables,
+            teachersDesks: teachersDesks
         )
     }
 

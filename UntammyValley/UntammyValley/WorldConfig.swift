@@ -44,6 +44,7 @@ enum InteractableKind {
     case deepFryer
     case chipsBasket
     case desk
+    case teachersDesk
     case snowmobile
     case toilet
     case toiletBowlBrush
@@ -66,6 +67,18 @@ struct InteractableConfig {
     let interactionRange: CGFloat
 }
 
+enum ClassroomSubject {
+    case english
+    case history
+    case mathematics
+    case science
+}
+
+struct TeachersDeskConfig {
+    let interactableID: String
+    let subject: ClassroomSubject
+}
+
 struct WorldConfig {
     let wallTiles: Set<TileCoordinate>
     let defaultFloorTileName: String
@@ -78,6 +91,7 @@ struct WorldConfig {
     let spawnTile: TileCoordinate
     let decorations: [DecorationConfig]
     let interactables: [InteractableConfig]
+    let teachersDesks: [TeachersDeskConfig]
 
     static let current = WorldLoader.makeInitialBarWorld()
 
