@@ -164,14 +164,6 @@ class GameScene: SKScene {
     private var warningIconContainerNode: SKNode!
     private var warningBatIconNode: SKSpriteNode!
     private var warningToiletIconNode: SKSpriteNode!
-    private var statusBackdropNode: SKShapeNode!
-    private var statusPanelNode: SKShapeNode!
-    private var statusTitleLabel: SKLabelNode!
-    private var statusScrollCropNode: SKCropNode!
-    private var statusScrollContentNode: SKNode!
-    private var statusScrollTrackNode: SKShapeNode!
-    private var statusScrollThumbNode: SKShapeNode!
-    private var statusDoneLabel: SKLabelNode!
     private var makerLoadedIndicatorNode: SKShapeNode?
     private var bucketSelectedIndicatorNode: SKShapeNode?
     private var groundTileMap: SKTileMapNode?
@@ -254,12 +246,6 @@ class GameScene: SKScene {
 
     private var isStatusWindowVisible = false
     private var isStudySubjectPromptVisible = false
-    private var isDraggingStatusScroll = false
-    private var lastStatusDragY: CGFloat = 0
-    private var statusScrollOffset: CGFloat = 0
-    private var statusScrollViewportHeight: CGFloat = 0
-    private var statusScrollContentHeight: CGFloat = 0
-    private var statusScrollViewportWidth: CGFloat = 0
     private var isMapViewMode = false
     private var isDraggingMap = false
     private var lastMapDragPoint = CGPoint.zero
@@ -575,14 +561,6 @@ class GameScene: SKScene {
             return
         }
 
-        if isStatusWindowVisible {
-            isDraggingStatusScroll = false
-            if hudNodes.contains(where: { $0.name == "statusDoneItem" || $0.parent?.name == "statusDoneItem" }) {
-                setStatusWindowVisible(false)
-            }
-            return
-        }
-
         if hudNodes.contains(where: { $0.name == "hamburgerButton" || $0.parent?.name == "hamburgerButton" }) {
             setMenuVisible(menuPanelNode.isHidden)
             return
@@ -593,7 +571,6 @@ class GameScene: SKScene {
             return
         }
         if hudNodes.contains(where: { $0.name == "menuStatusItem" || $0.parent?.name == "menuStatusItem" }) {
-            updateStatusWindowBody()
             setStatusWindowVisible(true)
             setMenuVisible(false)
             return
@@ -663,11 +640,6 @@ class GameScene: SKScene {
             lastMapDragPoint = hudLocation
             return
         }
-        guard isStatusWindowVisible else { return }
-        if statusScrollCropNode.contains(hudLocation) {
-            isDraggingStatusScroll = true
-            lastStatusDragY = hudLocation.y
-        }
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -700,11 +672,6 @@ class GameScene: SKScene {
             clampCameraPositionToWorldBounds()
             return
         }
-
-        guard isStatusWindowVisible, isDraggingStatusScroll else { return }
-        let deltaY = hudLocation.y - lastStatusDragY
-        lastStatusDragY = hudLocation.y
-        setStatusScrollOffset(statusScrollOffset + deltaY)
     }
 
     override func update(_ currentTime: TimeInterval) {
@@ -1214,13 +1181,15 @@ class GameScene: SKScene {
         configureSnowmobileChoiceDialog()
         configureScrollTextDialog()
         configureStudySubjectPrompt()
-        configureStatusWindow()
         configureSettingsDialog()
     }
 
     private func configureScrollTextDialog() {
         scrollTextDialogNode = ScrollTextDialogNode(sceneSize: size)
         scrollTextDialogNode.zPosition = 742
+        scrollTextDialogNode.onClose = { [weak self] in
+            self?.isStatusWindowVisible = false
+        }
         cameraNode.addChild(scrollTextDialogNode)
     }
 
@@ -1435,7 +1404,7 @@ class GameScene: SKScene {
     private func openIntroWindow() {
         setStudySubjectPromptVisible(false)
         setStatusWindowVisible(false)
-        scrollTextDialogNode.configure(title: "Introduction", paragraphs: introDialogParagraphs)
+        scrollTextDialogNode.configure(title: "Introduction", lines: introDialogParagraphs, paragraphSpacing: 0.5)
         scrollTextDialogNode.setVisible(true)
     }
 
@@ -1457,7 +1426,7 @@ class GameScene: SKScene {
         let paragraphs = matchingBackgrounds.isEmpty
             ? ["No study notes available for this subject."]
             : matchingBackgrounds
-        scrollTextDialogNode.configure(title: "Study Guide", paragraphs: paragraphs)
+        scrollTextDialogNode.configure(title: "Study Guide", lines: paragraphs, paragraphSpacing: 0.5)
         scrollTextDialogNode.setVisible(true)
     }
 
@@ -1758,98 +1727,24 @@ class GameScene: SKScene {
         cameraNode.position = CGPoint(x: clampedX, y: clampedY)
     }
 
-    // MARK: - Status Window
-    private func configureStatusWindow() {
-        let backdropSize = CGSize(width: size.width, height: size.height)
-        statusBackdropNode = SKShapeNode(rectOf: backdropSize)
-        statusBackdropNode.name = "statusBackdrop"
-        statusBackdropNode.fillColor = UIColor.black.withAlphaComponent(0.45)
-        statusBackdropNode.strokeColor = .clear
-        statusBackdropNode.position = .zero
-        statusBackdropNode.zPosition = 700
-        statusBackdropNode.isHidden = true
-        cameraNode.addChild(statusBackdropNode)
-
-        statusPanelNode = SKShapeNode(rectOf: CGSize(width: min(size.width - 80, 560), height: 330), cornerRadius: 14)
-        statusPanelNode.name = "statusPanel"
-        statusPanelNode.fillColor = UIColor(white: 0.14, alpha: 0.97)
-        statusPanelNode.strokeColor = .white
-        statusPanelNode.lineWidth = 2
-        statusPanelNode.position = .zero
-        statusPanelNode.zPosition = 701
-        statusPanelNode.isHidden = true
-        cameraNode.addChild(statusPanelNode)
-
-        statusTitleLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        statusTitleLabel.text = "Status"
-        statusTitleLabel.fontSize = 28
-        statusTitleLabel.fontColor = .white
-        statusTitleLabel.horizontalAlignmentMode = .center
-        statusTitleLabel.verticalAlignmentMode = .center
-        statusTitleLabel.position = CGPoint(x: 0, y: 142)
-        statusTitleLabel.zPosition = 702
-        statusPanelNode.addChild(statusTitleLabel)
-
-        statusScrollViewportWidth = min(size.width - 130, 500)
-        statusScrollViewportHeight = 196
-
-        statusScrollCropNode = SKCropNode()
-        statusScrollCropNode.position = CGPoint(x: 0, y: 12)
-        statusScrollCropNode.zPosition = 702
-        statusPanelNode.addChild(statusScrollCropNode)
-
-        let scrollMask = SKSpriteNode(color: .white, size: CGSize(width: statusScrollViewportWidth, height: statusScrollViewportHeight))
-        scrollMask.position = .zero
-        statusScrollCropNode.maskNode = scrollMask
-
-        statusScrollContentNode = SKNode()
-        statusScrollCropNode.addChild(statusScrollContentNode)
-
-        let scrollTrackSize = CGSize(width: 6, height: statusScrollViewportHeight)
-        statusScrollTrackNode = SKShapeNode(rectOf: scrollTrackSize, cornerRadius: 3)
-        statusScrollTrackNode.fillColor = UIColor.white.withAlphaComponent(0.2)
-        statusScrollTrackNode.strokeColor = UIColor.white.withAlphaComponent(0.4)
-        statusScrollTrackNode.lineWidth = 1
-        statusScrollTrackNode.position = CGPoint(x: statusScrollViewportWidth / 2 + 12, y: statusScrollCropNode.position.y)
-        statusScrollTrackNode.zPosition = 702
-        statusPanelNode.addChild(statusScrollTrackNode)
-
-        statusScrollThumbNode = SKShapeNode(rectOf: CGSize(width: 6, height: 44), cornerRadius: 3)
-        statusScrollThumbNode.fillColor = UIColor.white.withAlphaComponent(0.85)
-        statusScrollThumbNode.strokeColor = .white
-        statusScrollThumbNode.lineWidth = 0.5
-        statusScrollThumbNode.position = statusScrollTrackNode.position
-        statusScrollThumbNode.zPosition = 703
-        statusPanelNode.addChild(statusScrollThumbNode)
-
-        let doneButton = SKShapeNode(rectOf: CGSize(width: 120, height: 42), cornerRadius: 8)
-        doneButton.name = "statusDoneItem"
-        doneButton.fillColor = UIColor.systemBlue.withAlphaComponent(0.9)
-        doneButton.strokeColor = .white
-        doneButton.lineWidth = 1.5
-        doneButton.position = CGPoint(x: 0, y: -124)
-        doneButton.zPosition = 702
-        statusPanelNode.addChild(doneButton)
-
-        statusDoneLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        statusDoneLabel.name = "statusDoneItem"
-        statusDoneLabel.text = "Close"
-        statusDoneLabel.fontSize = 22
-        statusDoneLabel.fontColor = .white
-        statusDoneLabel.horizontalAlignmentMode = .center
-        statusDoneLabel.verticalAlignmentMode = .center
-        statusDoneLabel.position = .zero
-        statusDoneLabel.zPosition = 703
-        doneButton.addChild(statusDoneLabel)
-    }
-
+    // MARK: - Status Dialog
     private func setStatusWindowVisible(_ visible: Bool) {
         isStatusWindowVisible = visible
-        statusBackdropNode.isHidden = !visible
-        statusPanelNode.isHidden = !visible
+        if visible {
+            updateStatusWindowBody()
+            scrollTextDialogNode.setVisible(true)
+        } else {
+            scrollTextDialogNode.setVisible(false)
+        }
     }
 
     private func updateStatusWindowBody() {
+        guard isStatusWindowVisible else { return }
+        let statusLines = makeStatusLines()
+        scrollTextDialogNode.configure(title: "Status", lines: statusLines, paragraphSpacing: 0.0, closeButtonTitle: "Close")
+    }
+
+    private func makeStatusLines() -> [String] {
         let goatRespawnText: String
         if let respawnMove = respawnAtMoveByInteractableID["goatChaseSpot"] {
             goatRespawnText = "In \(max(0, respawnMove - completedMoveCount)) moves"
@@ -1911,71 +1806,7 @@ class GameScene: SKScene {
                 statusLines.append("Version: " + version)
             }
         }
-        renderStatusLines(statusLines)
-    }
-
-    private func renderStatusLines(_ lines: [String]) {
-        statusScrollContentNode.removeAllChildren()
-
-        let lineHeight: CGFloat = 24
-        let topPadding: CGFloat = 8
-        let bottomPadding: CGFloat = 8
-        let textX = -statusScrollViewportWidth / 2 + 8
-        let contentHeight = topPadding + bottomPadding + CGFloat(lines.count) * lineHeight
-        statusScrollContentHeight = max(contentHeight, statusScrollViewportHeight)
-
-        let topY = statusScrollContentHeight / 2 - topPadding
-        for (index, lineText) in lines.enumerated() {
-            let lineNode = SKLabelNode(fontNamed: "AvenirNext-Medium")
-            lineNode.text = lineText
-            lineNode.fontSize = 20
-            lineNode.fontColor = .white
-            lineNode.horizontalAlignmentMode = .left
-            lineNode.verticalAlignmentMode = .top
-            lineNode.position = CGPoint(x: textX, y: topY - CGFloat(index) * lineHeight)
-            lineNode.zPosition = 702
-            statusScrollContentNode.addChild(lineNode)
-        }
-
-        setStatusScrollOffset(statusScrollOffset)
-        updateStatusScrollIndicator()
-    }
-
-    private func setStatusScrollOffset(_ offset: CGFloat) {
-        let maxOffset = max(0, statusScrollContentHeight - statusScrollViewportHeight)
-        statusScrollOffset = min(max(0, offset), maxOffset)
-        statusScrollContentNode.position = CGPoint(
-            x: 0,
-            y: (statusScrollViewportHeight - statusScrollContentHeight) / 2 + statusScrollOffset
-        )
-        updateStatusScrollIndicator()
-    }
-
-    private func updateStatusScrollIndicator() {
-        let maxOffset = max(0, statusScrollContentHeight - statusScrollViewportHeight)
-        guard maxOffset > 0 else {
-            statusScrollTrackNode.isHidden = true
-            statusScrollThumbNode.isHidden = true
-            return
-        }
-
-        statusScrollTrackNode.isHidden = false
-        statusScrollThumbNode.isHidden = false
-
-        let visibleRatio = statusScrollViewportHeight / statusScrollContentHeight
-        let thumbHeight = max(24, statusScrollViewportHeight * visibleRatio)
-        statusScrollThumbNode.path = CGPath(
-            roundedRect: CGRect(x: -3, y: -thumbHeight / 2, width: 6, height: thumbHeight),
-            cornerWidth: 3,
-            cornerHeight: 3,
-            transform: nil
-        )
-
-        let trackTopY = statusScrollTrackNode.position.y + statusScrollViewportHeight / 2
-        let travelRange = statusScrollViewportHeight - thumbHeight
-        let progress = statusScrollOffset / maxOffset
-        let thumbCenterY = trackTopY - thumbHeight / 2 - (travelRange * progress)
-        statusScrollThumbNode.position = CGPoint(x: statusScrollTrackNode.position.x, y: thumbCenterY)
+        return statusLines
     }
 
     private func setMenuVisible(_ visible: Bool) {

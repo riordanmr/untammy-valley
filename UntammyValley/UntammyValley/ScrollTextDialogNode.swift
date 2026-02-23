@@ -42,12 +42,17 @@ final class ScrollTextDialogNode: SKNode {
         updateScrollOffset(scrollOffset)
     }
 
-    func configure(title: String, paragraphs: [String], closeButtonTitle: String = "Close") {
+    func configure(
+        title: String,
+        lines: [String],
+        paragraphSpacing: CGFloat,
+        closeButtonTitle: String = "Close"
+    ) {
         titleLabel.text = title
         if let closeLabel = closeButtonNode.childNode(withName: "scrollTextCloseItem") as? SKLabelNode {
             closeLabel.text = closeButtonTitle
         }
-        renderParagraphs(paragraphs)
+        renderLines(lines, paragraphSpacing: paragraphSpacing)
     }
 
     func setVisible(_ visible: Bool) {
@@ -61,7 +66,7 @@ final class ScrollTextDialogNode: SKNode {
 
     func beginDrag(at hudLocation: CGPoint) {
         guard isVisible else { return }
-        guard scrollCropNode.contains(hudLocation) else { return }
+        guard isInScrollViewport(hudLocation) else { return }
         isDraggingScroll = true
         lastDragY = hudLocation.y
         didDragScroll = false
@@ -108,7 +113,7 @@ final class ScrollTextDialogNode: SKNode {
         backdropNode.zPosition = 0
         addChild(backdropNode)
 
-        let panelSize = CGSize(width: min(sceneSize.width - 40, 940), height: min(sceneSize.height * 0.93, 980))
+        let panelSize = CGSize(width: min(sceneSize.width - 72, 940), height: min(sceneSize.height * 0.93, 980))
         panelNode.path = CGPath(roundedRect: CGRect(x: -panelSize.width / 2, y: -panelSize.height / 2, width: panelSize.width, height: panelSize.height), cornerWidth: 14, cornerHeight: 14, transform: nil)
         panelNode.fillColor = UIColor(white: 0.10, alpha: 0.97)
         panelNode.strokeColor = .white
@@ -126,11 +131,11 @@ final class ScrollTextDialogNode: SKNode {
         titleLabel.zPosition = 2
         panelNode.addChild(titleLabel)
 
-        scrollViewportWidth = panelSize.width - 88
+        scrollViewportWidth = panelSize.width - 56
         scrollViewportHeight = panelSize.height - 130
 
         scrollCropNode.zPosition = 2
-        scrollCropNode.position = CGPoint(x: -10, y: 10)
+        scrollCropNode.position = CGPoint(x: 0, y: 10)
         panelNode.addChild(scrollCropNode)
 
         let scrollMask = SKSpriteNode(color: .white, size: CGSize(width: scrollViewportWidth, height: scrollViewportHeight))
@@ -147,7 +152,7 @@ final class ScrollTextDialogNode: SKNode {
         scrollTrackNode.fillColor = UIColor.white.withAlphaComponent(0.2)
         scrollTrackNode.strokeColor = UIColor.white.withAlphaComponent(0.4)
         scrollTrackNode.lineWidth = 1
-        scrollTrackNode.position = CGPoint(x: scrollViewportWidth / 2 + 12 + scrollCropNode.position.x, y: scrollCropNode.position.y)
+        scrollTrackNode.position = CGPoint(x: scrollViewportWidth / 2 + 8 + scrollCropNode.position.x, y: scrollCropNode.position.y)
         scrollTrackNode.zPosition = 2
         panelNode.addChild(scrollTrackNode)
 
@@ -180,47 +185,44 @@ final class ScrollTextDialogNode: SKNode {
         updateScrollOffset(scrollOffset)
     }
 
-    private func renderParagraphs(_ paragraphs: [String]) {
+    private func renderLines(_ lines: [String], paragraphSpacing: CGFloat) {
         scrollContentNode.removeAllChildren()
 
         let fontName = "AvenirNext-Medium"
-        let fontSize: CGFloat = 24
-        let lineHeight: CGFloat = 31
-        let paragraphSpacing: CGFloat = lineHeight / 2
+        let fontSize: CGFloat = 20
+        let lineHeight: CGFloat = 24
+        let extraSpacing = max(0, paragraphSpacing) * lineHeight
         let topPadding: CGFloat = 8
         let bottomPadding: CGFloat = 8
-        let maxCharsPerLine = max(40, Int(scrollViewportWidth / 12))
+        let maxCharsPerLine = max(40, Int(scrollViewportWidth / 10))
         let textX = -scrollViewportWidth / 2 + 8
 
-        var renderedLines: [(text: String, isParagraphSpacer: Bool)] = []
-        if paragraphs.isEmpty {
-            renderedLines.append((text: "No text available.", isParagraphSpacer: false))
-        } else {
-            for (index, paragraph) in paragraphs.enumerated() {
-                let wrapped = wrappedLines(paragraph, maxCharacters: maxCharsPerLine)
-                renderedLines.append(contentsOf: wrapped.map { (text: $0, isParagraphSpacer: false) })
-                if index < paragraphs.count - 1 {
-                    renderedLines.append((text: "", isParagraphSpacer: true))
-                }
+        let sourceLines = lines.isEmpty ? ["No text available."] : lines
+        var renderedLines: [(text: String, isSpacer: Bool)] = []
+        for (index, sourceLine) in sourceLines.enumerated() {
+            let wrapped = wrappedLines(sourceLine, maxCharacters: maxCharsPerLine)
+            renderedLines.append(contentsOf: wrapped.map { (text: $0, isSpacer: false) })
+            if index < sourceLines.count - 1 {
+                renderedLines.append((text: "", isSpacer: true))
             }
         }
 
         let textHeight = renderedLines.reduce(CGFloat(0)) { partialResult, item in
-            partialResult + (item.isParagraphSpacer ? paragraphSpacing : lineHeight)
+            partialResult + (item.isSpacer ? extraSpacing : lineHeight)
         }
         let contentHeight = topPadding + bottomPadding + textHeight
         scrollContentHeight = max(contentHeight, scrollViewportHeight)
 
         let topY = scrollContentHeight / 2 - topPadding
         var currentY = topY
-        for line in renderedLines {
-            if line.isParagraphSpacer {
-                currentY -= paragraphSpacing
+        for renderedLine in renderedLines {
+            if renderedLine.isSpacer {
+                currentY -= extraSpacing
                 continue
             }
 
             let lineNode = SKLabelNode(fontNamed: fontName)
-            lineNode.text = line.text
+            lineNode.text = renderedLine.text
             lineNode.fontSize = fontSize
             lineNode.fontColor = .white
             lineNode.horizontalAlignmentMode = .left
@@ -309,5 +311,18 @@ final class ScrollTextDialogNode: SKNode {
             return name
         }
         return node.parent?.name
+    }
+
+    private func isInScrollViewport(_ hudLocation: CGPoint) -> Bool {
+        guard let parent else { return false }
+
+        let localInPanel = panelNode.convert(hudLocation, from: parent)
+        let viewportRect = CGRect(
+            x: scrollCropNode.position.x - scrollViewportWidth / 2,
+            y: scrollCropNode.position.y - scrollViewportHeight / 2,
+            width: scrollViewportWidth,
+            height: scrollViewportHeight
+        )
+        return viewportRect.contains(localInPanel)
     }
 }
