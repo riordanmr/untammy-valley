@@ -1905,7 +1905,11 @@ class GameScene: SKScene {
             "Goat respawn: \(goatRespawnText)"
         ]
         if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
-            statusLines.append("Version: " + version)
+            if let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
+                statusLines.append("Version: " + version + " (" + build + ")")
+            } else {
+                statusLines.append("Version: " + version)
+            }
         }
         renderStatusLines(statusLines)
     }
@@ -2808,7 +2812,7 @@ class GameScene: SKScene {
         messageLabel.removeAllActions()
         messageLabel.text = text
         messageLabel.alpha = 1
-        let wait = SKAction.wait(forDuration: 2.8)
+        let wait = SKAction.wait(forDuration: 4.0)
         let fade = SKAction.fadeOut(withDuration: 0.5)
         messageLabel.run(SKAction.sequence([wait, fade]))
     }
