@@ -44,15 +44,19 @@ enum WorldLoader {
         }
 
         static var deskSize: CGSize {
-            CGSize(width: 128, height: 64)
+            scaledSize(width: baseObjectSize * 2, height: baseObjectSize)
         }
 
         static var teachersDeskSize: CGSize {
-            CGSize(width: 64, height: 128)
+            scaledSize(width: baseObjectSize, height: baseObjectSize * 2)
         }
 
         static var chipMakerSize: CGSize {
             scaledSize(width: baseObjectSize * 1.25, height: baseObjectSize * 1.25)
+        }
+
+        static var deepFryerSize: CGSize {
+            scaledSize(width: baseObjectSize, height: baseObjectSize * 2)
         }
 
         static var largeSignSize: CGSize {
@@ -61,6 +65,14 @@ enum WorldLoader {
 
         static var snowmobileSize: CGSize {
             scaledSize(width: baseObjectSize * 2, height: baseObjectSize * 2)
+        }
+
+        static var treeSizes: [CGSize] {
+            [
+                scaledSize(width: baseObjectSize * (43.0 / 12.0), height: baseObjectSize * (25.0 / 6.0)),
+                scaledSize(width: baseObjectSize * (23.0 / 6.0), height: baseObjectSize * (40.0 / 9.0)),
+                scaledSize(width: baseObjectSize * (49.0 / 12.0), height: baseObjectSize * (85.0 / 18.0))
+            ]
         }
 
         static var maxColumnExclusive: Int { minColumn + bedroomRoomWidth + diningRoomWidth + kitchenRoomWidth }
@@ -563,7 +575,7 @@ enum WorldLoader {
             kind: .deepFryer,
             spriteName: "deep_fryer_marker",
             tile: BarLayout.deepFryerTile,
-            size: BarLayout.standardObjectSize,
+            size: BarLayout.deepFryerSize,
             rewardCoins: 0,
             interactionRange: 95
         )
@@ -818,11 +830,7 @@ enum WorldLoader {
         guard minTreeRow <= maxTreeRow else { return [] }
 
         let treeSpriteNames = ["fir", "maple", "birch"]
-        let treeSizes: [CGSize] = [
-            CGSize(width: 172, height: 240),
-            CGSize(width: 184, height: 256),
-            CGSize(width: 196, height: 272)
-        ]
+        let treeSizes = BarLayout.treeSizes
 
         var rng = SeededGenerator(seed: 20260221)
         var placedTiles = Set<TileCoordinate>()
