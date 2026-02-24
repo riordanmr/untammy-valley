@@ -157,6 +157,7 @@ class GameScene: SKScene {
     private var scrollTextDialogNode: ScrollTextDialogNode!
     private var studySubjectBackdropNode: SKShapeNode!
     private var studySubjectPanelNode: SKShapeNode!
+    private var quizDialogNode: QuizDialogNode!
     private var snowmobileChoiceBackdropNode: SKShapeNode!
     private var snowmobileChoicePanelNode: SKShapeNode!
     private var snowmobileChoiceSubtitleLabel: SKLabelNode!
@@ -265,6 +266,13 @@ class GameScene: SKScene {
     private var playerSpawnPosition: CGPoint = .zero
     private var completedMoveCount = 0
     private let worldConfig = WorldConfig.current
+    private lazy var teacherDeskSubjectByID: [String: String] = {
+        var map: [String: String] = [:]
+        for desk in worldConfig.teachersDesks {
+            map[desk.interactableID] = desk.subject.quizSubjectName
+        }
+        return map
+    }()
 
     private var worldColumns: Int { worldConfig.recommendedWorldColumns }
     private let worldRows = 46
@@ -501,6 +509,7 @@ class GameScene: SKScene {
         updateMapCloseButtonPosition()
         settingsDialogNode?.updateLayout(sceneSize: size)
         scrollTextDialogNode?.updateLayout(sceneSize: size)
+        quizDialogNode?.updateLayout(sceneSize: size)
         if isMapViewMode {
             clampCameraPositionToWorldBounds()
         }
@@ -534,6 +543,11 @@ class GameScene: SKScene {
                 return
             }
             _ = scrollTextDialogNode.handleTap(hudNodes: hudNodes)
+            return
+        }
+
+        if quizDialogNode?.isVisible == true {
+            _ = quizDialogNode.handleTap(hudNodes: hudNodes)
             return
         }
 
@@ -631,6 +645,10 @@ class GameScene: SKScene {
             return
         }
 
+        if quizDialogNode?.isVisible == true {
+            return
+        }
+
         if isStudySubjectPromptVisible {
             return
         }
@@ -653,6 +671,10 @@ class GameScene: SKScene {
 
         if scrollTextDialogNode?.isVisible == true {
             _ = scrollTextDialogNode.drag(to: hudLocation)
+            return
+        }
+
+        if quizDialogNode?.isVisible == true {
             return
         }
 
@@ -1181,6 +1203,7 @@ class GameScene: SKScene {
         configureSnowmobileChoiceDialog()
         configureScrollTextDialog()
         configureStudySubjectPrompt()
+        configureQuizDialog()
         configureSettingsDialog()
     }
 
@@ -1394,6 +1417,42 @@ class GameScene: SKScene {
         cancelButton.addChild(cancelLabel)
     }
 
+    private func configureQuizDialog() {
+        quizDialogNode = QuizDialogNode(sceneSize: size)
+        quizDialogNode.zPosition = 748
+        quizDialogNode.onClose = { [weak self] in
+            self?.markSaveDirty()
+        }
+        quizDialogNode.onSubmit = { session, correctCount in
+            GameState.shared.addQuizResults(
+                subject: session.subject,
+                answered: session.questions.count,
+                correct: correctCount
+            )
+        }
+        cameraNode.addChild(quizDialogNode)
+    }
+
+    private func setQuizDialogVisible(_ visible: Bool) {
+        quizDialogNode?.setVisible(visible)
+    }
+
+    private func startQuiz(for subject: String) {
+        guard let session = QuizEngine.makeSession(subject: subject, from: quizQuestions) else {
+            showMessage("Not enough quiz questions for \(subject).")
+            return
+        }
+
+        setMenuVisible(false)
+        setStatusWindowVisible(false)
+        setStudySubjectPromptVisible(false)
+        scrollTextDialogNode?.setVisible(false)
+        setSnowmobileChoiceDialogVisible(false)
+
+        setQuizDialogVisible(true)
+        quizDialogNode.startQuiz(session: session)
+    }
+
     // MARK: - Intro & Study Dialog Flows
     private func setStudySubjectPromptVisible(_ visible: Bool) {
         isStudySubjectPromptVisible = visible
@@ -1402,6 +1461,7 @@ class GameScene: SKScene {
     }
 
     private func openIntroWindow() {
+        setQuizDialogVisible(false)
         setStudySubjectPromptVisible(false)
         setStatusWindowVisible(false)
         scrollTextDialogNode.configure(title: "Introduction", lines: introDialogParagraphs, paragraphSpacing: 0.5)
@@ -1416,6 +1476,7 @@ class GameScene: SKScene {
     }
 
     private func openStudyBackgroundWindow(for subject: String) {
+        setQuizDialogVisible(false)
         setStudySubjectPromptVisible(false)
 
         let matchingBackgrounds = quizQuestions
@@ -1799,6 +1860,11 @@ class GameScene: SKScene {
             "Bat event: \(batStatusText)",
             "Goat respawn: \(goatRespawnText)"
         ]
+
+        statusLines.append(contentsOf: QuizStatusFormatter.makeStatusLines { subject in
+            GameState.shared.quizTotals(for: subject)
+        })
+
         if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
             if let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String {
                 statusLines.append("Version: " + version + " (" + build + ")")
@@ -1862,6 +1928,7 @@ class GameScene: SKScene {
             handleDeskInteraction()
             return
         case .teachersDesk:
+            handleTeachersDeskInteraction(interactableID: interactableID)
             return
         case .toiletBowlBrush:
             handleToiletBowlBrushInteraction(node: node)
@@ -1898,8 +1965,17 @@ class GameScene: SKScene {
     private func handleDeskInteraction() {
         setMenuVisible(false)
         setStatusWindowVisible(false)
+        setQuizDialogVisible(false)
         scrollTextDialogNode?.setVisible(false)
         setStudySubjectPromptVisible(true)
+    }
+
+    private func handleTeachersDeskInteraction(interactableID: String) {
+        guard let subject = teacherDeskSubjectByID[interactableID] else {
+            showMessage("No quiz subject assigned to this classroom.")
+            return
+        }
+        startQuiz(for: subject)
     }
 
     private func handleBucketInteraction(node: SKSpriteNode) {
@@ -2593,6 +2669,7 @@ class GameScene: SKScene {
         cameraNode.setScale(1)
         mapCloseButtonNode?.isHidden = true
         setSnowmobileChoiceDialogVisible(false)
+        setQuizDialogVisible(false)
         player.position = playerSpawnPosition
         cameraNode.position = playerSpawnPosition
         completedMoveCount = 0

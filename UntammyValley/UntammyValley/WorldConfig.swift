@@ -72,6 +72,19 @@ enum ClassroomSubject {
     case history
     case mathematics
     case science
+
+    var quizSubjectName: String {
+        switch self {
+        case .english:
+            return "English"
+        case .history:
+            return "US History"
+        case .mathematics:
+            return "Mathematics"
+        case .science:
+            return "Science"
+        }
+    }
 }
 
 struct TeachersDeskConfig {
