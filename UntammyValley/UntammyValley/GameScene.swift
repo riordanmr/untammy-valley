@@ -158,6 +158,8 @@ class GameScene: SKScene {
     private var studySubjectBackdropNode: SKShapeNode!
     private var studySubjectPanelNode: SKShapeNode!
     private var quizDialogNode: QuizDialogNode!
+    private var resetConfirmBackdropNode: SKShapeNode!
+    private var resetConfirmPanelNode: SKShapeNode!
     private var snowmobileChoiceBackdropNode: SKShapeNode!
     private var snowmobileChoicePanelNode: SKShapeNode!
     private var snowmobileChoiceSubtitleLabel: SKLabelNode!
@@ -556,10 +558,23 @@ class GameScene: SKScene {
                 openStudyBackgroundWindow(for: "US History")
             } else if hudNodes.contains(where: { $0.name == "studySubjectEnglishItem" || $0.parent?.name == "studySubjectEnglishItem" }) {
                 openStudyBackgroundWindow(for: "English")
+            } else if hudNodes.contains(where: { $0.name == "studySubjectMathItem" || $0.parent?.name == "studySubjectMathItem" }) {
+                openStudyBackgroundWindow(for: "Mathematics")
             } else if hudNodes.contains(where: { $0.name == "studySubjectScienceItem" || $0.parent?.name == "studySubjectScienceItem" }) {
                 openStudyBackgroundWindow(for: "Science")
             } else {
                 setStudySubjectPromptVisible(false)
+            }
+            return
+        }
+
+        if !resetConfirmPanelNode.isHidden {
+            if hudNodes.contains(where: { $0.name == "resetConfirmYesItem" || $0.parent?.name == "resetConfirmYesItem" }) {
+                setResetConfirmationVisible(false)
+                resetGameToInitialState()
+                setMenuVisible(false)
+            } else {
+                setResetConfirmationVisible(false)
             }
             return
         }
@@ -590,8 +605,7 @@ class GameScene: SKScene {
             return
         }
         if hudNodes.contains(where: { $0.name == "menuResetItem" || $0.parent?.name == "menuResetItem" }) {
-            resetGameToInitialState()
-            setMenuVisible(false)
+            setResetConfirmationVisible(true)
             return
         }
         if hudNodes.contains(where: { $0.name == "menuMove20Item" || $0.parent?.name == "menuMove20Item" }) {
@@ -653,6 +667,10 @@ class GameScene: SKScene {
             return
         }
 
+        if !resetConfirmPanelNode.isHidden {
+            return
+        }
+
         if isMapViewMode {
             isDraggingMap = true
             lastMapDragPoint = hudLocation
@@ -679,6 +697,10 @@ class GameScene: SKScene {
         }
 
         if isStudySubjectPromptVisible {
+            return
+        }
+
+        if !resetConfirmPanelNode.isHidden {
             return
         }
 
@@ -1198,6 +1220,7 @@ class GameScene: SKScene {
         cameraNode.addChild(messageLabel)
 
         configureMenu()
+        configureResetConfirmationDialog()
         configureWarningIcons()
         configureMapCloseButton()
         configureSnowmobileChoiceDialog()
@@ -1235,6 +1258,93 @@ class GameScene: SKScene {
         if isStatusWindowVisible {
             updateStatusWindowBody()
         }
+    }
+
+    // MARK: - Reset Confirmation Dialog
+    private func configureResetConfirmationDialog() {
+        resetConfirmBackdropNode = SKShapeNode(rectOf: CGSize(width: size.width, height: size.height))
+        resetConfirmBackdropNode.name = "resetConfirmBackdrop"
+        resetConfirmBackdropNode.fillColor = UIColor.black.withAlphaComponent(0.45)
+        resetConfirmBackdropNode.strokeColor = .clear
+        resetConfirmBackdropNode.position = .zero
+        resetConfirmBackdropNode.zPosition = 750
+        resetConfirmBackdropNode.isHidden = true
+        cameraNode.addChild(resetConfirmBackdropNode)
+
+        resetConfirmPanelNode = SKShapeNode(rectOf: CGSize(width: min(size.width - 90, 460), height: 250), cornerRadius: 14)
+        resetConfirmPanelNode.name = "resetConfirmPanel"
+        resetConfirmPanelNode.fillColor = UIColor(white: 0.14, alpha: 0.97)
+        resetConfirmPanelNode.strokeColor = .white
+        resetConfirmPanelNode.lineWidth = 2
+        resetConfirmPanelNode.position = .zero
+        resetConfirmPanelNode.zPosition = 751
+        resetConfirmPanelNode.isHidden = true
+        cameraNode.addChild(resetConfirmPanelNode)
+
+        let titleLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        titleLabel.text = "Reset Progress?"
+        titleLabel.fontSize = 30
+        titleLabel.fontColor = .white
+        titleLabel.horizontalAlignmentMode = .center
+        titleLabel.verticalAlignmentMode = .center
+        titleLabel.position = CGPoint(x: 0, y: 70)
+        titleLabel.zPosition = 752
+        resetConfirmPanelNode.addChild(titleLabel)
+
+        let messageLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
+        messageLabel.text = "This cannot be undone."
+        messageLabel.fontSize = 20
+        messageLabel.fontColor = UIColor.white.withAlphaComponent(0.9)
+        messageLabel.horizontalAlignmentMode = .center
+        messageLabel.verticalAlignmentMode = .center
+        messageLabel.position = CGPoint(x: 0, y: 36)
+        messageLabel.zPosition = 752
+        resetConfirmPanelNode.addChild(messageLabel)
+
+        let yesButton = SKShapeNode(rectOf: CGSize(width: 170, height: 50), cornerRadius: 8)
+        yesButton.name = "resetConfirmYesItem"
+        yesButton.fillColor = UIColor.systemRed.withAlphaComponent(0.9)
+        yesButton.strokeColor = .white
+        yesButton.lineWidth = 1.5
+        yesButton.position = CGPoint(x: 0, y: -16)
+        yesButton.zPosition = 752
+        resetConfirmPanelNode.addChild(yesButton)
+
+        let yesLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        yesLabel.name = "resetConfirmYesItem"
+        yesLabel.text = "Reset"
+        yesLabel.fontSize = 22
+        yesLabel.fontColor = .white
+        yesLabel.horizontalAlignmentMode = .center
+        yesLabel.verticalAlignmentMode = .center
+        yesLabel.position = .zero
+        yesLabel.zPosition = 753
+        yesButton.addChild(yesLabel)
+
+        let cancelButton = SKShapeNode(rectOf: CGSize(width: 170, height: 46), cornerRadius: 8)
+        cancelButton.name = "resetConfirmCancelItem"
+        cancelButton.fillColor = UIColor.darkGray.withAlphaComponent(0.9)
+        cancelButton.strokeColor = .white
+        cancelButton.lineWidth = 1.5
+        cancelButton.position = CGPoint(x: 0, y: -80)
+        cancelButton.zPosition = 752
+        resetConfirmPanelNode.addChild(cancelButton)
+
+        let cancelLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        cancelLabel.name = "resetConfirmCancelItem"
+        cancelLabel.text = "Cancel"
+        cancelLabel.fontSize = 20
+        cancelLabel.fontColor = .white
+        cancelLabel.horizontalAlignmentMode = .center
+        cancelLabel.verticalAlignmentMode = .center
+        cancelLabel.position = .zero
+        cancelLabel.zPosition = 753
+        cancelButton.addChild(cancelLabel)
+    }
+
+    private func setResetConfirmationVisible(_ visible: Bool) {
+        resetConfirmBackdropNode.isHidden = !visible
+        resetConfirmPanelNode.isHidden = !visible
     }
 
     // MARK: - Snowmobile Choice Dialog
@@ -1350,7 +1460,9 @@ class GameScene: SKScene {
         studySubjectBackdropNode.isHidden = true
         cameraNode.addChild(studySubjectBackdropNode)
 
-        studySubjectPanelNode = SKShapeNode(rectOf: CGSize(width: min(size.width - 100, 460), height: 320), cornerRadius: 14)
+        let panelWidth = min(size.width - 60, 560)
+        let panelHeight: CGFloat = 330
+        studySubjectPanelNode = SKShapeNode(rectOf: CGSize(width: panelWidth, height: panelHeight), cornerRadius: 14)
         studySubjectPanelNode.name = "studySubjectPanel"
         studySubjectPanelNode.fillColor = UIColor(white: 0.14, alpha: 0.97)
         studySubjectPanelNode.strokeColor = .white
@@ -1371,7 +1483,8 @@ class GameScene: SKScene {
         studySubjectPanelNode.addChild(titleLabel)
 
         func makeSubjectButton(name: String, text: String, y: CGFloat) -> SKShapeNode {
-            let button = SKShapeNode(rectOf: CGSize(width: 280, height: 46), cornerRadius: 8)
+            let buttonWidth = (panelWidth - 72) / 2
+            let button = SKShapeNode(rectOf: CGSize(width: buttonWidth, height: 46), cornerRadius: 8)
             button.name = name
             button.fillColor = UIColor.systemBlue.withAlphaComponent(0.9)
             button.strokeColor = .white
@@ -1392,16 +1505,33 @@ class GameScene: SKScene {
             return button
         }
 
-        studySubjectPanelNode.addChild(makeSubjectButton(name: "studySubjectUSHistItem", text: "US History", y: 58))
-        studySubjectPanelNode.addChild(makeSubjectButton(name: "studySubjectEnglishItem", text: "English", y: 2))
-        studySubjectPanelNode.addChild(makeSubjectButton(name: "studySubjectScienceItem", text: "Science", y: -54))
+        let buttonWidth = (panelWidth - 72) / 2
+        let columnOffset = (buttonWidth / 2) + 12
+        let topRowY: CGFloat = 58
+        let bottomRowY: CGFloat = -4
+
+        let usHistoryButton = makeSubjectButton(name: "studySubjectUSHistItem", text: "US History", y: topRowY)
+        usHistoryButton.position.x = -columnOffset
+        studySubjectPanelNode.addChild(usHistoryButton)
+
+        let englishButton = makeSubjectButton(name: "studySubjectEnglishItem", text: "English", y: topRowY)
+        englishButton.position.x = columnOffset
+        studySubjectPanelNode.addChild(englishButton)
+
+        let mathButton = makeSubjectButton(name: "studySubjectMathItem", text: "Mathematics", y: bottomRowY)
+        mathButton.position.x = -columnOffset
+        studySubjectPanelNode.addChild(mathButton)
+
+        let scienceButton = makeSubjectButton(name: "studySubjectScienceItem", text: "Science", y: bottomRowY)
+        scienceButton.position.x = columnOffset
+        studySubjectPanelNode.addChild(scienceButton)
 
         let cancelButton = SKShapeNode(rectOf: CGSize(width: 180, height: 42), cornerRadius: 8)
         cancelButton.name = "studySubjectCancelItem"
         cancelButton.fillColor = UIColor.darkGray.withAlphaComponent(0.9)
         cancelButton.strokeColor = .white
         cancelButton.lineWidth = 1.5
-        cancelButton.position = CGPoint(x: 0, y: -120)
+        cancelButton.position = CGPoint(x: 0, y: -118)
         cancelButton.zPosition = 746
         studySubjectPanelNode.addChild(cancelButton)
 
@@ -1423,12 +1553,15 @@ class GameScene: SKScene {
         quizDialogNode.onClose = { [weak self] in
             self?.markSaveDirty()
         }
-        quizDialogNode.onSubmit = { session, correctCount in
-            GameState.shared.addQuizResults(
+        quizDialogNode.onSubmit = { [weak self] session, correctCount in
+            let updatedStats = GameState.shared.addQuizResults(
                 subject: session.subject,
                 answered: session.questions.count,
                 correct: correctCount
             )
+            GameState.shared.clearStudyGuideOpened(for: session.subject)
+            self?.markSaveDirty()
+            return updatedStats
         }
         cameraNode.addChild(quizDialogNode)
     }
@@ -1438,6 +1571,11 @@ class GameScene: SKScene {
     }
 
     private func startQuiz(for subject: String) {
+        guard GameState.shared.hasOpenedStudyGuide(for: subject) else {
+            showMessage("Read the \(subject) study guide before taking this quiz.")
+            return
+        }
+
         guard let session = QuizEngine.makeSession(subject: subject, from: quizQuestions) else {
             showMessage("Not enough quiz questions for \(subject).")
             return
@@ -1489,6 +1627,8 @@ class GameScene: SKScene {
             : matchingBackgrounds
         scrollTextDialogNode.configure(title: "Study Guide", lines: paragraphs, paragraphSpacing: 0.5)
         scrollTextDialogNode.setVisible(true)
+        GameState.shared.markStudyGuideOpened(for: subject)
+        markSaveDirty()
     }
 
     private func setSnowmobileChoiceDialogVisible(_ visible: Bool, snowmobileID: String? = nil) {
@@ -1863,6 +2003,8 @@ class GameScene: SKScene {
 
         statusLines.append(contentsOf: QuizStatusFormatter.makeStatusLines { subject in
             GameState.shared.quizTotals(for: subject)
+        } studiedProvider: { subject in
+            GameState.shared.hasOpenedStudyGuide(for: subject)
         })
 
         if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
@@ -2448,6 +2590,7 @@ class GameScene: SKScene {
             toiletCleanDeadlineMove: toiletCleanDeadlineMove,
             nextToiletDirtyMove: nextToiletDirtyMove,
             hasShownToiletPenaltyStartMessage: hasShownToiletPenaltyStartMessage,
+            studyGuideOpenedBySubject: GameState.shared.studyGuideOpenedBySubject,
             nextBatSpawnMove: nextBatSpawnMove,
             batDefeatDeadlineMove: batDefeatDeadlineMove,
             trenchedSepticTiles: Array(trenchedSepticTiles),
@@ -2496,6 +2639,7 @@ class GameScene: SKScene {
         toiletCleanDeadlineMove = snapshot.toiletCleanDeadlineMove
         nextToiletDirtyMove = max(0, snapshot.nextToiletDirtyMove)
         hasShownToiletPenaltyStartMessage = snapshot.hasShownToiletPenaltyStartMessage
+        GameState.shared.setStudyGuideOpenedBySubject(snapshot.studyGuideOpenedBySubject)
 
         nextBatSpawnMove = max(0, snapshot.nextBatSpawnMove)
         batDefeatDeadlineMove = snapshot.batDefeatDeadlineMove
@@ -2713,7 +2857,9 @@ class GameScene: SKScene {
         interactableNodesByID[bedroomBatID]?.isHidden = true
 
         GameState.shared.resetCoins()
+        GameState.shared.resetQuizStats()
         GameState.shared.addCoins(200)
+        GameState.shared.resetStudyGuideOpenedBySubject()
         updateCoinLabel()
         updateStatusWindowBody()
         markSaveDirty()

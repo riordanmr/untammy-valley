@@ -46,6 +46,8 @@ struct GameSaveSnapshot: Codable {
     let nextToiletDirtyMove: Int
     let hasShownToiletPenaltyStartMessage: Bool
 
+    let studyGuideOpenedBySubject: [String: Bool]
+
     let nextBatSpawnMove: Int
     let batDefeatDeadlineMove: Int?
 

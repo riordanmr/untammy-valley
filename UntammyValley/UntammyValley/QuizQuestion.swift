@@ -500,7 +500,7 @@ let quizQuestions: [QuizQuestion] = [
             "3",
             "4"
         ],
-        background: nil
+        background: "Slope is calculated as (change in y) / (change in x). It can be negative."
     ),
 
     QuizQuestion(
