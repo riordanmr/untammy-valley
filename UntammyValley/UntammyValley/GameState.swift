@@ -49,7 +49,6 @@ final class GameState {
         } else {
             studyGuideOpenedBySubject = Self.defaultStudyGuideOpenedBySubject()
         }
-        print ("Initialized GameState with quizStatsBySubject: \(quizStatsBySubject), studyGuideOpenedBySubject: \(studyGuideOpenedBySubject)")
     }
 
     private func persistQuizStats() {
