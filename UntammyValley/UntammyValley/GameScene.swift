@@ -15,6 +15,48 @@ private enum PhysicsCategory {
     static let interactable: UInt32 = 1 << 2
 }
 
+private enum ZLayer {
+    // World-space render order (low -> high): floor, tile objects, decorations/interactables, player.
+    static let worldFloor: CGFloat = -10
+    static let worldObjects: CGFloat = 10
+    static let decoration: CGFloat = 18
+    static let interactable: CGFloat = 20
+
+    // Player uses two layers so mounted state can reliably draw above same-depth interactables.
+    static let playerBase: CGFloat = 20
+    static let playerMounted: CGFloat = 21
+    static let debugLabel: CGFloat = 30
+
+    // HUD/menu/dialog layers are attached to cameraNode and draw above world-space content.
+    static let hud: CGFloat = 500
+    static let warningHUD: CGFloat = 515
+    static let menuButton: CGFloat = 520
+    static let menuPanel: CGFloat = 520
+    static let menuPanelButton: CGFloat = 521
+    static let menuPanelLabel: CGFloat = 522
+    static let mapCloseButton: CGFloat = 530
+    static let mapCloseLabel: CGFloat = 531
+
+    static let snowmobileBackdrop: CGFloat = 740
+    static let snowmobilePanel: CGFloat = 741
+    static let snowmobilePanelControl: CGFloat = 742
+    static let snowmobilePanelLabel: CGFloat = 743
+
+    static let scrollTextDialog: CGFloat = 742
+    static let studyBackdrop: CGFloat = 744
+    static let studyPanel: CGFloat = 745
+    static let studyPanelControl: CGFloat = 746
+    static let studyPanelLabel: CGFloat = 747
+    static let quizDialog: CGFloat = 748
+
+    static let resetBackdrop: CGFloat = 750
+    static let resetPanel: CGFloat = 751
+    static let resetPanelControl: CGFloat = 752
+    static let resetPanelLabel: CGFloat = 753
+
+    static let settingsDialog: CGFloat = 760
+}
+
 func makeBasicTileSet() -> SKTileSet {
     let tileSize = CGSize(width: 64, height: 64)
 
@@ -283,6 +325,12 @@ class GameScene: SKScene {
     private let mountedSnowmobileSpeedMultiplier: CGFloat = 4.0
     private let mountedSnowmobileVerticalOffset: CGFloat = -12
     private let indoorSnowmobileBlockedFloorTiles: Set<String> = ["floor_wood", "floor_linoleum", "floor_carpet"]
+    private let walkingBobAmplitude: CGFloat = 2.5
+    private let walkingBobCyclesPerSecond: CGFloat = 3.5
+    private var walkingBobPhase: CGFloat = 0
+    private var walkingBobOffsetY: CGFloat = 0
+    private var previousPlayerPositionForWalkAnimation: CGPoint?
+    private var walkingAnimationDeltaTime: CGFloat = 1.0 / 60.0
 
     private func clearMoveTarget() {
         moveTarget = nil
@@ -298,6 +346,25 @@ class GameScene: SKScene {
 
     private func markSaveDirty() {
         isSaveDirty = true
+    }
+
+    private func updateWalkingAnimation(deltaTime: CGFloat, movementDelta: CGVector, isWalkingOnFoot: Bool) {
+        let movementDistance = hypot(movementDelta.dx, movementDelta.dy)
+        guard isWalkingOnFoot, movementDistance > 0.25 else {
+            walkingBobOffsetY = 0
+            player.setVisualVerticalOffset(0)
+            return
+        }
+
+        walkingBobPhase += deltaTime * walkingBobCyclesPerSecond * (.pi * 2)
+        if walkingBobPhase > (.pi * 2) {
+            walkingBobPhase.formTruncatingRemainder(dividingBy: (.pi * 2))
+        }
+
+        let wave = sin(walkingBobPhase)
+        walkingBobOffsetY = wave * walkingBobAmplitude
+
+        player.setVisualVerticalOffset(walkingBobOffsetY)
     }
 
     private func savedPoint(from point: CGPoint) -> SavedPoint {
@@ -348,7 +415,7 @@ class GameScene: SKScene {
         // Center the tile map in world space
         tileMap.anchorPoint = CGPoint(x: 0.5, y: 0.5)
         tileMap.position = .zero
-        tileMap.zPosition = -10
+        tileMap.zPosition = ZLayer.worldFloor
         groundTileMap = tileMap
 
         tileGroupsByName = [:]
@@ -405,7 +472,7 @@ class GameScene: SKScene {
         )
         objectTileMap.anchorPoint = CGPoint(x: 0.5, y: 0.5)
         objectTileMap.position = .zero
-        objectTileMap.zPosition = 10   // above the floor
+        objectTileMap.zPosition = ZLayer.worldObjects   // above the floor
         addChild(objectTileMap)
         
         guard let wallGroup = tileSet.tileGroups.first(where: { $0.name == "wall_vertical" }) else {
@@ -439,7 +506,9 @@ class GameScene: SKScene {
         player.physicsBody?.categoryBitMask = PhysicsCategory.player
         player.physicsBody?.collisionBitMask = PhysicsCategory.wall
         player.physicsBody?.contactTestBitMask = PhysicsCategory.interactable
+        player.zPosition = ZLayer.playerBase
         addChild(player)
+        previousPlayerPositionForWalkAnimation = player.position
 
         // --- CAMERA ---
         cameraNode = SKCameraNode()
@@ -464,8 +533,12 @@ class GameScene: SKScene {
                 x: player.position.x,
                 y: player.position.y + mountedSnowmobileVerticalOffset
             )
-            snowmobileNode.zPosition = 20
-            player.zPosition = 21
+            // Mounted snowmobile stays at interactable depth; rider is one layer above it.
+            snowmobileNode.zPosition = ZLayer.interactable
+            player.zPosition = ZLayer.playerMounted
+        } else {
+            // On foot, player returns to normal world actor depth.
+            player.zPosition = ZLayer.playerBase
         }
         if isBucketCarried, let bucketNode = interactableNodesByID[bucketID] {
             bucketNode.position = CGPoint(x: player.position.x + 22, y: player.position.y + 8)
@@ -489,6 +562,20 @@ class GameScene: SKScene {
         updateSnowmobileOwnershipVisuals()
         updateBucketSelectedIndicator()
         clampPlayerPositionToWorldBounds()
+
+        let previousPosition = previousPlayerPositionForWalkAnimation ?? player.position
+        let movementDelta = CGVector(
+            dx: player.position.x - previousPosition.x,
+            dy: player.position.y - previousPosition.y
+        )
+        let isWalkingOnFoot = mountedSnowmobileID == nil && !isMapViewMode && moveTarget != nil
+        updateWalkingAnimation(
+            deltaTime: walkingAnimationDeltaTime,
+            movementDelta: movementDelta,
+            isWalkingOnFoot: isWalkingOnFoot
+        )
+        previousPlayerPositionForWalkAnimation = player.position
+
         if !isMapViewMode {
             cameraNode.position = player.position
         }
@@ -729,6 +816,7 @@ class GameScene: SKScene {
             deltaTime = 1.0 / 60.0
         }
         lastUpdateTime = currentTime
+        walkingAnimationDeltaTime = deltaTime
 
         if isSaveDirty, currentTime - lastAutosaveTimestamp >= autosaveIntervalSeconds {
             saveGameStateNow()
@@ -847,7 +935,7 @@ class GameScene: SKScene {
         label.horizontalAlignmentMode = .center
         label.verticalAlignmentMode = .center
         label.position = sceneCenter
-        label.zPosition = 30
+        label.zPosition = ZLayer.debugLabel
         addChild(label)
     }
 
@@ -915,7 +1003,7 @@ class GameScene: SKScene {
 
             node.name = "interactable:\(config.id)"
             node.position = position
-            node.zPosition = 20
+            node.zPosition = ZLayer.interactable
 
             let body = SKPhysicsBody(rectangleOf: node.size)
             body.isDynamic = false
@@ -1020,7 +1108,7 @@ class GameScene: SKScene {
 
             node.name = "decoration:\(config.id)"
             node.position = position
-            node.zPosition = 18
+            node.zPosition = ZLayer.decoration
 
             if config.blocksMovement {
                 let body = SKPhysicsBody(rectangleOf: node.size)
@@ -1206,7 +1294,7 @@ class GameScene: SKScene {
         coinLabel.horizontalAlignmentMode = .left
         coinLabel.verticalAlignmentMode = .top
         coinLabel.position = CGPoint(x: -size.width / 2 + 20, y: size.height / 2 - 20)
-        coinLabel.zPosition = 500
+        coinLabel.zPosition = ZLayer.hud
         cameraNode.addChild(coinLabel)
 
         messageLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
@@ -1215,7 +1303,7 @@ class GameScene: SKScene {
         messageLabel.horizontalAlignmentMode = .center
         messageLabel.verticalAlignmentMode = .top
         messageLabel.position = CGPoint(x: 0, y: size.height / 2 - 56)
-        messageLabel.zPosition = 500
+        messageLabel.zPosition = ZLayer.hud
         messageLabel.alpha = 0
         cameraNode.addChild(messageLabel)
 
@@ -1232,7 +1320,7 @@ class GameScene: SKScene {
 
     private func configureScrollTextDialog() {
         scrollTextDialogNode = ScrollTextDialogNode(sceneSize: size)
-        scrollTextDialogNode.zPosition = 742
+        scrollTextDialogNode.zPosition = ZLayer.scrollTextDialog
         scrollTextDialogNode.onClose = { [weak self] in
             self?.isStatusWindowVisible = false
         }
@@ -1241,7 +1329,7 @@ class GameScene: SKScene {
 
     private func configureSettingsDialog() {
         settingsDialogNode = SettingsDialogNode(sceneSize: size)
-        settingsDialogNode.zPosition = 760
+        settingsDialogNode.zPosition = ZLayer.settingsDialog
         settingsDialogNode.onAvatarChanged = { [weak self] in
             self?.player?.refreshAvatarTexture()
             self?.markSaveDirty()
@@ -1267,7 +1355,7 @@ class GameScene: SKScene {
         resetConfirmBackdropNode.fillColor = UIColor.black.withAlphaComponent(0.45)
         resetConfirmBackdropNode.strokeColor = .clear
         resetConfirmBackdropNode.position = .zero
-        resetConfirmBackdropNode.zPosition = 750
+        resetConfirmBackdropNode.zPosition = ZLayer.resetBackdrop
         resetConfirmBackdropNode.isHidden = true
         cameraNode.addChild(resetConfirmBackdropNode)
 
@@ -1277,7 +1365,7 @@ class GameScene: SKScene {
         resetConfirmPanelNode.strokeColor = .white
         resetConfirmPanelNode.lineWidth = 2
         resetConfirmPanelNode.position = .zero
-        resetConfirmPanelNode.zPosition = 751
+        resetConfirmPanelNode.zPosition = ZLayer.resetPanel
         resetConfirmPanelNode.isHidden = true
         cameraNode.addChild(resetConfirmPanelNode)
 
@@ -1288,7 +1376,7 @@ class GameScene: SKScene {
         titleLabel.horizontalAlignmentMode = .center
         titleLabel.verticalAlignmentMode = .center
         titleLabel.position = CGPoint(x: 0, y: 70)
-        titleLabel.zPosition = 752
+        titleLabel.zPosition = ZLayer.resetPanelControl
         resetConfirmPanelNode.addChild(titleLabel)
 
         let messageLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
@@ -1298,7 +1386,7 @@ class GameScene: SKScene {
         messageLabel.horizontalAlignmentMode = .center
         messageLabel.verticalAlignmentMode = .center
         messageLabel.position = CGPoint(x: 0, y: 36)
-        messageLabel.zPosition = 752
+        messageLabel.zPosition = ZLayer.resetPanelControl
         resetConfirmPanelNode.addChild(messageLabel)
 
         let yesButton = SKShapeNode(rectOf: CGSize(width: 170, height: 50), cornerRadius: 8)
@@ -1307,7 +1395,7 @@ class GameScene: SKScene {
         yesButton.strokeColor = .white
         yesButton.lineWidth = 1.5
         yesButton.position = CGPoint(x: 0, y: -16)
-        yesButton.zPosition = 752
+        yesButton.zPosition = ZLayer.resetPanelControl
         resetConfirmPanelNode.addChild(yesButton)
 
         let yesLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
@@ -1318,7 +1406,7 @@ class GameScene: SKScene {
         yesLabel.horizontalAlignmentMode = .center
         yesLabel.verticalAlignmentMode = .center
         yesLabel.position = .zero
-        yesLabel.zPosition = 753
+        yesLabel.zPosition = ZLayer.resetPanelLabel
         yesButton.addChild(yesLabel)
 
         let cancelButton = SKShapeNode(rectOf: CGSize(width: 170, height: 46), cornerRadius: 8)
@@ -1327,7 +1415,7 @@ class GameScene: SKScene {
         cancelButton.strokeColor = .white
         cancelButton.lineWidth = 1.5
         cancelButton.position = CGPoint(x: 0, y: -80)
-        cancelButton.zPosition = 752
+        cancelButton.zPosition = ZLayer.resetPanelControl
         resetConfirmPanelNode.addChild(cancelButton)
 
         let cancelLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
@@ -1338,7 +1426,7 @@ class GameScene: SKScene {
         cancelLabel.horizontalAlignmentMode = .center
         cancelLabel.verticalAlignmentMode = .center
         cancelLabel.position = .zero
-        cancelLabel.zPosition = 753
+        cancelLabel.zPosition = ZLayer.resetPanelLabel
         cancelButton.addChild(cancelLabel)
     }
 
@@ -1355,7 +1443,7 @@ class GameScene: SKScene {
         snowmobileChoiceBackdropNode.fillColor = UIColor.black.withAlphaComponent(0.45)
         snowmobileChoiceBackdropNode.strokeColor = .clear
         snowmobileChoiceBackdropNode.position = .zero
-        snowmobileChoiceBackdropNode.zPosition = 740
+        snowmobileChoiceBackdropNode.zPosition = ZLayer.snowmobileBackdrop
         snowmobileChoiceBackdropNode.isHidden = true
         cameraNode.addChild(snowmobileChoiceBackdropNode)
 
@@ -1365,7 +1453,7 @@ class GameScene: SKScene {
         snowmobileChoicePanelNode.strokeColor = .white
         snowmobileChoicePanelNode.lineWidth = 2
         snowmobileChoicePanelNode.position = .zero
-        snowmobileChoicePanelNode.zPosition = 741
+        snowmobileChoicePanelNode.zPosition = ZLayer.snowmobilePanel
         snowmobileChoicePanelNode.isHidden = true
         cameraNode.addChild(snowmobileChoicePanelNode)
 
@@ -1376,7 +1464,7 @@ class GameScene: SKScene {
         titleLabel.horizontalAlignmentMode = .center
         titleLabel.verticalAlignmentMode = .center
         titleLabel.position = CGPoint(x: 0, y: 104)
-        titleLabel.zPosition = 742
+        titleLabel.zPosition = ZLayer.snowmobilePanelControl
         snowmobileChoicePanelNode.addChild(titleLabel)
 
         snowmobileChoiceSubtitleLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
@@ -1386,7 +1474,7 @@ class GameScene: SKScene {
         snowmobileChoiceSubtitleLabel.horizontalAlignmentMode = .center
         snowmobileChoiceSubtitleLabel.verticalAlignmentMode = .center
         snowmobileChoiceSubtitleLabel.position = CGPoint(x: 0, y: 74)
-        snowmobileChoiceSubtitleLabel.zPosition = 742
+        snowmobileChoiceSubtitleLabel.zPosition = ZLayer.snowmobilePanelControl
         snowmobileChoicePanelNode.addChild(snowmobileChoiceSubtitleLabel)
 
         let mountButton = SKShapeNode(rectOf: CGSize(width: 180, height: 52), cornerRadius: 8)
@@ -1395,7 +1483,7 @@ class GameScene: SKScene {
         mountButton.strokeColor = .white
         mountButton.lineWidth = 1.5
         mountButton.position = CGPoint(x: 0, y: 24)
-        mountButton.zPosition = 742
+        mountButton.zPosition = ZLayer.snowmobilePanelControl
         snowmobileChoicePanelNode.addChild(mountButton)
 
         let mountLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
@@ -1406,7 +1494,7 @@ class GameScene: SKScene {
         mountLabel.horizontalAlignmentMode = .center
         mountLabel.verticalAlignmentMode = .center
         mountLabel.position = .zero
-        mountLabel.zPosition = 743
+        mountLabel.zPosition = ZLayer.snowmobilePanelLabel
         mountButton.addChild(mountLabel)
 
         let sellButton = SKShapeNode(rectOf: CGSize(width: 180, height: 52), cornerRadius: 8)
@@ -1415,7 +1503,7 @@ class GameScene: SKScene {
         sellButton.strokeColor = .white
         sellButton.lineWidth = 1.5
         sellButton.position = CGPoint(x: 0, y: -42)
-        sellButton.zPosition = 742
+        sellButton.zPosition = ZLayer.snowmobilePanelControl
         snowmobileChoicePanelNode.addChild(sellButton)
 
         let sellLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
@@ -1426,7 +1514,7 @@ class GameScene: SKScene {
         sellLabel.horizontalAlignmentMode = .center
         sellLabel.verticalAlignmentMode = .center
         sellLabel.position = .zero
-        sellLabel.zPosition = 743
+        sellLabel.zPosition = ZLayer.snowmobilePanelLabel
         sellButton.addChild(sellLabel)
 
         let cancelButton = SKShapeNode(rectOf: CGSize(width: 180, height: 46), cornerRadius: 8)
@@ -1435,7 +1523,7 @@ class GameScene: SKScene {
         cancelButton.strokeColor = .white
         cancelButton.lineWidth = 1.5
         cancelButton.position = CGPoint(x: 0, y: -104)
-        cancelButton.zPosition = 742
+        cancelButton.zPosition = ZLayer.snowmobilePanelControl
         snowmobileChoicePanelNode.addChild(cancelButton)
 
         let cancelLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
@@ -1446,7 +1534,7 @@ class GameScene: SKScene {
         cancelLabel.horizontalAlignmentMode = .center
         cancelLabel.verticalAlignmentMode = .center
         cancelLabel.position = .zero
-        cancelLabel.zPosition = 743
+        cancelLabel.zPosition = ZLayer.snowmobilePanelLabel
         cancelButton.addChild(cancelLabel)
     }
 
@@ -1456,7 +1544,7 @@ class GameScene: SKScene {
         studySubjectBackdropNode.fillColor = UIColor.black.withAlphaComponent(0.45)
         studySubjectBackdropNode.strokeColor = .clear
         studySubjectBackdropNode.position = .zero
-        studySubjectBackdropNode.zPosition = 744
+        studySubjectBackdropNode.zPosition = ZLayer.studyBackdrop
         studySubjectBackdropNode.isHidden = true
         cameraNode.addChild(studySubjectBackdropNode)
 
@@ -1468,7 +1556,7 @@ class GameScene: SKScene {
         studySubjectPanelNode.strokeColor = .white
         studySubjectPanelNode.lineWidth = 2
         studySubjectPanelNode.position = .zero
-        studySubjectPanelNode.zPosition = 745
+        studySubjectPanelNode.zPosition = ZLayer.studyPanel
         studySubjectPanelNode.isHidden = true
         cameraNode.addChild(studySubjectPanelNode)
 
@@ -1479,7 +1567,7 @@ class GameScene: SKScene {
         titleLabel.horizontalAlignmentMode = .center
         titleLabel.verticalAlignmentMode = .center
         titleLabel.position = CGPoint(x: 0, y: 126)
-        titleLabel.zPosition = 746
+        titleLabel.zPosition = ZLayer.studyPanelControl
         studySubjectPanelNode.addChild(titleLabel)
 
         func makeSubjectButton(name: String, text: String, y: CGFloat) -> SKShapeNode {
@@ -1490,7 +1578,7 @@ class GameScene: SKScene {
             button.strokeColor = .white
             button.lineWidth = 1.5
             button.position = CGPoint(x: 0, y: y)
-            button.zPosition = 746
+            button.zPosition = ZLayer.studyPanelControl
 
             let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
             label.name = name
@@ -1500,7 +1588,7 @@ class GameScene: SKScene {
             label.horizontalAlignmentMode = .center
             label.verticalAlignmentMode = .center
             label.position = .zero
-            label.zPosition = 747
+            label.zPosition = ZLayer.studyPanelLabel
             button.addChild(label)
             return button
         }
@@ -1532,7 +1620,7 @@ class GameScene: SKScene {
         cancelButton.strokeColor = .white
         cancelButton.lineWidth = 1.5
         cancelButton.position = CGPoint(x: 0, y: -118)
-        cancelButton.zPosition = 746
+        cancelButton.zPosition = ZLayer.studyPanelControl
         studySubjectPanelNode.addChild(cancelButton)
 
         let cancelLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
@@ -1543,13 +1631,13 @@ class GameScene: SKScene {
         cancelLabel.horizontalAlignmentMode = .center
         cancelLabel.verticalAlignmentMode = .center
         cancelLabel.position = .zero
-        cancelLabel.zPosition = 747
+        cancelLabel.zPosition = ZLayer.studyPanelLabel
         cancelButton.addChild(cancelLabel)
     }
 
     private func configureQuizDialog() {
         quizDialogNode = QuizDialogNode(sceneSize: size)
-        quizDialogNode.zPosition = 748
+        quizDialogNode.zPosition = ZLayer.quizDialog
         quizDialogNode.onClose = { [weak self] in
             self?.markSaveDirty()
         }
@@ -1693,7 +1781,7 @@ class GameScene: SKScene {
         mapCloseButtonNode.fillColor = UIColor.systemBlue.withAlphaComponent(0.9)
         mapCloseButtonNode.strokeColor = .white
         mapCloseButtonNode.lineWidth = 1.5
-        mapCloseButtonNode.zPosition = 530
+        mapCloseButtonNode.zPosition = ZLayer.mapCloseButton
         mapCloseButtonNode.isHidden = true
         cameraNode.addChild(mapCloseButtonNode)
 
@@ -1705,7 +1793,7 @@ class GameScene: SKScene {
         mapCloseLabel.horizontalAlignmentMode = .center
         mapCloseLabel.verticalAlignmentMode = .center
         mapCloseLabel.position = .zero
-        mapCloseLabel.zPosition = 531
+        mapCloseLabel.zPosition = ZLayer.mapCloseLabel
         mapCloseButtonNode.addChild(mapCloseLabel)
 
         updateMapCloseButtonPosition()
@@ -1726,7 +1814,7 @@ class GameScene: SKScene {
     // MARK: - Warning Icons
     private func configureWarningIcons() {
         warningIconContainerNode = SKNode()
-        warningIconContainerNode.zPosition = 515
+        warningIconContainerNode.zPosition = ZLayer.warningHUD
         cameraNode.addChild(warningIconContainerNode)
         updateWarningIconContainerPosition()
 
@@ -1804,7 +1892,7 @@ class GameScene: SKScene {
         menuButtonNode.strokeColor = .white
         menuButtonNode.lineWidth = 1.5
         menuButtonNode.position = CGPoint(x: rightX - 18, y: topY - 15)
-        menuButtonNode.zPosition = 520
+        menuButtonNode.zPosition = ZLayer.menuButton
         cameraNode.addChild(menuButtonNode)
 
         for offset in [-6, 0, 6] {
@@ -1835,7 +1923,7 @@ class GameScene: SKScene {
         panelCenterX = max(panelCenterX, minLeftCenterX)
 
         menuPanelNode.position = CGPoint(x: panelCenterX, y: topY - 133)
-        menuPanelNode.zPosition = 520
+        menuPanelNode.zPosition = ZLayer.menuPanel
         menuPanelNode.isHidden = true
         cameraNode.addChild(menuPanelNode)
 
@@ -1847,7 +1935,7 @@ class GameScene: SKScene {
             button.fillColor = .clear
             button.strokeColor = .clear
             button.position = CGPoint(x: 0, y: y)
-            button.zPosition = 521
+            button.zPosition = ZLayer.menuPanelButton
 
             let label = SKLabelNode(fontNamed: "AvenirNext-Bold")
             // Keep a distinct label name to avoid collisions, but touch logic matches parent name
@@ -1858,7 +1946,7 @@ class GameScene: SKScene {
             label.verticalAlignmentMode = .center
             label.horizontalAlignmentMode = .center
             label.position = .zero
-            label.zPosition = 522
+            label.zPosition = ZLayer.menuPanelLabel
             button.addChild(label)
 
             return button
@@ -2781,7 +2869,8 @@ class GameScene: SKScene {
         let isMounted = mountedSnowmobileID != nil
         player.physicsBody?.collisionBitMask = isMounted ? PhysicsCategory.none : PhysicsCategory.wall
         player.alpha = 1.0
-        player.zPosition = isMounted ? 21 : 20
+        // Mirror movement loop depth rule so immediate mount/dismount UI updates stay visually correct.
+        player.zPosition = isMounted ? ZLayer.playerMounted : ZLayer.playerBase
     }
 
     private func tileRegionContains(_ region: TileRegion, tile: TileCoordinate) -> Bool {

@@ -10,11 +10,16 @@ import SpriteKit
 
 class PlayerNode: SKSpriteNode {
     private static let displaySize = CGSize(width: 65, height: 65)
+    private let avatarSpriteNode: SKSpriteNode
 
     init() {
         let resolvedTexture = Self.texture(for: UTSettings.shared.avatar)
-        super.init(texture: resolvedTexture, color: .clear, size: Self.displaySize)
+        avatarSpriteNode = SKSpriteNode(texture: resolvedTexture, color: .clear, size: Self.displaySize)
+        super.init(texture: nil, color: .clear, size: Self.displaySize)
         self.name = "player"
+        avatarSpriteNode.position = .zero
+        avatarSpriteNode.zPosition = 1
+        addChild(avatarSpriteNode)
 
         let bodyRadius = min(Self.displaySize.width, Self.displaySize.height) * 0.38
         let body = SKPhysicsBody(circleOfRadius: bodyRadius)
@@ -32,9 +37,14 @@ class PlayerNode: SKSpriteNode {
     }
 
     func refreshAvatarTexture() {
-        texture = Self.texture(for: UTSettings.shared.avatar)
+        avatarSpriteNode.texture = Self.texture(for: UTSettings.shared.avatar)
+        avatarSpriteNode.size = Self.displaySize
         size = Self.displaySize
-        colorBlendFactor = 0
+        avatarSpriteNode.colorBlendFactor = 0
+    }
+
+    func setVisualVerticalOffset(_ offset: CGFloat) {
+        avatarSpriteNode.position = CGPoint(x: 0, y: offset)
     }
 
     private static func texture(for avatar: UTSettings.Avatar) -> SKTexture {
