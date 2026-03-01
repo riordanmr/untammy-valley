@@ -59,6 +59,10 @@ enum WorldLoader {
             scaledSize(width: baseObjectSize, height: baseObjectSize * 2)
         }
 
+        static var bedSize: CGSize {
+            scaledSize(width: baseObjectSize * (10.0 / 3.0), height: baseObjectSize * (5.0 / 3.0))
+        }
+
         static var largeSignSize: CGSize {
             scaledSize(width: baseObjectSize * 3, height: baseObjectSize * 2)
         }
@@ -182,7 +186,7 @@ enum WorldLoader {
         }
 
         static var tennisRacketTile: TileCoordinate {
-            TileCoordinate(column: minColumn + 2, row: minRow + 3)
+            TileCoordinate(column: minColumn + 2, row: minRow + 10)
         }
 
         static var bedroomBatTile: TileCoordinate {
@@ -191,6 +195,14 @@ enum WorldLoader {
 
         static var deskTile: TileCoordinate {
             TileCoordinate(column: bedroomDiningWallColumn - 2, row: maxRowExclusive - 2)
+        }
+
+        static var bedTiles: [TileCoordinate] {
+            [
+                TileCoordinate(column: minColumn + 2, row: minRow + 8),
+                TileCoordinate(column: minColumn + 2, row: minRow + 5),
+                TileCoordinate(column: minColumn + 2, row: minRow + 2)
+            ]
         }
 
         static var shovelTile: TileCoordinate {
@@ -779,9 +791,21 @@ enum WorldLoader {
             blocksMovement: false
         )
 
+        let bedroomBeds: [DecorationConfig] = BarLayout.bedTiles.enumerated().map { index, tile in
+            DecorationConfig(
+                id: "bedroomBed\(index + 1)",
+                kind: .sprite,
+                spriteName: "bed\(index + 1)",
+                labelText: nil,
+                tile: tile,
+                size: BarLayout.bedSize,
+                blocksMovement: true
+            )
+        }
+
         let allInteractables = [potatoPeeler, deepFryer, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, desk, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, goatChaseSpot] + snowmobiles
 
-        let staticDecorations = [carrollSign, cramerSign, schoolSign]
+        let staticDecorations = [carrollSign, cramerSign, schoolSign] + bedroomBeds
         let treeDecorations = makeTreeDecorations(
             wallTiles: wallTiles,
             blockedTiles: Set(allInteractables.map { $0.tile }).union(Set(staticDecorations.map { $0.tile }))
