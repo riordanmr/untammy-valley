@@ -2120,6 +2120,27 @@ class GameScene: SKScene {
         coinLabel.text = "Coins: \(GameState.shared.coins)"
     }
 
+    private func movePlayerNearInteractable(_ node: SKSpriteNode) {
+        let dx = node.position.x - player.position.x
+        let dy = node.position.y - player.position.y
+        let distance = hypot(dx, dy)
+        guard distance > 0.001 else { return }
+
+        let directionX = dx / distance
+        let directionY = dy / distance
+
+        let playerRadius = min(player.size.width, player.size.height) * 0.38
+        let interactableRadius = max(node.size.width, node.size.height) * 0.5
+        let desiredGap: CGFloat = 8
+        let standOffDistance = playerRadius + interactableRadius + desiredGap
+
+        let target = CGPoint(
+            x: node.position.x - directionX * standOffDistance,
+            y: node.position.y - directionY * standOffDistance
+        )
+        setMoveTarget(target)
+    }
+
     private func performInteractionIfPossible(interactableID: String) {
         guard let config = interactableConfigsByID[interactableID],
               let node = interactableNodesByID[interactableID] else { return }
@@ -2134,7 +2155,7 @@ class GameScene: SKScene {
         let distance = hypot(dx, dy)
 
         if distance > config.interactionRange {
-            showMessage("Move closer to interact.")
+            movePlayerNearInteractable(node)
             return
         }
 
