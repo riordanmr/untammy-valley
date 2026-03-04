@@ -17,8 +17,8 @@
     }
   ],
   "properties" : {
-    "width" : 1,
-    "height" : 2
+    "width" : 2,
+    "height" : 4
   },
   "info" : {
     "author" : "xcode",

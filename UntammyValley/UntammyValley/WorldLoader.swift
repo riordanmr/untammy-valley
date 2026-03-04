@@ -52,11 +52,15 @@ enum WorldLoader {
         }
 
         static var chipMakerSize: CGSize {
-            scaledSize(width: baseObjectSize * 1.25, height: baseObjectSize * 1.25)
+            scaledSize(width: baseObjectSize * 1.5, height: baseObjectSize * 1.5)
         }
 
         static var deepFryerSize: CGSize {
-            scaledSize(width: baseObjectSize, height: baseObjectSize * 2)
+            scaledSize(width: baseObjectSize * 2, height: baseObjectSize * 4)
+        }
+
+        static var potatoBinSize: CGSize {
+            scaledSize(width: baseObjectSize * 2, height: baseObjectSize * 2)
         }
 
         static var bedSize: CGSize {
@@ -114,11 +118,13 @@ enum WorldLoader {
         }
 
         static var potatoPeelerTile: TileCoordinate {
-            TileCoordinate(column: diningKitchenWallColumn + 3, row: minRow + 4)
+     //was  TileCoordinate(column: diningKitchenWallColumn + 3, row: minRow + 4)
+            TileCoordinate(column: diningKitchenWallColumn + 5, row: minRow + 3)
+            //TileCoordinate(column: maxColumnExclusive - 0, row: minRow + 2) // was -2, +3
         }
 
         static var deepFryerTile: TileCoordinate {
-            TileCoordinate(column: maxColumnExclusive - 2, row: minRow + 6)
+            TileCoordinate(column: maxColumnExclusive - 3, row: minRow + 6)
         }
 
         static var chipsBasketTile: TileCoordinate {
@@ -170,7 +176,7 @@ enum WorldLoader {
         }
 
         static var potatoBinTile: TileCoordinate {
-            TileCoordinate(column: cellarMinColumn + 2, row: cellarMaxRowExclusive - 2)
+            TileCoordinate(column: cellarMinColumn + 2, row: cellarMaxRowExclusive - 3)
         }
 
         static var bucketStartTile: TileCoordinate {
@@ -637,7 +643,7 @@ enum WorldLoader {
             kind: .potatoBin,
             spriteName: "potato_bin",
             tile: BarLayout.potatoBinTile,
-            size: BarLayout.standardObjectSize,
+            size: BarLayout.potatoBinSize,
             rewardCoins: 0,
             interactionRange: 95
         )

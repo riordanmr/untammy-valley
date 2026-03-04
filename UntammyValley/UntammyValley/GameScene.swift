@@ -2712,8 +2712,12 @@ class GameScene: SKScene {
         completedMoveCount = max(0, snapshot.completedMoveCount)
         player.position = point(from: snapshot.playerPosition)
 
+        // TODO: do a better job of handling interactables whose positions can't change.
         for (id, savedPosition) in snapshot.interactablePositionsByID {
-            if interactableConfigsByID[id]?.kind == .teachersDesk {
+            if interactableConfigsByID[id]?.kind == .teachersDesk ||
+                id == potatoPeelerID ||
+                id == deepFryerID ||
+                id == potatoBinID {
                 continue
             }
             interactableNodesByID[id]?.position = point(from: savedPosition)
