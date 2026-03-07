@@ -114,6 +114,26 @@ func makeBasicTileSet() -> SKTileSet {
 }
 
 class GameScene: SKScene {
+    private enum FacingDirection {
+        case up
+        case down
+        case left
+        case right
+
+        var tileOffset: (dc: Int, dr: Int) {
+            switch self {
+            case .up:
+                return (0, 1)
+            case .down:
+                return (0, -1)
+            case .left:
+                return (-1, 0)
+            case .right:
+                return (1, 0)
+            }
+        }
+    }
+
     private static let introShownDefaultsKey = "ut.intro.shown"
 
     private let introDialogParagraphs: [String] = [
@@ -302,6 +322,7 @@ class GameScene: SKScene {
     private var previousMoveTargetDistance: CGFloat?
     private var stalledMoveFrameCount = 0
     private let stalledMoveFrameLimit = 8
+    private var lastMoveDirection: FacingDirection = .down
     private var lastUpdateTime: TimeInterval = 0
     private var isSaveDirty = false
     private var lastAutosaveTimestamp: TimeInterval = 0
@@ -346,6 +367,82 @@ class GameScene: SKScene {
 
     private func markSaveDirty() {
         isSaveDirty = true
+    }
+
+    private func updateLastMoveDirection(from movementDelta: CGVector) {
+        let threshold: CGFloat = 0.2
+        guard abs(movementDelta.dx) > threshold || abs(movementDelta.dy) > threshold else {
+            return
+        }
+
+        if abs(movementDelta.dx) >= abs(movementDelta.dy) {
+            lastMoveDirection = movementDelta.dx >= 0 ? .right : .left
+        } else {
+            lastMoveDirection = movementDelta.dy >= 0 ? .up : .down
+        }
+    }
+
+    private func tileCanContainDroppedObject(_ tile: TileCoordinate, droppingInteractableID: String) -> Bool {
+        guard tile.column >= 0,
+              tile.column < worldColumns,
+              tile.row >= 0,
+              tile.row < worldRows else {
+            return false
+        }
+
+        if worldConfig.wallTiles.contains(tile) {
+            return false
+        }
+
+        if worldConfig.decorations.contains(where: { $0.blocksMovement && $0.tile == tile }) {
+            return false
+        }
+
+        for (id, node) in interactableNodesByID {
+            if id == droppingInteractableID || node.isHidden {
+                continue
+            }
+            guard let occupiedTile = tileCoordinate(for: node.position) else {
+                continue
+            }
+            if occupiedTile == tile {
+                return false
+            }
+        }
+
+        return true
+    }
+
+    private func candidateDropTiles(from originTile: TileCoordinate) -> [TileCoordinate] {
+        let forward = lastMoveDirection.tileOffset
+        let right = (dc: forward.dr, dr: -forward.dc)
+        let left = (dc: -forward.dr, dr: forward.dc)
+        let behind = (dc: -forward.dc, dr: -forward.dr)
+
+        let offsets = [forward, right, left, behind]
+        return offsets.map { offset in
+            TileCoordinate(column: originTile.column + offset.dc, row: originTile.row + offset.dr)
+        }
+    }
+
+    private func dropCarriedObject(_ node: SKSpriteNode, interactableID: String) {
+        let startPosition = player.position
+        node.removeAllActions()
+        node.position = startPosition
+
+        guard let playerTile = tileCoordinate(for: player.position) else {
+            return
+        }
+
+        let targetTile = candidateDropTiles(from: playerTile).first(where: { tileCanContainDroppedObject($0, droppingInteractableID: interactableID) })
+        guard let targetTile,
+              let targetPosition = scenePointForTile(targetTile) else {
+            return
+        }
+
+        let slide = SKAction.move(to: targetPosition, duration: 0.16)
+        slide.timingMode = .easeOut
+        node.run(slide)
     }
 
     private func updateWalkingAnimation(deltaTime: CGFloat, movementDelta: CGVector, isWalkingOnFoot: Bool) {
@@ -568,6 +665,7 @@ class GameScene: SKScene {
             dx: player.position.x - previousPosition.x,
             dy: player.position.y - previousPosition.y
         )
+        updateLastMoveDirection(from: movementDelta)
         let isWalkingOnFoot = mountedSnowmobileID == nil && !isMapViewMode && moveTarget != nil
         updateWalkingAnimation(
             deltaTime: walkingAnimationDeltaTime,
@@ -2266,7 +2364,7 @@ class GameScene: SKScene {
         }
 
         isBucketCarried = false
-        node.position = player.position
+        dropCarriedObject(node, interactableID: bucketID)
         showMessage("Dropped bucket (\(bucketPotatoCount)/\(bucketCapacity)).")
     }
 
@@ -2362,7 +2460,7 @@ class GameScene: SKScene {
         }
 
         isChipsBasketCarried = false
-        node.position = player.position
+        dropCarriedObject(node, interactableID: chipsBasketID)
         showMessage("Dropped basket.")
     }
 
@@ -2488,7 +2586,7 @@ class GameScene: SKScene {
     private func handleToiletBowlBrushInteraction(node: SKSpriteNode) {
         if isToiletBowlBrushCarried {
             isToiletBowlBrushCarried = false
-            node.position = player.position
+            dropCarriedObject(node, interactableID: toiletBowlBrushID)
             showMessage("Dropped toilet bowl brush.")
             return
         }
@@ -2522,7 +2620,7 @@ class GameScene: SKScene {
     private func handleTennisRacketInteraction(node: SKSpriteNode) {
         if isTennisRacketCarried {
             isTennisRacketCarried = false
-            node.position = player.position
+            dropCarriedObject(node, interactableID: tennisRacketID)
             showMessage("Dropped tennis racket.")
             return
         }
@@ -2551,7 +2649,7 @@ class GameScene: SKScene {
     private func handleShovelInteraction(node: SKSpriteNode) {
         if isShovelCarried {
             isShovelCarried = false
-            node.position = player.position
+            dropCarriedObject(node, interactableID: shovelID)
             showMessage("Dropped shovel.")
             return
         }
