@@ -231,6 +231,10 @@ class GameScene: SKScene {
     private var warningToiletIconNode: SKSpriteNode!
     private var makerLoadedIndicatorNode: SKShapeNode?
     private var bucketSelectedIndicatorNode: SKShapeNode?
+    private var bucketPotatoIconNode: SKSpriteNode?
+    private var traySlicesIconNode: SKSpriteNode?
+    private var fryerChipsIconNode: SKSpriteNode?
+    private var basketChipsIconNode: SKSpriteNode?
     private var groundTileMap: SKTileMapNode?
     private var tileGroupsByName: [String: SKTileGroup] = [:]
     private var cachedTexturesByName: [String: SKTexture] = [:]
@@ -246,6 +250,7 @@ class GameScene: SKScene {
     private let potatoBinID = "potatoBin"
     private let potatoPeelerID = "potatoPeeler"
     private let deepFryerID = "deepFryer"
+    private let trayID = "tray"
     private let chipsBasketID = "chipsBasket"
     private let spigotID = "spigot"
     private let toiletID = "toilet"
@@ -291,8 +296,9 @@ class GameScene: SKScene {
     private var selectedPotatoIsWashed = false
     private var peelerHasSlicedPotatoes = false
     private var fryerSlicedPotatoCount = 0
+    private var isTrayCarried = false
+    private var traySlicedPotatoCount = 0
     private var isChipsBasketCarried = false
-    private var basketSlicedPotatoCount = 0
     private var chipsBasketContainsChips = false
     private var isToiletBowlBrushCarried = false
     private var isToiletDirty = false
@@ -321,6 +327,7 @@ class GameScene: SKScene {
     private let mapViewZoomOutScale: CGFloat = 2.5
 
     private var moveTarget: CGPoint?
+    private var moveTargetArrivalDistance: CGFloat = 12
     private var previousMoveTargetDistance: CGFloat?
     private var stalledMoveFrameCount = 0
     private let stalledMoveFrameLimit = 8
@@ -357,12 +364,14 @@ class GameScene: SKScene {
 
     private func clearMoveTarget() {
         moveTarget = nil
+        moveTargetArrivalDistance = 12
         previousMoveTargetDistance = nil
         stalledMoveFrameCount = 0
     }
 
-    private func setMoveTarget(_ point: CGPoint) {
+    private func setMoveTarget(_ point: CGPoint, arrivalDistance: CGFloat = 12) {
         moveTarget = point
+        moveTargetArrivalDistance = max(1, arrivalDistance)
         previousMoveTargetDistance = nil
         stalledMoveFrameCount = 0
     }
@@ -645,6 +654,9 @@ class GameScene: SKScene {
         if isBucketCarried, let bucketNode = interactableNodesByID[bucketID] {
             bucketNode.position = CGPoint(x: player.position.x + 22, y: player.position.y + 8)
         }
+        if isTrayCarried, let trayNode = interactableNodesByID[trayID] {
+            trayNode.position = CGPoint(x: player.position.x - 22, y: player.position.y + 8)
+        }
         if isChipsBasketCarried, let basketNode = interactableNodesByID[chipsBasketID] {
             basketNode.position = CGPoint(x: player.position.x - 24, y: player.position.y - 8)
         }
@@ -663,6 +675,8 @@ class GameScene: SKScene {
         updateWarningIcons()
         updateSnowmobileOwnershipVisuals()
         updateBucketSelectedIndicator()
+        updateBucketPotatoIcon()
+        updateFoodStateIcons()
         clampPlayerPositionToWorldBounds()
 
         let previousPosition = previousPlayerPositionForWalkAnimation ?? player.position
@@ -941,7 +955,7 @@ class GameScene: SKScene {
         let dy = target.y - player.position.y
         let distance = hypot(dx, dy)
 
-        if distance < 12 {
+        if distance < moveTargetArrivalDistance {
             clearMoveTarget()
             body.velocity = .zero
             completedMoveCount += 1
@@ -980,7 +994,7 @@ class GameScene: SKScene {
             let remainingDx = target.x - player.position.x
             let remainingDy = target.y - player.position.y
             let remainingDistance = hypot(remainingDx, remainingDy)
-            if remainingDistance < 12 {
+            if remainingDistance < moveTargetArrivalDistance {
                 clearMoveTarget()
                 completedMoveCount += 1
                 processInteractableRespawns()
@@ -1051,6 +1065,14 @@ class GameScene: SKScene {
         makerLoadedIndicatorNode = nil
         bucketSelectedIndicatorNode?.removeFromParent()
         bucketSelectedIndicatorNode = nil
+        bucketPotatoIconNode?.removeFromParent()
+        bucketPotatoIconNode = nil
+        traySlicesIconNode?.removeFromParent()
+        traySlicesIconNode = nil
+        fryerChipsIconNode?.removeFromParent()
+        fryerChipsIconNode = nil
+        basketChipsIconNode?.removeFromParent()
+        basketChipsIconNode = nil
 
         for config in worldConfig.interactables {
             let center = tileMap.centerOfTile(atColumn: config.tile.column, row: config.tile.row)
@@ -1066,6 +1088,9 @@ class GameScene: SKScene {
                 } else if config.kind == .deepFryer {
                     let fryerTexture = makeLabeledMarkerTexture(size: config.size, emoji: "F", color: .darkGray)
                     node = SKSpriteNode(texture: fryerTexture, color: .clear, size: config.size)
+                } else if config.kind == .tray {
+                    let trayTexture = makeLabeledMarkerTexture(size: config.size, emoji: "T", color: .systemGray)
+                    node = SKSpriteNode(texture: trayTexture, color: .clear, size: config.size)
                 } else if config.kind == .chipsBasket {
                     let basketTexture = makeLabeledMarkerTexture(size: config.size, emoji: "B", color: .systemOrange)
                     node = SKSpriteNode(texture: basketTexture, color: .clear, size: config.size)
@@ -1168,6 +1193,66 @@ class GameScene: SKScene {
                 indicator.position = CGPoint(x: node.position.x, y: node.position.y + 22)
                 addChild(indicator)
                 bucketSelectedIndicatorNode = indicator
+
+                let iconSize = CGSize(width: max(12, node.size.width * 0.3), height: max(12, node.size.height * 0.3))
+                let iconNode: SKSpriteNode
+                if let potatoTexture = loadTexture(named: "potato_icon") {
+                    iconNode = SKSpriteNode(texture: potatoTexture, color: .clear, size: iconSize)
+                } else {
+                    let fallbackTexture = makeLabeledMarkerTexture(size: iconSize, emoji: "🥔", color: .systemBrown)
+                    iconNode = SKSpriteNode(texture: fallbackTexture, color: .clear, size: iconSize)
+                }
+                iconNode.name = "bucketPotatoIcon"
+                iconNode.position = CGPoint(x: 0, y: -node.size.height * 0.12)
+                iconNode.zPosition = 5
+                iconNode.isHidden = true
+                node.addChild(iconNode)
+                bucketPotatoIconNode = iconNode
+            } else if config.id == trayID {
+                let iconSize = CGSize(width: max(12, node.size.width * 0.34), height: max(12, node.size.height * 0.34))
+                let iconNode: SKSpriteNode
+                if let texture = loadTexture(named: "potato_slices_icon") {
+                    iconNode = SKSpriteNode(texture: texture, color: .clear, size: iconSize)
+                } else {
+                    let fallbackTexture = makeLabeledMarkerTexture(size: iconSize, emoji: "🥔", color: .systemOrange)
+                    iconNode = SKSpriteNode(texture: fallbackTexture, color: .clear, size: iconSize)
+                }
+                iconNode.name = "traySlicesIcon"
+                iconNode.position = CGPoint(x: 0, y: 0)
+                iconNode.zPosition = 5
+                iconNode.isHidden = true
+                node.addChild(iconNode)
+                traySlicesIconNode = iconNode
+            } else if config.id == chipsBasketID {
+                let iconSize = CGSize(width: max(12, node.size.width * 0.34), height: max(12, node.size.height * 0.34))
+                let iconNode: SKSpriteNode
+                if let texture = loadTexture(named: "potato_chips_icon") {
+                    iconNode = SKSpriteNode(texture: texture, color: .clear, size: iconSize)
+                } else {
+                    let fallbackTexture = makeLabeledMarkerTexture(size: iconSize, emoji: "🍟", color: .systemYellow)
+                    iconNode = SKSpriteNode(texture: fallbackTexture, color: .clear, size: iconSize)
+                }
+                iconNode.name = "basketChipsIcon"
+                iconNode.position = CGPoint(x: 0, y: 0)
+                iconNode.zPosition = 5
+                iconNode.isHidden = true
+                node.addChild(iconNode)
+                basketChipsIconNode = iconNode
+            } else if config.id == deepFryerID {
+                let iconSize = CGSize(width: max(14, node.size.width * 0.2), height: max(14, node.size.width * 0.2))
+                let iconNode: SKSpriteNode
+                if let texture = loadTexture(named: "potato_chips_icon") {
+                    iconNode = SKSpriteNode(texture: texture, color: .clear, size: iconSize)
+                } else {
+                    let fallbackTexture = makeLabeledMarkerTexture(size: iconSize, emoji: "🍟", color: .systemYellow)
+                    iconNode = SKSpriteNode(texture: fallbackTexture, color: .clear, size: iconSize)
+                }
+                iconNode.name = "fryerChipsIcon"
+                iconNode.position = CGPoint(x: 0, y: node.size.height * 0.2)
+                iconNode.zPosition = 5
+                iconNode.isHidden = true
+                node.addChild(iconNode)
+                fryerChipsIconNode = iconNode
             }
         }
 
@@ -1176,6 +1261,8 @@ class GameScene: SKScene {
 
         updateMakerLoadedIndicator()
         updateBucketSelectedIndicator()
+        updateBucketPotatoIcon()
+        updateFoodStateIcons()
     }
 
     private func updateSnowmobileOwnershipVisuals() {
@@ -1401,6 +1488,16 @@ class GameScene: SKScene {
 
     private func updateBucketSelectedIndicator() {
         bucketSelectedIndicatorNode?.alpha = selectedPotatoForLoading ? 1.0 : 0.0
+    }
+
+    private func updateBucketPotatoIcon() {
+        bucketPotatoIconNode?.isHidden = bucketPotatoCount <= 0
+    }
+
+    private func updateFoodStateIcons() {
+        traySlicesIconNode?.isHidden = traySlicedPotatoCount <= 0
+        fryerChipsIconNode?.isHidden = fryerSlicedPotatoCount <= 0
+        basketChipsIconNode?.isHidden = !chipsBasketContainsChips
     }
 
     private func configureHUD() {
@@ -2191,10 +2288,11 @@ class GameScene: SKScene {
             "Washed in bucket: \(washedPotatoCount)",
             "Potato selected: \(selectedPotatoForLoading ? "Yes" : "No")",
             "Peeler has slices: \(peelerHasSlicedPotatoes ? "Yes" : "No")",
+            "Tray carried: \(isTrayCarried ? "Yes" : "No")",
+            "Tray slices: \(traySlicedPotatoCount)",
             "Basket carried: \(isChipsBasketCarried ? "Yes" : "No")",
-            "Basket slices: \(basketSlicedPotatoCount)",
             "Basket has chips: \(chipsBasketContainsChips ? "Yes" : "No")",
-            "Fryer slices: \(fryerSlicedPotatoCount)",
+            "Fryer chips: \(fryerSlicedPotatoCount)",
             "Toilet dirty: \(isToiletDirty ? "Yes" : "No")",
             "Brush carried: \(isToiletBowlBrushCarried ? "Yes" : "No")",
             "Toilet event: \(toiletStatusText)",
@@ -2236,25 +2334,31 @@ class GameScene: SKScene {
         coinLabel.text = "Coins: \(GameState.shared.coins)"
     }
 
+    private func minimumReachableDistance(to node: SKSpriteNode) -> CGFloat {
+        let playerRadius = min(player.size.width, player.size.height) * 0.38
+        let interactableRadius = max(node.size.width, node.size.height) * 0.5
+        let desiredGap: CGFloat = 8
+        return playerRadius + interactableRadius + desiredGap
+    }
+
+    private func effectiveInteractionRange(for config: InteractableConfig, node: SKSpriteNode) -> CGFloat {
+        max(config.interactionRange, minimumReachableDistance(to: node) + 12)
+    }
+
     private func movePlayerNearInteractable(_ node: SKSpriteNode) {
         let dx = node.position.x - player.position.x
         let dy = node.position.y - player.position.y
         let distance = hypot(dx, dy)
         guard distance > 0.001 else { return }
+        let standOffDistance = minimumReachableDistance(to: node)
 
         let directionX = dx / distance
         let directionY = dy / distance
-
-        let playerRadius = min(player.size.width, player.size.height) * 0.38
-        let interactableRadius = max(node.size.width, node.size.height) * 0.5
-        let desiredGap: CGFloat = 8
-        let standOffDistance = playerRadius + interactableRadius + desiredGap
-
         let target = CGPoint(
             x: node.position.x - directionX * standOffDistance,
             y: node.position.y - directionY * standOffDistance
         )
-        setMoveTarget(target)
+        setMoveTarget(target, arrivalDistance: 8)
     }
 
     private func performInteractionIfPossible(interactableID: String) {
@@ -2270,7 +2374,8 @@ class GameScene: SKScene {
         let dy = node.position.y - player.position.y
         let distance = hypot(dx, dy)
 
-        if distance > config.interactionRange {
+        let interactionRange = effectiveInteractionRange(for: config, node: node)
+        if distance > interactionRange {
             movePlayerNearInteractable(node)
             return
         }
@@ -2284,6 +2389,9 @@ class GameScene: SKScene {
             return
         case .chipsBasket:
             handleChipsBasketInteraction(node: node)
+            return
+        case .tray:
+            handleTrayInteraction(node: node)
             return
         case .snowmobile:
             handleSnowmobileInteraction(interactableID: interactableID)
@@ -2428,7 +2536,7 @@ class GameScene: SKScene {
 
     private func handlePotatoPeelerInteraction() {
         if peelerHasSlicedPotatoes {
-            showMessage("Potato peeler has slices ready. Put them in the basket.")
+            showMessage("Potato peeler has slices ready. Put them on the tray.")
             return
         }
 
@@ -2446,11 +2554,37 @@ class GameScene: SKScene {
             selectedPotatoIsWashed = false
             peelerHasSlicedPotatoes = true
             updateMakerLoadedIndicator()
-            showMessage("Potato peeled and sliced. Move slices into basket.")
+            showMessage("Potato peeled and sliced. Move slices onto the tray.")
             return
         }
 
         showMessage("Select a washed potato from the bucket first.")
+    }
+
+    private func handleTrayInteraction(node: SKSpriteNode) {
+        if !isTrayCarried {
+            isTrayCarried = true
+            showMessage("Picked up tray.")
+            return
+        }
+
+        if isPlayerNearInteractable(withID: potatoPeelerID) {
+            guard peelerHasSlicedPotatoes else {
+                showMessage("No sliced potatoes ready in peeler.")
+                return
+            }
+
+            peelerHasSlicedPotatoes = false
+            traySlicedPotatoCount += 1
+            updateMakerLoadedIndicator()
+            updateFoodStateIcons()
+            showMessage("Added sliced potato to tray (\(traySlicedPotatoCount) total).")
+            return
+        }
+
+        isTrayCarried = false
+        dropCarriedObject(node, interactableID: trayID)
+        showMessage("Dropped tray.")
     }
 
     private func handleChipsBasketInteraction(node: SKSpriteNode) {
@@ -2460,20 +2594,10 @@ class GameScene: SKScene {
             return
         }
 
-        if isPlayerNearInteractable(withID: potatoPeelerID) {
-            guard peelerHasSlicedPotatoes else {
-                showMessage("No sliced potatoes ready in peeler.")
-                return
-            }
-            guard !chipsBasketContainsChips else {
-                showMessage("Basket already has finished chips.")
-                return
-            }
-
-            peelerHasSlicedPotatoes = false
-            basketSlicedPotatoCount += 1
-            updateMakerLoadedIndicator()
-            showMessage("Added sliced potato to basket (\(basketSlicedPotatoCount) total).")
+        if chipsBasketContainsChips {
+            chipsBasketContainsChips = false
+            updateFoodStateIcons()
+            showMessage("Emptied chips from basket.")
             return
         }
 
@@ -2483,36 +2607,47 @@ class GameScene: SKScene {
     }
 
     private func handleDeepFryerInteraction() {
-        guard isChipsBasketCarried else {
-            showMessage("Bring the basket to the deep fryer.")
+        if traySlicedPotatoCount > 0 {
+            guard isTrayCarried else {
+                showMessage("Bring the tray with slices to the deep fryer.")
+                return
+            }
+
+            fryerSlicedPotatoCount += traySlicedPotatoCount
+            let movedSlices = traySlicedPotatoCount
+            traySlicedPotatoCount = 0
+            updateFoodStateIcons()
+            showMessage("Fried \(movedSlices) sliced potato\(movedSlices == 1 ? "" : "es") into chips.")
             return
         }
 
-        if basketSlicedPotatoCount > 0 && fryerSlicedPotatoCount == 0 {
-            fryerSlicedPotatoCount = basketSlicedPotatoCount
-            basketSlicedPotatoCount = 0
-            showMessage("Put \(fryerSlicedPotatoCount) sliced potato\(fryerSlicedPotatoCount == 1 ? "" : "es") into deep fryer.")
-            return
-        }
+        if fryerSlicedPotatoCount > 0 {
+            guard isChipsBasketCarried else {
+                showMessage("Carry the basket to collect chips from the fryer.")
+                return
+            }
+            guard !chipsBasketContainsChips else {
+                showMessage("Basket already has chips.")
+                return
+            }
 
-        if fryerSlicedPotatoCount > 0 && !chipsBasketContainsChips {
-            let friedPotatoCount = fryerSlicedPotatoCount
+            let chipCount = fryerSlicedPotatoCount
             fryerSlicedPotatoCount = 0
             chipsBasketContainsChips = true
-            let rewardCoins = potatoChipRewardPerPotato * friedPotatoCount
+            let rewardCoins = potatoChipRewardPerPotato * chipCount
             GameState.shared.addCoins(rewardCoins)
             updateCoinLabel()
-            showMessage("Fried chips from \(friedPotatoCount) potato\(friedPotatoCount == 1 ? "" : "es") returned to basket. +\(rewardCoins) coins")
-            chipsBasketContainsChips = false
+            updateFoodStateIcons()
+            showMessage("Moved \(chipCount) chip batch\(chipCount == 1 ? "" : "es") to basket. +\(rewardCoins) coins")
             return
         }
 
-        if chipsBasketContainsChips {
-            showMessage("Basket already holds finished chips.")
+        if isTrayCarried {
+            showMessage("Tray has no slices to fry.")
             return
         }
 
-        showMessage("Put sliced potatoes into the fryer first.")
+        showMessage("Load sliced potatoes onto the tray first.")
     }
 
     private func handleSnowmobileInteraction(interactableID: String) {
@@ -2802,8 +2937,10 @@ class GameScene: SKScene {
             selectedPotatoIsWashed: selectedPotatoIsWashed,
             peelerHasSlicedPotatoes: peelerHasSlicedPotatoes,
             fryerSlicedPotatoCount: fryerSlicedPotatoCount,
+            isTrayCarried: isTrayCarried,
+            traySlicedPotatoCount: traySlicedPotatoCount,
             isChipsBasketCarried: isChipsBasketCarried,
-            basketSlicedPotatoCount: basketSlicedPotatoCount,
+            basketSlicedPotatoCount: 0,
             chipsBasketContainsChips: chipsBasketContainsChips,
             isToiletBowlBrushCarried: isToiletBowlBrushCarried,
             isTennisRacketCarried: isTennisRacketCarried,
@@ -2853,8 +2990,9 @@ class GameScene: SKScene {
         selectedPotatoIsWashed = snapshot.selectedPotatoIsWashed
         peelerHasSlicedPotatoes = snapshot.peelerHasSlicedPotatoes
         fryerSlicedPotatoCount = max(0, snapshot.fryerSlicedPotatoCount)
+        isTrayCarried = snapshot.isTrayCarried ?? false
+        traySlicedPotatoCount = max(0, snapshot.traySlicedPotatoCount ?? 0)
         isChipsBasketCarried = snapshot.isChipsBasketCarried
-        basketSlicedPotatoCount = max(0, snapshot.basketSlicedPotatoCount)
         chipsBasketContainsChips = snapshot.chipsBasketContainsChips
         isToiletBowlBrushCarried = snapshot.isToiletBowlBrushCarried
         isTennisRacketCarried = snapshot.isTennisRacketCarried
@@ -2886,6 +3024,8 @@ class GameScene: SKScene {
         updateToiletVisualState()
         updateMakerLoadedIndicator()
         updateBucketSelectedIndicator()
+        updateBucketPotatoIcon()
+        updateFoodStateIcons()
         updateCoinLabel()
         updateStatusWindowBody()
 
@@ -2980,7 +3120,8 @@ class GameScene: SKScene {
               let node = interactableNodesByID[interactableID] else { return false }
         let dx = node.position.x - player.position.x
         let dy = node.position.y - player.position.y
-        return hypot(dx, dy) <= config.interactionRange
+        let interactionRange = effectiveInteractionRange(for: config, node: node)
+        return hypot(dx, dy) <= interactionRange
     }
 
     private func isPlayerInBarRooms() -> Bool {
@@ -3055,8 +3196,9 @@ class GameScene: SKScene {
         selectedPotatoIsWashed = false
         peelerHasSlicedPotatoes = false
         fryerSlicedPotatoCount = 0
+        isTrayCarried = false
+        traySlicedPotatoCount = 0
         isChipsBasketCarried = false
-        basketSlicedPotatoCount = 0
         chipsBasketContainsChips = false
         isToiletBowlBrushCarried = false
         isToiletDirty = false
@@ -3078,6 +3220,8 @@ class GameScene: SKScene {
         hasAwardedSepticCompletionBonus = false
         resetSepticDigTiles()
         updateMakerLoadedIndicator()
+        updateBucketPotatoIcon()
+        updateFoodStateIcons()
         for (_, interactableNode) in interactableNodesByID {
             interactableNode.isHidden = false
         }

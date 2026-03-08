@@ -42,6 +42,7 @@ struct DecorationConfig {
 enum InteractableKind {
     case potatoChips
     case deepFryer
+    case tray
     case chipsBasket
     case desk
     case teachersDesk

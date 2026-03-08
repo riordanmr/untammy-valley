@@ -135,6 +135,10 @@ enum WorldLoader {
             TileCoordinate(column: deepFryerTile.column, row: deepFryerTile.row - 2)
         }
 
+        static var trayTile: TileCoordinate {
+            TileCoordinate(column: chipsBasketTile.column - 1, row: chipsBasketTile.row)
+        }
+
         static var goatChaseTile: TileCoordinate {
             parkingCarTiles[1]
         }
@@ -622,6 +626,16 @@ enum WorldLoader {
             interactionRange: 95
         )
 
+        let tray = InteractableConfig(
+            id: "tray",
+            kind: .tray,
+            spriteName: "tray",
+            tile: BarLayout.trayTile,
+            size: BarLayout.standardObjectSize,
+            rewardCoins: 0,
+            interactionRange: 95
+        )
+
         let toilet = InteractableConfig(
             id: "toilet",
             kind: .toilet,
@@ -853,7 +867,7 @@ enum WorldLoader {
             )
         ]
 
-        let allInteractables = [potatoPeeler, deepFryer, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, desk, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, goatChaseSpot] + snowmobiles
+        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, desk, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, goatChaseSpot] + snowmobiles
 
         let staticDecorations = [carrollSign, cramerSign, schoolSign] + bedroomBeds + parkingCars
         let treeDecorations = makeTreeDecorations(

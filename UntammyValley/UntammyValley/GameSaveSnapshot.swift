@@ -30,6 +30,8 @@ struct GameSaveSnapshot: Codable {
     let selectedPotatoIsWashed: Bool
     let peelerHasSlicedPotatoes: Bool
     let fryerSlicedPotatoCount: Int
+    let isTrayCarried: Bool?
+    let traySlicedPotatoCount: Int?
     let isChipsBasketCarried: Bool
     let basketSlicedPotatoCount: Int
     let chipsBasketContainsChips: Bool
