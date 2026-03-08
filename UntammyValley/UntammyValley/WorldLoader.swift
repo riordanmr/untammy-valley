@@ -75,6 +75,10 @@ enum WorldLoader {
             scaledSize(width: baseObjectSize * 2, height: baseObjectSize * 2)
         }
 
+        static var parkingCarSize: CGSize {
+            CGSize(width: baseObjectSize * 2, height: baseObjectSize * 4)
+        }
+
         static var treeSizes: [CGSize] {
             [
                 scaledSize(width: baseObjectSize * (43.0 / 12.0), height: baseObjectSize * (25.0 / 6.0)),
@@ -132,7 +136,17 @@ enum WorldLoader {
         }
 
         static var goatChaseTile: TileCoordinate {
-            TileCoordinate(column: minColumn + singleRoomWidth + 4, row: minRow - 3)
+            parkingCarTiles[1]
+        }
+
+        static var parkingCarTiles: [TileCoordinate] {
+            let centerColumn = diningLabelTile.column
+            let carRow = minRow - 4
+            return [
+                TileCoordinate(column: centerColumn - 3, row: carRow),
+                TileCoordinate(column: centerColumn, row: carRow),
+                TileCoordinate(column: centerColumn + 3, row: carRow)
+            ]
         }
 
         static var carrollSignTile: TileCoordinate {
@@ -635,7 +649,7 @@ enum WorldLoader {
             tile: BarLayout.goatChaseTile,
             size: BarLayout.standardObjectSize,
             rewardCoins: 7,
-            interactionRange: 95
+            interactionRange: 130
         )
 
         let potatoBin = InteractableConfig(
@@ -809,9 +823,39 @@ enum WorldLoader {
             )
         }
 
+        let parkingCars: [DecorationConfig] = [
+            DecorationConfig(
+                id: "parkingCarSedan",
+                kind: .sprite,
+                spriteName: "sedan",
+                labelText: nil,
+                tile: BarLayout.parkingCarTiles[0],
+                size: BarLayout.parkingCarSize,
+                blocksMovement: true
+            ),
+            DecorationConfig(
+                id: "parkingCarPickupTruck",
+                kind: .sprite,
+                spriteName: "pickuptruck",
+                labelText: nil,
+                tile: BarLayout.parkingCarTiles[1],
+                size: BarLayout.parkingCarSize,
+                blocksMovement: true
+            ),
+            DecorationConfig(
+                id: "parkingCarStationWagon",
+                kind: .sprite,
+                spriteName: "stationwagon",
+                labelText: nil,
+                tile: BarLayout.parkingCarTiles[2],
+                size: BarLayout.parkingCarSize,
+                blocksMovement: true
+            )
+        ]
+
         let allInteractables = [potatoPeeler, deepFryer, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, desk, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, goatChaseSpot] + snowmobiles
 
-        let staticDecorations = [carrollSign, cramerSign, schoolSign] + bedroomBeds
+        let staticDecorations = [carrollSign, cramerSign, schoolSign] + bedroomBeds + parkingCars
         let treeDecorations = makeTreeDecorations(
             wallTiles: wallTiles,
             blockedTiles: Set(allInteractables.map { $0.tile }).union(Set(staticDecorations.map { $0.tile }))
@@ -862,7 +906,7 @@ enum WorldLoader {
         let treeSpriteNames = ["fir", "maple", "birch"]
         let treeSizes = BarLayout.treeSizes
 
-        var rng = SeededGenerator(seed: 20260221)
+        var rng = SeededGenerator(seed: 20260223)
         var placedTiles = Set<TileCoordinate>()
         var treeDecorations: [DecorationConfig] = []
 

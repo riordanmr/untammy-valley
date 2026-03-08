@@ -256,6 +256,8 @@ class GameScene: SKScene {
     private let tennisRacketID = "tennisRacket"
     private let bedroomBatID = "bedroomBat"
     private let shovelID = "shovel"
+    private let goatChaseSpotID = "goatChaseSpot"
+    private let parkingCarDecorationIDs = ["parkingCarSedan", "parkingCarPickupTruck", "parkingCarStationWagon"]
     private let bucketCapacity = 5
 
     private var snowmobilePriceCoins: Int {
@@ -619,6 +621,9 @@ class GameScene: SKScene {
         updateCoinLabel()
         updateStatusWindowBody()
         restoreGameFromDiskIfAvailable()
+        if interactableNodesByID[goatChaseSpotID]?.isHidden == false {
+            placeGoatOnRandomParkingCar()
+        }
         presentIntroIfFirstRun()
 
     }
@@ -1226,6 +1231,16 @@ class GameScene: SKScene {
         makeLabeledMarkerTexture(size: size, emoji: "🐐", color: .systemGreen)
     }
 
+    private func placeGoatOnRandomParkingCar() {
+        guard let goatNode = interactableNodesByID[goatChaseSpotID] else { return }
+        let availableCars = parkingCarDecorationIDs.compactMap { decorationNodesByID[$0] }
+        guard let carNode = availableCars.randomElement() else { return }
+
+        let carTopOffset = carNode.size.height * 0.22
+        goatNode.position = CGPoint(x: carNode.position.x, y: carNode.position.y + carTopOffset)
+        interactableHomePositionByID[goatChaseSpotID] = goatNode.position
+    }
+
     private func makeLargeSignTexture(size: CGSize, text: String) -> SKTexture {
         // Cache sign textures by size and text content
         let cacheKey = "sign_\(Int(size.width))x\(Int(size.height))_\(text)"
@@ -1334,6 +1349,9 @@ class GameScene: SKScene {
         processToiletEventProgress(messages: &intervalMessages)
 
         for (interactableID, respawnMove) in respawnAtMoveByInteractableID where completedMoveCount >= respawnMove {
+            if interactableID == goatChaseSpotID {
+                placeGoatOnRandomParkingCar()
+            }
             interactableNodesByID[interactableID]?.isHidden = false
             if interactableConfigsByID[interactableID]?.kind == .chaseGoats {
                 intervalMessages.append("Goat returned to the parking lot.")
