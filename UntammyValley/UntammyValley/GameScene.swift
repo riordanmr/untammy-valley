@@ -329,9 +329,10 @@ class GameScene: SKScene {
 
     private var moveTarget: CGPoint?
     private var moveTargetArrivalDistance: CGFloat = 12
-    private var previousMoveTargetDistance: CGFloat?
+    private var bestMoveTargetDistance: CGFloat?
     private var stalledMoveFrameCount = 0
     private let stalledMoveFrameLimit = 8
+    private let stalledMoveDistanceEpsilon: CGFloat = 0.5
     private var lastMoveDirection: FacingDirection = .down
     private var lastUpdateTime: TimeInterval = 0
     private var isSaveDirty = false
@@ -366,14 +367,14 @@ class GameScene: SKScene {
     private func clearMoveTarget() {
         moveTarget = nil
         moveTargetArrivalDistance = 12
-        previousMoveTargetDistance = nil
+        bestMoveTargetDistance = nil
         stalledMoveFrameCount = 0
     }
 
     private func setMoveTarget(_ point: CGPoint, arrivalDistance: CGFloat = 12) {
         moveTarget = point
         moveTargetArrivalDistance = max(1, arrivalDistance)
-        previousMoveTargetDistance = nil
+        bestMoveTargetDistance = nil
         stalledMoveFrameCount = 0
     }
 
@@ -948,7 +949,7 @@ class GameScene: SKScene {
         }
         guard let target = moveTarget else {
             body.velocity = .zero
-            previousMoveTargetDistance = nil
+            bestMoveTargetDistance = nil
             stalledMoveFrameCount = 0
             return
         }
@@ -967,7 +968,7 @@ class GameScene: SKScene {
         }
 
         if mountedSnowmobileID != nil {
-            previousMoveTargetDistance = nil
+            bestMoveTargetDistance = nil
             stalledMoveFrameCount = 0
 
             let moveSpeed = playerMoveSpeed * mountedSnowmobileSpeedMultiplier
@@ -1005,8 +1006,21 @@ class GameScene: SKScene {
             return
         }
 
-        previousMoveTargetDistance = nil
-        stalledMoveFrameCount = 0
+        if let bestDistance = bestMoveTargetDistance {
+            if distance < bestDistance - stalledMoveDistanceEpsilon {
+                bestMoveTargetDistance = distance
+                stalledMoveFrameCount = 0
+            } else {
+                stalledMoveFrameCount += 1
+                if stalledMoveFrameCount >= stalledMoveFrameLimit {
+                    clearMoveTarget()
+                    body.velocity = .zero
+                    return
+                }
+            }
+        } else {
+            bestMoveTargetDistance = distance
+        }
 
         let moveSpeed = playerMoveSpeed
         let vx = (dx / distance) * moveSpeed
