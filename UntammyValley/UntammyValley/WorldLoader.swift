@@ -79,6 +79,14 @@ enum WorldLoader {
             CGSize(width: baseObjectSize * 2, height: baseObjectSize * 4)
         }
 
+        static var livingRoomBarSize: CGSize {
+            scaledSize(width: baseObjectSize * 1.5, height: baseObjectSize * 7)
+        }
+
+        static var orderTableSize: CGSize {
+            scaledSize(width: baseObjectSize, height: baseObjectSize * 2)
+        }
+
         static var treeSizes: [CGSize] {
             [
                 scaledSize(width: baseObjectSize * (43.0 / 12.0), height: baseObjectSize * (25.0 / 6.0)),
@@ -96,7 +104,7 @@ enum WorldLoader {
         static var diningKitchenWallColumn: Int { bedroomDiningWallColumn + diningRoomWidth }
 
         static let bedroomDiningDoorRows: Set<Int> = [23, 24]
-        static let diningKitchenDoorRows: Set<Int> = [23, 24]
+        static let diningKitchenDoorRows: Set<Int> = [21, 22, 25, 26]
         static var diningOutsideDoorColumns: Set<Int> { [bedroomDiningWallColumn + 3, bedroomDiningWallColumn + 4] }
         static var kitchenCellarDoorColumns: Set<Int> { [diningKitchenWallColumn + 3, diningKitchenWallColumn + 4] }
 
@@ -137,6 +145,20 @@ enum WorldLoader {
 
         static var trayTile: TileCoordinate {
             TileCoordinate(column: chipsBasketTile.column - 1, row: chipsBasketTile.row)
+        }
+
+        static var livingRoomBarTile: TileCoordinate {
+            TileCoordinate(
+                column: diningKitchenWallColumn - 3,
+                row: maxRowExclusive - 5
+            )
+        }
+
+        static var orderTableTile: TileCoordinate {
+            TileCoordinate(
+                column: diningKitchenWallColumn,
+                row: (diningKitchenDoorRows.max() ?? (maxRowExclusive - 2)) - 1
+            )
         }
 
         static var goatChaseTile: TileCoordinate {
@@ -198,7 +220,7 @@ enum WorldLoader {
         }
 
         static var bucketStartTile: TileCoordinate {
-            TileCoordinate(column: diningKitchenWallColumn + 2, row: maxRowExclusive - 3)
+            TileCoordinate(column: deepFryerTile.column, row: deepFryerTile.row + 2)
         }
 
         static var cellarLabelTile: TileCoordinate {
@@ -236,19 +258,19 @@ enum WorldLoader {
         static let bathroomInteriorWidth = 3
         static let bathroomInteriorHeight = 2
 
-        static var bathroomInteriorMaxColumnExclusive: Int { diningKitchenWallColumn }
-        static var bathroomInteriorMinColumn: Int { bathroomInteriorMaxColumnExclusive - bathroomInteriorWidth }
+        static var bathroomInteriorMinColumn: Int { bedroomDiningWallColumn + 1 }
+        static var bathroomInteriorMaxColumnExclusive: Int { bathroomInteriorMinColumn + bathroomInteriorWidth }
         static var bathroomInteriorMaxRowExclusive: Int { maxRowExclusive - 1 }
         static var bathroomInteriorMinRow: Int { bathroomInteriorMaxRowExclusive - bathroomInteriorHeight }
 
         static var bathroomLeftWallColumn: Int { bathroomInteriorMinColumn - 1 }
         static var bathroomBottomWallRow: Int { bathroomInteriorMinRow - 1 }
-        static var bathroomDoorColumn: Int { bathroomInteriorMinColumn }
+        static var bathroomDoorColumn: Int { bathroomInteriorMaxColumnExclusive - 1 }
 
         static var toiletTile: TileCoordinate {
             TileCoordinate(
-                column: bathroomInteriorMaxColumnExclusive - 1,
-                row: bathroomInteriorMinRow + 1
+                column: bathroomInteriorMinColumn,
+                row: bathroomInteriorMaxRowExclusive - 1
             )
         }
 
@@ -334,9 +356,10 @@ enum WorldLoader {
 
         for row in BarLayout.bathroomInteriorMinRow..<BarLayout.maxRowExclusive {
             wallTiles.insert(TileCoordinate(column: BarLayout.bathroomLeftWallColumn, row: row))
+            wallTiles.insert(TileCoordinate(column: BarLayout.bathroomInteriorMaxColumnExclusive, row: row))
         }
 
-        for column in BarLayout.bathroomLeftWallColumn...BarLayout.diningKitchenWallColumn {
+        for column in BarLayout.bathroomLeftWallColumn...BarLayout.bathroomInteriorMaxColumnExclusive {
             if column == BarLayout.bathroomDoorColumn {
                 continue
             }
@@ -837,6 +860,26 @@ enum WorldLoader {
             )
         }
 
+        let livingRoomBar = DecorationConfig(
+            id: "livingRoomBar",
+            kind: .sprite,
+            spriteName: "bar",
+            labelText: nil,
+            tile: BarLayout.livingRoomBarTile,
+            size: BarLayout.livingRoomBarSize,
+            blocksMovement: true
+        )
+
+        let orderTable = DecorationConfig(
+            id: "orderTable",
+            kind: .sprite,
+            spriteName: "ordertable",
+            labelText: nil,
+            tile: BarLayout.orderTableTile,
+            size: BarLayout.orderTableSize,
+            blocksMovement: true
+        )
+
         let parkingCars: [DecorationConfig] = [
             DecorationConfig(
                 id: "parkingCarSedan",
@@ -869,7 +912,7 @@ enum WorldLoader {
 
         let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, desk, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, goatChaseSpot] + snowmobiles
 
-        let staticDecorations = [carrollSign, cramerSign, schoolSign] + bedroomBeds + parkingCars
+        let staticDecorations = [carrollSign, cramerSign, schoolSign, livingRoomBar, orderTable] + bedroomBeds + parkingCars
         let treeDecorations = makeTreeDecorations(
             wallTiles: wallTiles,
             blockedTiles: Set(allInteractables.map { $0.tile }).union(Set(staticDecorations.map { $0.tile }))
