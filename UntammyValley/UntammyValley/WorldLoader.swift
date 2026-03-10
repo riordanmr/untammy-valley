@@ -87,6 +87,14 @@ enum WorldLoader {
             scaledSize(width: baseObjectSize, height: baseObjectSize * 2)
         }
 
+        static var stoolTileSize: CGSize {
+            CGSize(width: 64, height: 64)
+        }
+
+        static var patronStoolTileSize: CGSize {
+            CGSize(width: 64, height: 128)
+        }
+
         static var treeSizes: [CGSize] {
             [
                 scaledSize(width: baseObjectSize * (43.0 / 12.0), height: baseObjectSize * (25.0 / 6.0)),
@@ -152,6 +160,22 @@ enum WorldLoader {
                 column: diningKitchenWallColumn - 3,
                 row: maxRowExclusive - 5
             )
+        }
+
+        static var barStoolColumn: Int {
+            livingRoomBarTile.column - 1
+        }
+
+        static var topBarStoolTile: TileCoordinate {
+            TileCoordinate(column: barStoolColumn, row: livingRoomBarTile.row + 2)
+        }
+
+        static var centerBarStoolTile: TileCoordinate {
+            TileCoordinate(column: barStoolColumn, row: livingRoomBarTile.row)
+        }
+
+        static var patronBarStoolTile: TileCoordinate {
+            TileCoordinate(column: barStoolColumn, row: livingRoomBarTile.row - 2)
         }
 
         static var orderTableTile: TileCoordinate {
@@ -880,6 +904,36 @@ enum WorldLoader {
             blocksMovement: true
         )
 
+        let topBarStool = DecorationConfig(
+            id: "topBarStool",
+            kind: .sprite,
+            spriteName: "barstool",
+            labelText: nil,
+            tile: BarLayout.topBarStoolTile,
+            size: BarLayout.stoolTileSize,
+            blocksMovement: true
+        )
+
+        let centerBarStool = DecorationConfig(
+            id: "centerBarStool",
+            kind: .sprite,
+            spriteName: "barstool",
+            labelText: nil,
+            tile: BarLayout.centerBarStoolTile,
+            size: BarLayout.stoolTileSize,
+            blocksMovement: true
+        )
+
+        let patronBarStool = DecorationConfig(
+            id: "patronBarStool",
+            kind: .sprite,
+            spriteName: "barstoolwithpatron1",
+            labelText: nil,
+            tile: BarLayout.patronBarStoolTile,
+            size: BarLayout.patronStoolTileSize,
+            blocksMovement: true
+        )
+
         let parkingCars: [DecorationConfig] = [
             DecorationConfig(
                 id: "parkingCarSedan",
@@ -912,7 +966,16 @@ enum WorldLoader {
 
         let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, desk, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, goatChaseSpot] + snowmobiles
 
-        let staticDecorations = [carrollSign, cramerSign, schoolSign, livingRoomBar, orderTable] + bedroomBeds + parkingCars
+        let staticDecorations = [
+            carrollSign,
+            cramerSign,
+            schoolSign,
+            livingRoomBar,
+            orderTable,
+            topBarStool,
+            centerBarStool,
+            patronBarStool
+        ] + bedroomBeds + parkingCars
         let treeDecorations = makeTreeDecorations(
             wallTiles: wallTiles,
             blockedTiles: Set(allInteractables.map { $0.tile }).union(Set(staticDecorations.map { $0.tile }))
