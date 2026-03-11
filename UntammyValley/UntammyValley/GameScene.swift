@@ -262,7 +262,6 @@ class GameScene: SKScene {
     private let bedroomBatID = "bedroomBat"
     private let shovelID = "shovel"
     private let goatChaseSpotID = "goatChaseSpot"
-    private let orderTableDecorationID = "orderTable"
     private let parkingCarDecorationIDs = ["parkingCarSedan", "parkingCarPickupTruck", "parkingCarStationWagon"]
     private let bucketCapacity = 5
 
@@ -407,8 +406,7 @@ class GameScene: SKScene {
             return false
         }
 
-        let blockingDecorationsAtTile = worldConfig.decorations.filter { $0.blocksMovement && $0.tile == tile }
-        if blockingDecorationsAtTile.contains(where: { $0.id != orderTableDecorationID }) {
+        if worldConfig.decorations.contains(where: { $0.blocksMovement && $0.tile == tile }) {
             return false
         }
 
@@ -1297,10 +1295,7 @@ class GameScene: SKScene {
 
         for config in worldConfig.decorations {
             let center = tileMap.centerOfTile(atColumn: config.tile.column, row: config.tile.row)
-            var position = tileMap.convert(center, to: self)
-            if config.id == orderTableDecorationID {
-                position.y += tileMap.tileSize.height * 0.5
-            }
+            let position = tileMap.convert(center, to: self)
 
             let node: SKSpriteNode
             // For large text signs, use the dynamic texture path (cached by makeLargeSignTexture) since we have the text content

@@ -83,10 +83,6 @@ enum WorldLoader {
             scaledSize(width: baseObjectSize * 1.5, height: baseObjectSize * 7)
         }
 
-        static var orderTableSize: CGSize {
-            scaledSize(width: baseObjectSize, height: baseObjectSize * 2)
-        }
-
         static var stoolTileSize: CGSize {
             CGSize(width: 64, height: 64)
         }
@@ -112,7 +108,7 @@ enum WorldLoader {
         static var diningKitchenWallColumn: Int { bedroomDiningWallColumn + diningRoomWidth }
 
         static let bedroomDiningDoorRows: Set<Int> = [23, 24]
-        static let diningKitchenDoorRows: Set<Int> = [21, 22, 25, 26]
+        static let diningKitchenDoorRows: Set<Int> = [21, 22]
         static var diningOutsideDoorColumns: Set<Int> { [bedroomDiningWallColumn + 3, bedroomDiningWallColumn + 4] }
         static var kitchenCellarDoorColumns: Set<Int> { [diningKitchenWallColumn + 3, diningKitchenWallColumn + 4] }
 
@@ -176,13 +172,6 @@ enum WorldLoader {
 
         static var patronBarStoolTile: TileCoordinate {
             TileCoordinate(column: barStoolColumn, row: livingRoomBarTile.row - 2)
-        }
-
-        static var orderTableTile: TileCoordinate {
-            TileCoordinate(
-                column: diningKitchenWallColumn,
-                row: (diningKitchenDoorRows.max() ?? (maxRowExclusive - 2)) - 1
-            )
         }
 
         static var goatChaseTile: TileCoordinate {
@@ -894,16 +883,6 @@ enum WorldLoader {
             blocksMovement: true
         )
 
-        let orderTable = DecorationConfig(
-            id: "orderTable",
-            kind: .sprite,
-            spriteName: "ordertable",
-            labelText: nil,
-            tile: BarLayout.orderTableTile,
-            size: BarLayout.orderTableSize,
-            blocksMovement: true
-        )
-
         let topBarStool = DecorationConfig(
             id: "topBarStool",
             kind: .sprite,
@@ -971,7 +950,6 @@ enum WorldLoader {
             cramerSign,
             schoolSign,
             livingRoomBar,
-            orderTable,
             topBarStool,
             centerBarStool,
             patronBarStool
