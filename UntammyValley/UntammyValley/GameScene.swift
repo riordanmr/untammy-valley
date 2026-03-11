@@ -350,7 +350,7 @@ class GameScene: SKScene {
     }()
 
     private var worldColumns: Int { worldConfig.recommendedWorldColumns }
-    private let worldRows = 46
+    private let worldRows = 70
     private let tileSize = CGSize(width: 64, height: 64)
     private let playerMoveSpeed: CGFloat = 500
     private let mountedSnowmobileSpeedMultiplier: CGFloat = 4.0

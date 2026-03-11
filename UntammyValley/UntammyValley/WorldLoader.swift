@@ -998,7 +998,8 @@ enum WorldLoader {
         septicTiles.formUnion(BarLayout.septicDigTiles)
 
         let minTreeRow = max(2, min(BarLayout.minRow, SchoolLayout.minRow) - 6)
-        let maxTreeRow = min(44, max(BarLayout.maxRowExclusive, SchoolLayout.maxRowExclusive) + 1)
+        let topOccupiedRow = max(BarLayout.maxRowExclusive, SchoolLayout.maxRowExclusive) - 1
+        let maxTreeRow = min(44, topOccupiedRow)
         guard minTreeRow <= maxTreeRow else { return [] }
 
         let treeSpriteNames = ["fir", "maple", "birch"]
