@@ -24,6 +24,15 @@ struct FloorRegion {
     let region: TileRegion
 }
 
+struct RiverOverlayConfig {
+    let minColumn: Int
+    let maxColumnExclusive: Int
+    let bottomRow: Int
+    let heightTiles: Int
+    let repeatedSpriteName: String
+    let rightEdgeSpriteName: String
+}
+
 enum DecorationKind {
     case largeTextSign
     case sprite
@@ -97,6 +106,7 @@ struct WorldConfig {
     let wallTiles: Set<TileCoordinate>
     let defaultFloorTileName: String
     let floorRegions: [FloorRegion]
+    let riverOverlay: RiverOverlayConfig?
     let doorwayFloorOverrides: [FloorRegion]
     let barInteriorRegions: [TileRegion]
     let carrollSalesRegion: TileRegion
@@ -120,6 +130,9 @@ struct WorldConfig {
         candidates.append(spawnTile.column)
 
         candidates.append(contentsOf: floorRegions.map { $0.region.maxColumnExclusive - 1 })
+        if let riverOverlay {
+            candidates.append(riverOverlay.maxColumnExclusive - 1)
+        }
         candidates.append(contentsOf: doorwayFloorOverrides.map { $0.region.maxColumnExclusive - 1 })
         candidates.append(carrollSalesRegion.maxColumnExclusive - 1)
 

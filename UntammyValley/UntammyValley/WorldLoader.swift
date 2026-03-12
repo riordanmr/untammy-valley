@@ -174,6 +174,27 @@ enum WorldLoader {
             TileCoordinate(column: barStoolColumn, row: livingRoomBarTile.row - 2)
         }
 
+        // River sits above the bar: bottom is 10 tiles above bar top, height is 10 tiles.
+        static var riverBottomRow: Int {
+            (maxRowExclusive - 1) + 23
+        }
+
+        static var riverHeightTiles: Int {
+            10
+        }
+
+        static var riverTopRow: Int {
+            riverBottomRow + riverHeightTiles - 1
+        }
+
+        static var riverMinColumn: Int {
+            0
+        }
+
+        static var riverMaxColumnExclusive: Int {
+            ((maxColumnExclusive - 1) + 12) + 1
+        }
+
         static var goatChaseTile: TileCoordinate {
             parkingCarTiles[1]
         }
@@ -617,6 +638,15 @@ enum WorldLoader {
             )
         ]
 
+        let riverOverlay = RiverOverlayConfig(
+            minColumn: BarLayout.riverMinColumn,
+            maxColumnExclusive: BarLayout.riverMaxColumnExclusive,
+            bottomRow: BarLayout.riverBottomRow,
+            heightTiles: BarLayout.riverHeightTiles,
+            repeatedSpriteName: "river_with_banks",
+            rightEdgeSpriteName: "river_bend"
+        )
+
         let barInteriorRegions: [TileRegion] = [
             TileRegion(
                 minColumn: BarLayout.minColumn,
@@ -963,6 +993,7 @@ enum WorldLoader {
             wallTiles: wallTiles,
             defaultFloorTileName: "floor_outdoor",
             floorRegions: floorRegions,
+            riverOverlay: riverOverlay,
             doorwayFloorOverrides: doorwayFloorOverrides,
             barInteriorRegions: barInteriorRegions,
             carrollSalesRegion: BarLayout.carrollSalesRegion,
@@ -1016,6 +1047,13 @@ enum WorldLoader {
                 }
 
                 let tile = TileCoordinate(column: column, row: row)
+                let isRiverTile = tile.column >= BarLayout.riverMinColumn
+                    && tile.column < BarLayout.riverMaxColumnExclusive
+                    && tile.row >= BarLayout.riverBottomRow
+                    && tile.row <= BarLayout.riverTopRow
+                if isRiverTile {
+                    continue
+                }
                 if wallTiles.contains(tile) || blockedTiles.contains(tile) {
                     continue
                 }

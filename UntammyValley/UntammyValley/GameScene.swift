@@ -18,6 +18,7 @@ private enum PhysicsCategory {
 private enum ZLayer {
     // World-space render order (low -> high): floor, tile objects, decorations/interactables, player.
     static let worldFloor: CGFloat = -10
+    static let worldFloorOverlay: CGFloat = -5
     static let worldObjects: CGFloat = 10
     static let decoration: CGFloat = 18
     static let interactable: CGFloat = 20
@@ -571,6 +572,7 @@ class GameScene: SKScene {
             }
         }
         addChild(tileMap)
+        buildRiverOverlay(on: tileMap)
         
         // Second tile layer for walls, furniture, etc.
         let objectTileMap = SKTileMapNode(
@@ -3066,6 +3068,72 @@ class GameScene: SKScene {
         guard let map = groundTileMap else { return nil }
         let localCenter = map.centerOfTile(atColumn: tile.column, row: tile.row)
         return map.convert(localCenter, to: self)
+    }
+
+    private func buildRiverOverlay(on tileMap: SKTileMapNode) {
+        guard let river = worldConfig.riverOverlay else { return }
+
+        let riverHeight = CGFloat(river.heightTiles) * tileSize.height
+        guard riverHeight > 0 else { return }
+
+        let totalRiverWidth = CGFloat(river.maxColumnExclusive - river.minColumn) * tileSize.width
+        guard totalRiverWidth > 0 else { return }
+
+        let bendTexture = loadTexture(named: river.rightEdgeSpriteName)
+        let bendWidth: CGFloat
+        // bendMultiplier is the height multiplier to apply to the bend texture to make it match the river height
+        let bendMultiplier = (2804.0/1493.0)
+        let bendHeight = riverHeight * bendMultiplier
+        if let bendTexture {
+            let bendTextureSize = bendTexture.size()
+            bendWidth = riverHeight * (bendTextureSize.width / max(1, bendTextureSize.height)) * bendMultiplier
+        } else {
+            bendWidth = 0
+        }
+
+        let repeatedWidth = max(0, totalRiverWidth - bendWidth)
+
+        let baseCenter = tileMap.centerOfTile(atColumn: river.minColumn, row: river.bottomRow)
+        let baseScenePoint = tileMap.convert(baseCenter, to: self)
+        let leftEdge = baseScenePoint.x - (tileSize.width * 0.5)
+        let bottomEdge = baseScenePoint.y - (tileSize.height * 0.5)
+        let centerY = bottomEdge + (riverHeight * 0.5)
+        let bendY = bottomEdge + (riverHeight * 0.5) * bendMultiplier
+
+        if repeatedWidth > 0,
+           let repeatedTexture = loadTexture(named: river.repeatedSpriteName) {
+            let sourceSize = repeatedTexture.size()
+            let repeatedSegmentWidth = max(1, riverHeight * (sourceSize.width / max(1, sourceSize.height)))
+
+            var remainingWidth = repeatedWidth
+            var cursorX = leftEdge
+            var segmentIndex = 0
+
+            while remainingWidth > 0.5 {
+                let segmentWidth = min(repeatedSegmentWidth, remainingWidth)
+                let segmentNode = SKSpriteNode(
+                    texture: repeatedTexture,
+                    color: .clear,
+                    size: CGSize(width: segmentWidth, height: riverHeight)
+                )
+                segmentNode.name = "riverOverlayRepeated_\(segmentIndex)"
+                segmentNode.position = CGPoint(x: cursorX + (segmentWidth * 0.5), y: centerY)
+                segmentNode.zPosition = ZLayer.worldFloorOverlay
+                addChild(segmentNode)
+
+                cursorX += segmentWidth
+                remainingWidth -= segmentWidth
+                segmentIndex += 1
+            }
+        }
+
+        if let bendTexture, bendWidth > 0 {
+            let bendNode = SKSpriteNode(texture: bendTexture, color: .clear, size: CGSize(width: bendWidth, height: bendHeight))
+            bendNode.name = "riverOverlayBend"
+            bendNode.position = CGPoint(x: leftEdge + repeatedWidth + (bendWidth * 0.5), y: bendY)
+            bendNode.zPosition = ZLayer.worldFloorOverlay
+            addChild(bendNode)
+        }
     }
 
     private func updateToiletVisualState() {
