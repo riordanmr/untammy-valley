@@ -11,7 +11,7 @@ extension GameScene {
         searsCatalogAlertPanelNode?.removeFromParent()
 
         searsCatalogBackdropNode = SKShapeNode(rectOf: CGSize(width: size.width, height: size.height))
-        searsCatalogBackdropNode.name = "searsCatalogBackdrop"
+        searsCatalogBackdropNode.name = SearsCatalogNodeName.backdrop
         searsCatalogBackdropNode.fillColor = UIColor.black.withAlphaComponent(0.45)
         searsCatalogBackdropNode.strokeColor = .clear
         searsCatalogBackdropNode.position = .zero
@@ -25,7 +25,7 @@ extension GameScene {
             rectOf: CGSize(width: panelWidth, height: panelHeight),
             cornerRadius: 14
         )
-        searsCatalogPanelNode.name = "searsCatalogPanel"
+        searsCatalogPanelNode.name = SearsCatalogNodeName.panel
         searsCatalogPanelNode.fillColor = UIColor(white: 0.12, alpha: 0.98)
         searsCatalogPanelNode.strokeColor = .white
         searsCatalogPanelNode.lineWidth = 2
@@ -108,7 +108,7 @@ extension GameScene {
         let rowY = listHeight / 2 - rowTopInset
 
         searsCatalogItemCheckboxNode = SKLabelNode(fontNamed: "Menlo-Bold")
-        searsCatalogItemCheckboxNode.name = "searsCatalogRaftToggleItem"
+        searsCatalogItemCheckboxNode.name = SearsCatalogNodeName.raftToggleItem
         searsCatalogItemCheckboxNode.fontSize = 22
         searsCatalogItemCheckboxNode.fontColor = .white
         searsCatalogItemCheckboxNode.horizontalAlignmentMode = .center
@@ -121,7 +121,7 @@ extension GameScene {
             rectOf: CGSize(width: listWidth - 18, height: max(34, min(46, listHeight * 0.24))),
             cornerRadius: 6
         )
-        rowHitTarget.name = "searsCatalogRaftToggleItem"
+        rowHitTarget.name = SearsCatalogNodeName.raftToggleItem
         rowHitTarget.fillColor = UIColor.clear
         rowHitTarget.strokeColor = UIColor.clear
         rowHitTarget.position = CGPoint(x: 0, y: rowY)
@@ -149,7 +149,7 @@ extension GameScene {
         listFrame.addChild(descriptionLabel)
 
         let prepareButton = SKShapeNode(rectOf: CGSize(width: 220, height: 46), cornerRadius: 8)
-        prepareButton.name = "searsCatalogPrepareItem"
+        prepareButton.name = SearsCatalogNodeName.prepareItem
         prepareButton.fillColor = UIColor.systemBlue.withAlphaComponent(0.9)
         prepareButton.strokeColor = .white
         prepareButton.lineWidth = 1.5
@@ -158,7 +158,7 @@ extension GameScene {
         searsCatalogPanelNode.addChild(prepareButton)
 
         let prepareLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        prepareLabel.name = "searsCatalogPrepareItem"
+        prepareLabel.name = SearsCatalogNodeName.prepareItem
         prepareLabel.text = "Prepare Order"
         prepareLabel.fontSize = 21
         prepareLabel.fontColor = .white
@@ -169,7 +169,7 @@ extension GameScene {
         prepareButton.addChild(prepareLabel)
 
         let cancelButton = SKShapeNode(rectOf: CGSize(width: 160, height: 46), cornerRadius: 8)
-        cancelButton.name = "searsCatalogCancelItem"
+        cancelButton.name = SearsCatalogNodeName.cancelItem
         cancelButton.fillColor = UIColor.darkGray.withAlphaComponent(0.9)
         cancelButton.strokeColor = .white
         cancelButton.lineWidth = 1.5
@@ -178,7 +178,7 @@ extension GameScene {
         searsCatalogPanelNode.addChild(cancelButton)
 
         let cancelLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        cancelLabel.name = "searsCatalogCancelItem"
+        cancelLabel.name = SearsCatalogNodeName.cancelItem
         cancelLabel.text = "Cancel"
         cancelLabel.fontSize = 21
         cancelLabel.fontColor = .white
@@ -189,7 +189,7 @@ extension GameScene {
         cancelButton.addChild(cancelLabel)
 
         searsCatalogAlertBackdropNode = SKShapeNode(rectOf: CGSize(width: size.width, height: size.height))
-        searsCatalogAlertBackdropNode.name = "searsCatalogAlertBackdrop"
+        searsCatalogAlertBackdropNode.name = SearsCatalogNodeName.alertBackdrop
         searsCatalogAlertBackdropNode.fillColor = UIColor(white: 0.0, alpha: 1.0)
         searsCatalogAlertBackdropNode.strokeColor = .clear
         searsCatalogAlertBackdropNode.lineWidth = 0
@@ -199,7 +199,7 @@ extension GameScene {
         cameraNode.addChild(searsCatalogAlertBackdropNode)
 
         searsCatalogAlertPanelNode = SKShapeNode(rectOf: CGSize(width: min(panelWidth - 80, 560), height: 190), cornerRadius: 12)
-        searsCatalogAlertPanelNode.name = "searsCatalogAlertPanel"
+        searsCatalogAlertPanelNode.name = SearsCatalogNodeName.alertPanel
         searsCatalogAlertPanelNode.fillColor = UIColor(white: 0.08, alpha: 0.98)
         searsCatalogAlertPanelNode.strokeColor = .white
         searsCatalogAlertPanelNode.lineWidth = 1.8
@@ -220,7 +220,7 @@ extension GameScene {
         searsCatalogAlertPanelNode.addChild(searsCatalogAlertMessageLabel)
 
         let alertOKButton = SKShapeNode(rectOf: CGSize(width: 120, height: 42), cornerRadius: 8)
-        alertOKButton.name = "searsCatalogAlertOKItem"
+        alertOKButton.name = SearsCatalogNodeName.alertOKItem
         alertOKButton.fillColor = UIColor.systemBlue.withAlphaComponent(0.9)
         alertOKButton.strokeColor = .white
         alertOKButton.lineWidth = 1.4
@@ -229,7 +229,7 @@ extension GameScene {
         searsCatalogAlertPanelNode.addChild(alertOKButton)
 
         let alertOKLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
-        alertOKLabel.name = "searsCatalogAlertOKItem"
+        alertOKLabel.name = SearsCatalogNodeName.alertOKItem
         alertOKLabel.text = "OK"
         alertOKLabel.fontSize = 20
         alertOKLabel.fontColor = .white

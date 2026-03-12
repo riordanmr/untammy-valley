@@ -391,7 +391,7 @@ class GameScene: SKScene {
         stalledMoveFrameCount = 0
     }
 
-    private func markSaveDirty() {
+    func markSaveDirty() {
         isSaveDirty = true
     }
 
@@ -778,22 +778,7 @@ class GameScene: SKScene {
             return
         }
 
-        if isSearsCatalogDialogVisible {
-            if isSearsCatalogAlertVisible {
-                if hudNodes.contains(where: { $0.name == "searsCatalogAlertOKItem" || $0.parent?.name == "searsCatalogAlertOKItem" }) {
-                    setSearsCatalogAlertVisible(false)
-                }
-                return
-            }
-
-            if hudNodes.contains(where: { $0.name == "searsCatalogPrepareItem" || $0.parent?.name == "searsCatalogPrepareItem" }) {
-                handleSearsCatalogPrepareOrder()
-            } else if hudNodes.contains(where: { $0.name == "searsCatalogCancelItem" || $0.parent?.name == "searsCatalogCancelItem" }) {
-                setSearsCatalogDialogVisible(false)
-            } else if hudNodes.contains(where: { $0.name == "searsCatalogRaftToggleItem" || $0.parent?.name == "searsCatalogRaftToggleItem" }) {
-                searsCatalogItemChecked.toggle()
-                updateSearsCatalogCheckboxVisual()
-            }
+        if handleSearsCatalogHUDTap(hudNodes: hudNodes) {
             return
         }
 
@@ -907,7 +892,7 @@ class GameScene: SKScene {
             return
         }
 
-        if isSearsCatalogDialogVisible {
+        if shouldBlockWorldInputForSearsModal() {
             return
         }
 
@@ -944,7 +929,7 @@ class GameScene: SKScene {
             return
         }
 
-        if isSearsCatalogDialogVisible {
+        if shouldBlockWorldInputForSearsModal() {
             return
         }
 
@@ -1962,7 +1947,7 @@ class GameScene: SKScene {
         cameraNode.addChild(quizDialogNode)
     }
 
-    private func setQuizDialogVisible(_ visible: Bool) {
+    func setQuizDialogVisible(_ visible: Bool) {
         quizDialogNode?.setVisible(visible)
     }
 
@@ -1988,7 +1973,7 @@ class GameScene: SKScene {
     }
 
     // MARK: - Intro & Study Dialog Flows
-    private func setStudySubjectPromptVisible(_ visible: Bool) {
+    func setStudySubjectPromptVisible(_ visible: Bool) {
         isStudySubjectPromptVisible = visible
         studySubjectBackdropNode.isHidden = !visible
         studySubjectPanelNode.isHidden = !visible
@@ -2325,7 +2310,7 @@ class GameScene: SKScene {
     }
 
     // MARK: - Status Dialog
-    private func setStatusWindowVisible(_ visible: Bool) {
+    func setStatusWindowVisible(_ visible: Bool) {
         isStatusWindowVisible = visible
         if visible {
             updateStatusWindowBody()
@@ -2415,7 +2400,7 @@ class GameScene: SKScene {
         return statusLines
     }
 
-    private func setMenuVisible(_ visible: Bool) {
+    func setMenuVisible(_ visible: Bool) {
         menuPanelNode.isHidden = !visible
         if visible {
             menuButtonNode.fillColor = UIColor.systemBlue.withAlphaComponent(0.65)
@@ -2426,7 +2411,7 @@ class GameScene: SKScene {
         }
     }
 
-    private func updateCoinLabel() {
+    func updateCoinLabel() {
         coinLabel.text = "Coins: \(GameState.shared.coins)"
     }
 
@@ -2550,83 +2535,39 @@ class GameScene: SKScene {
         setStudySubjectPromptVisible(true)
     }
 
-    private func handleSearsCatalogInteraction() {
-        guard !isEnvelopeOutstanding() else {
-            showMessage("You must mail your previous order before using the catalog again.")
-            return
-        }
-
-        setMenuVisible(false)
-        setStatusWindowVisible(false)
-        setQuizDialogVisible(false)
-        scrollTextDialogNode?.setVisible(false)
-        setStudySubjectPromptVisible(false)
-        setSearsCatalogDialogVisible(true)
-        setSearsCatalogAlertVisible(false)
-        searsCatalogItemChecked = false
-        updateSearsCatalogCheckboxVisual()
-    }
-
-    private func handleSearsCatalogPrepareOrder() {
-        guard searsCatalogItemChecked else {
-            setSearsCatalogAlertVisible(true, message: "You haven't checked any items")
-            return
-        }
-
-        let totalCost = searsCatalogRaftPriceCoins
-        guard GameState.shared.coins >= totalCost else {
-            setSearsCatalogAlertVisible(true, message: "You don't have enough coins")
-            return
-        }
-
-        _ = GameState.shared.removeCoins(totalCost)
-        updateCoinLabel()
-        createEnvelopeAndCarry()
-        setSearsCatalogDialogVisible(false)
-        showMessage("Place the order by taking the envelope to the mailbox.")
-        markSaveDirty()
-    }
-
-    private func handleMailboxInteraction() {
-        guard isEnvelopeCarried else {
-            showMessage("You must be carrying an envelope.")
-            return
-        }
-
-        isEnvelopeCarried = false
-        if let envelopeNode = interactableNodesByID[envelopeID] {
-            envelopeNode.isHidden = true
-            if let homePosition = interactableHomePositionByID[envelopeID] {
-                envelopeNode.position = homePosition
-            }
-        }
-        showMessage("You have mailed the envelope.")
-        markSaveDirty()
-    }
-
-    private func handleEnvelopeInteraction() {
-        guard let envelopeNode = interactableNodesByID[envelopeID], !envelopeNode.isHidden else {
-            return
-        }
-
-        if isEnvelopeCarried {
-            showMessage("You are already carrying the envelope.")
-            return
-        }
-
-        isEnvelopeCarried = true
-        showMessage("Picked up envelope.")
-        markSaveDirty()
-    }
-
-    private func isEnvelopeOutstanding() -> Bool {
+    func isEnvelopeOutstanding() -> Bool {
         if isEnvelopeCarried {
             return true
         }
         return interactableNodesByID[envelopeID]?.isHidden == false
     }
 
-    private func createEnvelopeAndCarry() {
+    func isEnvelopeCurrentlyCarried() -> Bool {
+        isEnvelopeCarried
+    }
+
+    func isEnvelopeVisibleForPickup() -> Bool {
+        guard let envelopeNode = interactableNodesByID[envelopeID] else {
+            return false
+        }
+        return !envelopeNode.isHidden
+    }
+
+    func setEnvelopeCarried(_ carried: Bool) {
+        isEnvelopeCarried = carried
+    }
+
+    func hideEnvelopeAndResetHomePosition() {
+        guard let envelopeNode = interactableNodesByID[envelopeID] else {
+            return
+        }
+        envelopeNode.isHidden = true
+        if let homePosition = interactableHomePositionByID[envelopeID] {
+            envelopeNode.position = homePosition
+        }
+    }
+
+    func createEnvelopeAndCarry() {
         guard let envelopeNode = interactableNodesByID[envelopeID] else { return }
         envelopeNode.isHidden = false
         isEnvelopeCarried = true
@@ -3524,7 +3465,7 @@ class GameScene: SKScene {
         showMessage("Progress reset.")
     }
 
-    private func showMessage(_ text: String) {
+    func showMessage(_ text: String) {
         messageLabel.removeAllActions()
         messageLabel.text = text
         messageLabel.alpha = 1
