@@ -53,7 +53,8 @@ enum InteractableKind {
     case deepFryer
     case tray
     case chipsBasket
-    case desk
+    case studyGuide
+    case searsCatalog
     case teachersDesk
     case snowmobile
     case toilet

@@ -255,7 +255,6 @@ class GameScene: SKScene {
     private let chipsBasketID = "chipsBasket"
     private let spigotID = "spigot"
     private let toiletID = "toilet"
-    private let deskID = "desk"
     private let toiletCleanSpriteName = "toilet"
     private let toiletDirtySpriteName = "toilet_dirty"
     private let toiletBowlBrushID = "toiletBowlBrush"
@@ -1092,7 +1091,9 @@ class GameScene: SKScene {
 
         for config in worldConfig.interactables {
             let center = tileMap.centerOfTile(atColumn: config.tile.column, row: config.tile.row)
-            let position = tileMap.convert(center, to: self)
+            let basePosition = tileMap.convert(center, to: self)
+            let placementOffset = interactablePlacementOffset(for: config)
+            let position = CGPoint(x: basePosition.x + placementOffset.x, y: basePosition.y + placementOffset.y)
 
             let node: SKSpriteNode
             if let texture = loadTexture(named: config.spriteName) {
@@ -1116,9 +1117,12 @@ class GameScene: SKScene {
                 } else if config.kind == .toilet {
                     let toiletTexture = makeLabeledMarkerTexture(size: config.size, emoji: "T", color: .white)
                     node = SKSpriteNode(texture: toiletTexture, color: .clear, size: config.size)
-                } else if config.kind == .desk {
-                    let deskTexture = makeLabeledMarkerTexture(size: config.size, emoji: "D", color: .systemBrown)
-                    node = SKSpriteNode(texture: deskTexture, color: .clear, size: config.size)
+                } else if config.kind == .studyGuide {
+                    let guideTexture = makeLabeledMarkerTexture(size: config.size, emoji: "📘", color: .systemBlue)
+                    node = SKSpriteNode(texture: guideTexture, color: .clear, size: config.size)
+                } else if config.kind == .searsCatalog {
+                    let catalogTexture = makeLabeledMarkerTexture(size: config.size, emoji: "📕", color: .systemRed)
+                    node = SKSpriteNode(texture: catalogTexture, color: .clear, size: config.size)
                 } else if config.kind == .toiletBowlBrush {
                     let brushTexture = makeLabeledMarkerTexture(size: config.size, emoji: "B", color: .systemPink)
                     node = SKSpriteNode(texture: brushTexture, color: .clear, size: config.size)
@@ -1289,6 +1293,19 @@ class GameScene: SKScene {
                 badgeNode.isHidden = owned
                 badgeNode.fillColor = .systemYellow
             }
+        }
+    }
+
+    private func interactablePlacementOffset(for config: InteractableConfig) -> CGPoint {
+        let deskItemOffsetX = tileSize.width * 0.28
+
+        switch config.id {
+        case "studyGuide":
+            return CGPoint(x: -deskItemOffsetX, y: 0)
+        case "searsCatalog":
+            return CGPoint(x: deskItemOffsetX, y: 0)
+        default:
+            return .zero
         }
     }
 
@@ -2415,8 +2432,11 @@ class GameScene: SKScene {
         case .toilet:
             handleToiletInteraction()
             return
-        case .desk:
-            handleDeskInteraction()
+        case .studyGuide:
+            handleStudyGuideInteraction()
+            return
+        case .searsCatalog:
+            handleSearsCatalogInteraction()
             return
         case .teachersDesk:
             handleTeachersDeskInteraction(interactableID: interactableID)
@@ -2453,12 +2473,16 @@ class GameScene: SKScene {
         }
     }
 
-    private func handleDeskInteraction() {
+    private func handleStudyGuideInteraction() {
         setMenuVisible(false)
         setStatusWindowVisible(false)
         setQuizDialogVisible(false)
         scrollTextDialogNode?.setVisible(false)
         setStudySubjectPromptVisible(true)
+    }
+
+    private func handleSearsCatalogInteraction() {
+        showMessage("Sears catalog action not set yet.")
     }
 
     private func handleTeachersDeskInteraction(interactableID: String) {
@@ -2930,7 +2954,9 @@ class GameScene: SKScene {
         var hiddenInteractableIDs: [String] = []
 
         for (id, node) in interactableNodesByID {
-            interactablePositionsByID[id] = savedPoint(from: node.position)
+            if shouldPersistInteractablePosition(for: id) {
+                interactablePositionsByID[id] = savedPoint(from: node.position)
+            }
             if node.isHidden {
                 hiddenInteractableIDs.append(id)
             }
@@ -2981,13 +3007,8 @@ class GameScene: SKScene {
         completedMoveCount = max(0, snapshot.completedMoveCount)
         player.position = point(from: snapshot.playerPosition)
 
-        // TODO: do a better job of handling interactables whose positions can't change.
         for (id, savedPosition) in snapshot.interactablePositionsByID {
-            if interactableConfigsByID[id]?.kind == .teachersDesk ||
-                id == potatoPeelerID ||
-                id == deepFryerID ||
-                id == potatoBinID ||
-                id == toiletID {
+            if !shouldPersistInteractablePosition(for: id) {
                 continue
             }
             interactableNodesByID[id]?.position = point(from: savedPosition)
@@ -3047,6 +3068,21 @@ class GameScene: SKScene {
         updateStatusWindowBody()
 
         clearMoveTarget()
+    }
+
+    private func shouldPersistInteractablePosition(for id: String) -> Bool {
+        if id == "studyGuide" || id == "searsCatalog" {
+            return false
+        }
+
+        if interactableConfigsByID[id]?.kind == .teachersDesk {
+            return false
+        }
+
+        return id != potatoPeelerID &&
+            id != deepFryerID &&
+            id != potatoBinID &&
+            id != toiletID
     }
 
     private func restoreGameFromDiskIfAvailable() {

@@ -44,7 +44,7 @@ enum WorldLoader {
         }
 
         static var deskSize: CGSize {
-            scaledSize(width: baseObjectSize * 2, height: baseObjectSize)
+            scaledSize(width: baseObjectSize * 2 * 1.3, height: baseObjectSize * 1.3)
         }
 
         static var teachersDeskSize: CGSize {
@@ -89,6 +89,10 @@ enum WorldLoader {
 
         static var patronStoolTileSize: CGSize {
             CGSize(width: 64, height: 128)
+        }
+
+        static var studyGuideSize: CGSize {
+            scaledSize(width: baseObjectSize * 0.6, height: baseObjectSize * 0.6)
         }
 
         static var treeSizes: [CGSize] {
@@ -275,6 +279,14 @@ enum WorldLoader {
 
         static var deskTile: TileCoordinate {
             TileCoordinate(column: bedroomDiningWallColumn - 2, row: maxRowExclusive - 2)
+        }
+
+        static var studyGuideTile: TileCoordinate {
+            TileCoordinate(column: deskTile.column, row: deskTile.row)
+        }
+
+        static var searsCatalogTile: TileCoordinate {
+            TileCoordinate(column: deskTile.column, row: deskTile.row)
         }
 
         static var bedTiles: [TileCoordinate] {
@@ -772,14 +784,24 @@ enum WorldLoader {
             interactionRange: 95
         )
 
-        let desk = InteractableConfig(
-            id: "desk",
-            kind: .desk,
-            spriteName: "desk",
-            tile: BarLayout.deskTile,
-            size: BarLayout.deskSize,
+        let studyGuide = InteractableConfig(
+            id: "studyGuide",
+            kind: .studyGuide,
+            spriteName: "studyguide",
+            tile: BarLayout.studyGuideTile,
+            size: BarLayout.studyGuideSize,
             rewardCoins: 0,
-            interactionRange: 120
+            interactionRange: 100
+        )
+
+        let searsCatalog = InteractableConfig(
+            id: "searsCatalog",
+            kind: .searsCatalog,
+            spriteName: "searscatalog",
+            tile: BarLayout.searsCatalogTile,
+            size: BarLayout.studyGuideSize,
+            rewardCoins: 0,
+            interactionRange: 100
         )
 
         let teacherDeskEnglish = InteractableConfig(
@@ -913,6 +935,16 @@ enum WorldLoader {
             blocksMovement: true
         )
 
+        let studyDesk = DecorationConfig(
+            id: "studyDesk",
+            kind: .sprite,
+            spriteName: "desk",
+            labelText: nil,
+            tile: BarLayout.deskTile,
+            size: BarLayout.deskSize,
+            blocksMovement: true
+        )
+
         let topBarStool = DecorationConfig(
             id: "topBarStool",
             kind: .sprite,
@@ -973,13 +1005,14 @@ enum WorldLoader {
             )
         ]
 
-        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, desk, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, goatChaseSpot] + snowmobiles
+        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, studyGuide, searsCatalog, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, goatChaseSpot] + snowmobiles
 
         let staticDecorations = [
             carrollSign,
             cramerSign,
             schoolSign,
             livingRoomBar,
+            studyDesk,
             topBarStool,
             centerBarStool,
             patronBarStool
