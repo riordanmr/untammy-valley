@@ -84,15 +84,24 @@ enum WorldLoader {
         }
 
         static var stoolTileSize: CGSize {
-            CGSize(width: 64, height: 64)
+            scaledSize(width: baseObjectSize, height: baseObjectSize)
         }
 
         static var patronStoolTileSize: CGSize {
-            CGSize(width: 64, height: 128)
+            scaledSize(width: baseObjectSize, height: baseObjectSize * 2)
         }
 
         static var studyGuideSize: CGSize {
             scaledSize(width: baseObjectSize * 0.6, height: baseObjectSize * 0.6)
+        }
+
+        static var mailboxSize: CGSize {
+            // Mailbox proportions match a 1x2 object footprint.
+            scaledSize(width: baseObjectSize, height: baseObjectSize * 2)
+        }
+
+        static var envelopeSize: CGSize {
+            scaledSize(width: baseObjectSize, height: baseObjectSize)
         }
 
         static var treeSizes: [CGSize] {
@@ -287,6 +296,14 @@ enum WorldLoader {
 
         static var searsCatalogTile: TileCoordinate {
             TileCoordinate(column: deskTile.column, row: deskTile.row)
+        }
+
+        static var mailboxTile: TileCoordinate {
+            TileCoordinate(column: cramerSignTile.column, row: cramerSignTile.row - 4)
+        }
+
+        static var envelopeTile: TileCoordinate {
+            TileCoordinate(column: deskTile.column, row: deskTile.row - 1)
         }
 
         static var bedTiles: [TileCoordinate] {
@@ -804,6 +821,26 @@ enum WorldLoader {
             interactionRange: 100
         )
 
+        let mailbox = InteractableConfig(
+            id: "mailbox",
+            kind: .mailbox,
+            spriteName: "mailbox",
+            tile: BarLayout.mailboxTile,
+            size: BarLayout.mailboxSize,
+            rewardCoins: 0,
+            interactionRange: 120
+        )
+
+        let envelope = InteractableConfig(
+            id: "envelope",
+            kind: .envelope,
+            spriteName: "envelope",
+            tile: BarLayout.envelopeTile,
+            size: BarLayout.envelopeSize,
+            rewardCoins: 0,
+            interactionRange: 95
+        )
+
         let teacherDeskEnglish = InteractableConfig(
             id: "teacherDeskEnglish",
             kind: .teachersDesk,
@@ -1005,7 +1042,7 @@ enum WorldLoader {
             )
         ]
 
-        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, studyGuide, searsCatalog, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, goatChaseSpot] + snowmobiles
+        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, studyGuide, searsCatalog, mailbox, envelope, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, goatChaseSpot] + snowmobiles
 
         let staticDecorations = [
             carrollSign,

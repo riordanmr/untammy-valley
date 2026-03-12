@@ -55,6 +55,8 @@ enum InteractableKind {
     case chipsBasket
     case studyGuide
     case searsCatalog
+    case mailbox
+    case envelope
     case teachersDesk
     case snowmobile
     case toilet
