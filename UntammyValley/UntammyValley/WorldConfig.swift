@@ -68,6 +68,7 @@ enum InteractableKind {
     case tennisRacket
     case bedroomBat
     case shovel
+    case raft
 }
 
 struct InteractableConfig {

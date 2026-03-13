@@ -321,6 +321,10 @@ class GameScene: SKScene {
     private var isTennisRacketCarried = false
     private var isShovelCarried = false
     private var isEnvelopeCarried = false
+    private var carriedRaftID: String?
+    private var riddenRaftID: String?
+    private var pendingRaftDeliveryMoves: [Int] = []
+    private var nextRaftSequenceID = 1
     private var ownedSnowmobileIDs: Set<String> = []
     private var selectedOwnedSnowmobileID: String?
     private var mountedSnowmobileID: String?
@@ -369,6 +373,8 @@ class GameScene: SKScene {
     private let playerMoveSpeed: CGFloat = 500
     private let mountedSnowmobileSpeedMultiplier: CGFloat = 4.0
     private let mountedSnowmobileVerticalOffset: CGFloat = -12
+    private let mountedRaftSpeedMultiplier: CGFloat = 1.15
+    private let carriedRaftVerticalOffset: CGFloat = -28
     private let indoorSnowmobileBlockedFloorTiles: Set<String> = ["floor_wood", "floor_linoleum", "floor_carpet"]
     private let walkingBobAmplitude: CGFloat = 2.5
     private let walkingBobCyclesPerSecond: CGFloat = 3.5
@@ -376,6 +382,10 @@ class GameScene: SKScene {
     private var walkingBobOffsetY: CGFloat = 0
     private var previousPlayerPositionForWalkAnimation: CGPoint?
     private var walkingAnimationDeltaTime: CGFloat = 1.0 / 60.0
+
+    private var raftSize: CGSize {
+        CGSize(width: tileSize.width * 2, height: tileSize.height * 2)
+    }
 
     private func clearMoveTarget() {
         moveTarget = nil
@@ -654,6 +664,13 @@ class GameScene: SKScene {
     }
 
     override func didSimulatePhysics() {
+        if let ridingRaftID = riddenRaftID,
+           let raftNode = interactableNodesByID[ridingRaftID] {
+            raftNode.position = player.position
+            raftNode.zPosition = ZLayer.interactable
+            player.zPosition = ZLayer.playerMounted
+        }
+
         if let mountedID = mountedSnowmobileID,
            let snowmobileNode = interactableNodesByID[mountedID] {
             snowmobileNode.position = CGPoint(
@@ -688,6 +705,12 @@ class GameScene: SKScene {
         if isEnvelopeCarried, let envelopeNode = interactableNodesByID[envelopeID] {
             envelopeNode.position = CGPoint(x: player.position.x + 24, y: player.position.y - 4)
             envelopeNode.isHidden = false
+        }
+        if let raftID = carriedRaftID,
+           let raftNode = interactableNodesByID[raftID],
+           riddenRaftID != raftID {
+            raftNode.position = CGPoint(x: player.position.x, y: player.position.y + carriedRaftVerticalOffset)
+            raftNode.isHidden = false
         }
         if let bucketNode = interactableNodesByID[bucketID] {
             bucketSelectedIndicatorNode?.position = CGPoint(x: bucketNode.position.x, y: bucketNode.position.y + 22)
@@ -997,6 +1020,63 @@ class GameScene: SKScene {
             return
         }
 
+        if let ridingRaftID = riddenRaftID {
+            bestMoveTargetDistance = nil
+            stalledMoveFrameCount = 0
+
+            guard let raftNode = interactableNodesByID[ridingRaftID] else {
+                riddenRaftID = nil
+                body.velocity = .zero
+                return
+            }
+
+            let playerTile = tileCoordinate(for: player.position)
+            let targetTile = tileCoordinate(for: target)
+                let shoreTapDistance = hypot(target.x - player.position.x, target.y - player.position.y)
+            if let playerTile, let targetTile,
+                    isRiverTile(playerTile),
+               !isRiverTile(targetTile),
+               canDismountRaftToShore(from: playerTile),
+                    shoreTapDistance <= (tileSize.width * 1.75),
+               !isWallBlocked(at: target) {
+                riddenRaftID = nil
+                player.position = target
+                body.velocity = .zero
+                clearMoveTarget()
+                showMessage("Exited raft.")
+                return
+            }
+
+            let moveSpeed = playerMoveSpeed * mountedRaftSpeedMultiplier
+            let stepDistance = min(distance, moveSpeed * deltaTime)
+            let nextProbePoint = CGPoint(
+                x: player.position.x + (dx / distance) * stepDistance,
+                y: player.position.y + (dy / distance) * stepDistance
+            )
+
+            guard let nextTile = tileCoordinate(for: nextProbePoint), isRiverTile(nextTile) else {
+                clearMoveTarget()
+                body.velocity = .zero
+                showMessage("Raft can only move in the river.")
+                return
+            }
+
+            raftNode.position = nextProbePoint
+            player.position = nextProbePoint
+            body.velocity = .zero
+
+            let remainingDx = target.x - player.position.x
+            let remainingDy = target.y - player.position.y
+            let remainingDistance = hypot(remainingDx, remainingDy)
+            if remainingDistance < moveTargetArrivalDistance {
+                clearMoveTarget()
+                completedMoveCount += 1
+                processInteractableRespawns()
+                markSaveDirty()
+            }
+            return
+        }
+
         if mountedSnowmobileID != nil {
             bestMoveTargetDistance = nil
             stalledMoveFrameCount = 0
@@ -1011,6 +1091,13 @@ class GameScene: SKScene {
             guard !isWallBlocked(at: nextProbePoint) else {
                 clearMoveTarget()
                 body.velocity = .zero
+                return
+            }
+
+            guard let nextTile = tileCoordinate(for: nextProbePoint), !isRiverTile(nextTile) else {
+                clearMoveTarget()
+                body.velocity = .zero
+                showMessage("Snowmobiles cannot enter the river.")
                 return
             }
 
@@ -1053,6 +1140,18 @@ class GameScene: SKScene {
         }
 
         let moveSpeed = playerMoveSpeed
+        let stepDistance = min(distance, moveSpeed * deltaTime)
+        let nextProbePoint = CGPoint(
+            x: player.position.x + (dx / distance) * stepDistance,
+            y: player.position.y + (dy / distance) * stepDistance
+        )
+        if let nextTile = tileCoordinate(for: nextProbePoint), isRiverTile(nextTile) {
+            clearMoveTarget()
+            body.velocity = .zero
+            showMessage("You can enter the river only by stepping into a raft.")
+            return
+        }
+
         let vx = (dx / distance) * moveSpeed
         let vy = (dy / distance) * moveSpeed
         body.velocity = CGVector(dx: vx, dy: vy)
@@ -1181,6 +1280,9 @@ class GameScene: SKScene {
                 } else if config.kind == .shovel {
                     let shovelTexture = makeLabeledMarkerTexture(size: config.size, emoji: "S", color: .systemGray)
                     node = SKSpriteNode(texture: shovelTexture, color: .clear, size: config.size)
+                } else if config.kind == .raft {
+                    let raftTexture = makeLabeledMarkerTexture(size: config.size, emoji: "R", color: .systemBrown)
+                    node = SKSpriteNode(texture: raftTexture, color: .clear, size: config.size)
                 } else {
                     node = SKSpriteNode(color: .systemYellow, size: config.size)
                 }
@@ -1513,6 +1615,7 @@ class GameScene: SKScene {
         var intervalMessages: [String] = []
 
         processToiletEventProgress(messages: &intervalMessages)
+        processPendingRaftDeliveries(messages: &intervalMessages)
 
         for (interactableID, respawnMove) in respawnAtMoveByInteractableID where completedMoveCount >= respawnMove {
             if interactableID == goatChaseSpotID {
@@ -1555,6 +1658,126 @@ class GameScene: SKScene {
         }
 
         return false
+    }
+
+    func scheduleRaftDelivery() {
+        let deliveryMove = completedMoveCount + Int.random(in: 40...60)
+        pendingRaftDeliveryMoves.append(deliveryMove)
+        pendingRaftDeliveryMoves.sort()
+        markSaveDirty()
+    }
+
+    private func processPendingRaftDeliveries(messages: inout [String]) {
+        guard !pendingRaftDeliveryMoves.isEmpty else { return }
+
+        var deliveredCount = 0
+        pendingRaftDeliveryMoves.removeAll { deliveryMove in
+            guard completedMoveCount >= deliveryMove else { return false }
+            if spawnDeliveredRaftNearMailbox() {
+                deliveredCount += 1
+            }
+            return true
+        }
+
+        if deliveredCount > 0 {
+            for _ in 0..<deliveredCount {
+                messages.append("Your raft has been delivered")
+            }
+            markSaveDirty()
+        }
+    }
+
+    private func spawnDeliveredRaftNearMailbox() -> Bool {
+        guard let mailboxConfig = interactableConfigsByID[mailboxID] else {
+            return false
+        }
+
+        let startColumn = mailboxConfig.tile.column + 1
+        let row = mailboxConfig.tile.row
+
+        for column in startColumn..<(worldColumns - 1) {
+            let candidateTile = TileCoordinate(column: column, row: row)
+            if canPlaceRaftFootprint(at: candidateTile) {
+                let raftID = "raft_\(nextRaftSequenceID)"
+                nextRaftSequenceID += 1
+                let raftConfig = InteractableConfig(
+                    id: raftID,
+                    kind: .raft,
+                    spriteName: "raft",
+                    tile: candidateTile,
+                    size: raftSize,
+                    rewardCoins: 0,
+                    interactionRange: 120
+                )
+                addDynamicInteractable(raftConfig)
+                return true
+            }
+        }
+
+        return false
+    }
+
+    private func canPlaceRaftFootprint(at tile: TileCoordinate) -> Bool {
+        let footprintTiles = [
+            tile,
+            TileCoordinate(column: tile.column + 1, row: tile.row),
+            TileCoordinate(column: tile.column, row: tile.row + 1),
+            TileCoordinate(column: tile.column + 1, row: tile.row + 1)
+        ]
+
+        for footprintTile in footprintTiles {
+            guard footprintTile.column >= 0,
+                  footprintTile.column < worldColumns,
+                  footprintTile.row >= 0,
+                  footprintTile.row < worldRows else {
+                return false
+            }
+
+            if worldConfig.wallTiles.contains(footprintTile) {
+                return false
+            }
+
+            if worldConfig.decorations.contains(where: { $0.blocksMovement && $0.tile == footprintTile }) {
+                return false
+            }
+
+            for (_, node) in interactableNodesByID where !node.isHidden {
+                guard let occupiedTile = tileCoordinate(for: node.position) else { continue }
+                if occupiedTile == footprintTile {
+                    return false
+                }
+            }
+        }
+
+        return true
+    }
+
+    private func addDynamicInteractable(_ config: InteractableConfig) {
+        guard let position = scenePointForTile(config.tile) else { return }
+
+        let node: SKSpriteNode
+        if let texture = loadTexture(named: config.spriteName) {
+            node = SKSpriteNode(texture: texture, color: .clear, size: config.size)
+        } else {
+            let fallback = makeLabeledMarkerTexture(size: config.size, emoji: "R", color: .systemBrown)
+            node = SKSpriteNode(texture: fallback, color: .clear, size: config.size)
+        }
+
+        node.name = "interactable:\(config.id)"
+        node.position = position
+        node.zPosition = ZLayer.interactable
+
+        let body = SKPhysicsBody(rectangleOf: node.size)
+        body.isDynamic = false
+        body.categoryBitMask = PhysicsCategory.interactable
+        body.collisionBitMask = PhysicsCategory.none
+        body.contactTestBitMask = PhysicsCategory.player
+        node.physicsBody = body
+
+        addChild(node)
+        interactableNodesByID[config.id] = node
+        interactableConfigsByID[config.id] = config
+        interactableHomePositionByID[config.id] = position
     }
 
     private func updateMakerLoadedIndicator() {
@@ -2451,6 +2674,11 @@ class GameScene: SKScene {
             return
         }
 
+        if riddenRaftID != nil, config.kind != .raft {
+            showMessage("Exit raft before interacting with that object.")
+            return
+        }
+
         let dx = node.position.x - player.position.x
         let dy = node.position.y - player.position.y
         let distance = hypot(dx, dy)
@@ -2515,6 +2743,9 @@ class GameScene: SKScene {
             return
         case .shovel:
             handleShovelInteraction(node: node)
+            return
+        case .raft:
+            handleRaftInteraction(interactableID: interactableID, node: node)
             return
         case .chaseGoats:
             node.isHidden = true
@@ -2781,6 +3012,11 @@ class GameScene: SKScene {
     private func handleSnowmobileInteraction(interactableID: String) {
         guard let snowmobileConfig = interactableConfigsByID[interactableID] else { return }
 
+        if riddenRaftID != nil {
+            showMessage("Exit raft before using a snowmobile.")
+            return
+        }
+
         if let mountedID = mountedSnowmobileID {
             guard mountedID == interactableID else {
                 showMessage("Already mounted on another snowmobile.")
@@ -2862,6 +3098,76 @@ class GameScene: SKScene {
         }
 
         showMessage("No space to dismount here.")
+    }
+
+    private func handleRaftInteraction(interactableID: String, node: SKSpriteNode) {
+        if riddenRaftID == interactableID {
+            showMessage("Tap shore to exit the raft.")
+            return
+        }
+
+        if carriedRaftID == interactableID {
+            if placeCarriedRaftIntoRiverIfPossible(raftID: interactableID, node: node) {
+                showMessage("Placed raft in the river.")
+            } else {
+                dropCarriedObject(node, interactableID: interactableID)
+                showMessage("Dropped raft.")
+            }
+            return
+        }
+
+        if mountedSnowmobileID != nil {
+            showMessage("Dismount snowmobile first.")
+            return
+        }
+
+        guard let raftTile = tileCoordinate(for: node.position) else {
+            return
+        }
+
+        if isRiverTile(raftTile) {
+            riddenRaftID = interactableID
+            carriedRaftID = nil
+            player.position = node.position
+            clearMoveTarget()
+            player.physicsBody?.velocity = .zero
+            showMessage("Entered raft.")
+            markSaveDirty()
+            return
+        }
+
+        if carriedRaftID == nil {
+            carriedRaftID = interactableID
+            riddenRaftID = nil
+            node.isHidden = false
+            showMessage("Picked up raft.")
+            markSaveDirty()
+            return
+        }
+
+        showMessage("You are already carrying another raft.")
+    }
+
+    private func placeCarriedRaftIntoRiverIfPossible(raftID: String, node: SKSpriteNode) -> Bool {
+        guard let playerTile = tileCoordinate(for: player.position) else {
+            return false
+        }
+
+        let candidates = candidateDropTiles(from: playerTile)
+        for tile in candidates where isRiverTile(tile) {
+            guard canPlaceRaftFootprint(at: tile), let targetPosition = scenePointForTile(tile) else {
+                continue
+            }
+            carriedRaftID = nil
+            node.removeAllActions()
+            node.position = targetPosition
+            node.isHidden = false
+            interactableHomePositionByID[raftID] = targetPosition
+            markSaveDirty()
+            return true
+        }
+
+        return false
     }
 
     private func handleToiletBowlBrushInteraction(node: SKSpriteNode) {
@@ -3076,6 +3382,10 @@ class GameScene: SKScene {
             isTennisRacketCarried: isTennisRacketCarried,
             isShovelCarried: isShovelCarried,
             isEnvelopeCarried: isEnvelopeCarried,
+            carriedRaftID: carriedRaftID,
+            riddenRaftID: riddenRaftID,
+            pendingRaftDeliveryMoves: pendingRaftDeliveryMoves,
+            nextRaftSequenceID: nextRaftSequenceID,
             ownedSnowmobileIDs: Array(ownedSnowmobileIDs),
             selectedOwnedSnowmobileID: selectedOwnedSnowmobileID,
             mountedSnowmobileID: mountedSnowmobileID,
@@ -3095,6 +3405,8 @@ class GameScene: SKScene {
         GameState.shared.setCoins(snapshot.coins)
         completedMoveCount = max(0, snapshot.completedMoveCount)
         player.position = point(from: snapshot.playerPosition)
+
+        ensureDynamicRaftsExist(for: snapshot)
 
         for (id, savedPosition) in snapshot.interactablePositionsByID {
             if !shouldPersistInteractablePosition(for: id) {
@@ -3133,9 +3445,17 @@ class GameScene: SKScene {
         isTennisRacketCarried = snapshot.isTennisRacketCarried
         isShovelCarried = snapshot.isShovelCarried
         isEnvelopeCarried = snapshot.isEnvelopeCarried ?? false
+        carriedRaftID = snapshot.carriedRaftID
+        riddenRaftID = snapshot.riddenRaftID
+        pendingRaftDeliveryMoves = snapshot.pendingRaftDeliveryMoves ?? []
+        nextRaftSequenceID = max(1, snapshot.nextRaftSequenceID ?? nextRaftSequenceID)
 
         if isEnvelopeCarried {
             interactableNodesByID[envelopeID]?.isHidden = false
+        }
+        if let carriedRaftID,
+           let raftNode = interactableNodesByID[carriedRaftID] {
+            raftNode.isHidden = false
         }
 
         ownedSnowmobileIDs = Set(snapshot.ownedSnowmobileIDs)
@@ -3185,6 +3505,38 @@ class GameScene: SKScene {
             id != deepFryerID &&
             id != potatoBinID &&
             id != toiletID
+    }
+
+    private func ensureDynamicRaftsExist(for snapshot: GameSaveSnapshot) {
+        let positionedRaftIDs = snapshot.interactablePositionsByID.keys.filter { $0.hasPrefix("raft_") }
+        let hiddenRaftIDs = snapshot.hiddenInteractableIDs.filter { $0.hasPrefix("raft_") }
+        let allRaftIDs = Set(positionedRaftIDs).union(hiddenRaftIDs)
+        let maxExistingSequence = allRaftIDs.compactMap { id -> Int? in
+            guard let suffix = id.split(separator: "_").last else { return nil }
+            return Int(suffix)
+        }.max() ?? 0
+        nextRaftSequenceID = max(nextRaftSequenceID, maxExistingSequence + 1)
+
+        for raftID in allRaftIDs where interactableNodesByID[raftID] == nil {
+            let raftConfig = InteractableConfig(
+                id: raftID,
+                kind: .raft,
+                spriteName: "raft",
+                tile: TileCoordinate(column: 0, row: 0),
+                size: raftSize,
+                rewardCoins: 0,
+                interactionRange: 120
+            )
+            addDynamicInteractable(raftConfig)
+        }
+
+        for raftID in allRaftIDs {
+            if let savedPoint = snapshot.interactablePositionsByID[raftID] {
+                let point = point(from: savedPoint)
+                interactableNodesByID[raftID]?.position = point
+                interactableHomePositionByID[raftID] = point
+            }
+        }
     }
 
     private func restoreGameFromDiskIfAvailable() {
@@ -3361,6 +3713,10 @@ class GameScene: SKScene {
         guard let tile = tileCoordinate(for: scenePoint),
               let map = groundTileMap else { return false }
 
+        if isRiverTile(tile) {
+            return false
+        }
+
         guard let floorTileName = map.tileGroup(atColumn: tile.column, row: tile.row)?.name else {
             return false
         }
@@ -3374,6 +3730,37 @@ class GameScene: SKScene {
         player.alpha = 1.0
         // Mirror movement loop depth rule so immediate mount/dismount UI updates stay visually correct.
         player.zPosition = isMounted ? ZLayer.playerMounted : ZLayer.playerBase
+    }
+
+    private func isRiverTile(_ tile: TileCoordinate) -> Bool {
+        guard let river = worldConfig.riverOverlay else { return false }
+        return tile.column >= river.minColumn &&
+            tile.column < river.maxColumnExclusive &&
+            tile.row >= river.bottomRow &&
+            tile.row < river.bottomRow + river.heightTiles
+    }
+
+    private func canDismountRaftToShore(from riverTile: TileCoordinate) -> Bool {
+        let neighbors = [
+            TileCoordinate(column: riverTile.column, row: riverTile.row + 1),
+            TileCoordinate(column: riverTile.column + 1, row: riverTile.row),
+            TileCoordinate(column: riverTile.column, row: riverTile.row - 1),
+            TileCoordinate(column: riverTile.column - 1, row: riverTile.row)
+        ]
+
+        for tile in neighbors {
+            guard tile.column >= 0,
+                  tile.column < worldColumns,
+                  tile.row >= 0,
+                  tile.row < worldRows else {
+                continue
+            }
+            if !isRiverTile(tile) && !worldConfig.wallTiles.contains(tile) {
+                return true
+            }
+        }
+
+        return false
     }
 
     private func tileRegionContains(_ region: TileRegion, tile: TileCoordinate) -> Bool {
@@ -3432,6 +3819,10 @@ class GameScene: SKScene {
         isTennisRacketCarried = false
         isShovelCarried = false
         isEnvelopeCarried = false
+        carriedRaftID = nil
+        riddenRaftID = nil
+        pendingRaftDeliveryMoves.removeAll()
+        nextRaftSequenceID = 1
         ownedSnowmobileIDs.removeAll()
         selectedOwnedSnowmobileID = nil
         mountedSnowmobileID = nil
@@ -3450,6 +3841,13 @@ class GameScene: SKScene {
         }
         for (id, homePosition) in interactableHomePositionByID {
             interactableNodesByID[id]?.position = homePosition
+        }
+        let dynamicRaftIDs = interactableNodesByID.keys.filter { $0.hasPrefix("raft_") }
+        for raftID in dynamicRaftIDs {
+            interactableNodesByID[raftID]?.removeFromParent()
+            interactableNodesByID.removeValue(forKey: raftID)
+            interactableConfigsByID.removeValue(forKey: raftID)
+            interactableHomePositionByID.removeValue(forKey: raftID)
         }
         interactableNodesByID[bedroomBatID]?.isHidden = true
         interactableNodesByID[envelopeID]?.isHidden = true

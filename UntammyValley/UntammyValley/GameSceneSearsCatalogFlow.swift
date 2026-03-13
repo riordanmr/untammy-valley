@@ -73,6 +73,7 @@ extension GameScene {
 
         setEnvelopeCarried(false)
         hideEnvelopeAndResetHomePosition()
+        scheduleRaftDelivery()
         showMessage("You have mailed the envelope.")
         markSaveDirty()
     }

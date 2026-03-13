@@ -75,6 +75,10 @@ enum WorldLoader {
             scaledSize(width: baseObjectSize * 2, height: baseObjectSize * 2)
         }
 
+        static var raftSize: CGSize {
+            scaledSize(width: baseObjectSize * 2, height: baseObjectSize * 2)
+        }
+
         static var parkingCarSize: CGSize {
             CGSize(width: baseObjectSize * 2, height: baseObjectSize * 4)
         }
