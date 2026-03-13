@@ -34,6 +34,9 @@ final class UTSettings {
         var goatRespawnMinMoves: Int = 30
         var goatRespawnMaxMoves: Int = 45
 
+        var raftDeliveryMinMoves: Int = 40
+        var raftDeliveryMaxMoves: Int = 60
+
         var snowmobilePriceCoins: Int = 100
 
         var potatoChipRewardPerPotato: Int = 5
@@ -54,6 +57,9 @@ final class UTSettings {
 
             goatRespawnMinMoves = max(1, goatRespawnMinMoves)
             goatRespawnMaxMoves = max(goatRespawnMinMoves, goatRespawnMaxMoves)
+
+            raftDeliveryMinMoves = max(1, raftDeliveryMinMoves)
+            raftDeliveryMaxMoves = max(raftDeliveryMinMoves, raftDeliveryMaxMoves)
 
             snowmobilePriceCoins = max(0, snowmobilePriceCoins)
 
@@ -79,6 +85,8 @@ final class UTSettings {
 
         case goatRespawnMinMoves
         case goatRespawnMaxMoves
+        case raftDeliveryMinMoves
+        case raftDeliveryMaxMoves
         case goatChaseRewardCoins
 
         case snowmobilePriceCoins
@@ -100,6 +108,8 @@ final class UTSettings {
             case .batDefeatDeadlineMoves: return "Bat escape moves"
             case .goatRespawnMinMoves: return "Goat return min moves"
             case .goatRespawnMaxMoves: return "Goat return max moves"
+            case .raftDeliveryMinMoves: return "Raft delivery min moves"
+            case .raftDeliveryMaxMoves: return "Raft delivery max moves"
             case .snowmobilePriceCoins: return "Snowmobile cost"
             case .potatoChipRewardPerPotato: return "Chip reward per potato"
             case .toiletDirtyIntervalMoves: return "Toilet dirty interval"
@@ -116,7 +126,8 @@ final class UTSettings {
         var minimumValue: Int {
             switch self {
               case .batSpawnMinMoves, .batSpawnMaxMoves, .batDefeatDeadlineMoves,
-                  .goatRespawnMinMoves, .goatRespawnMaxMoves,
+                                    .goatRespawnMinMoves, .goatRespawnMaxMoves,
+                                    .raftDeliveryMinMoves, .raftDeliveryMaxMoves,
                   .toiletDirtyIntervalMoves, .toiletCleanDeadlineMoves:
                 return 1
             default:
@@ -126,7 +137,8 @@ final class UTSettings {
 
         var maximumValue: Int {
             switch self {
-            case .batSpawnMinMoves, .batSpawnMaxMoves, .goatRespawnMinMoves, .goatRespawnMaxMoves,
+              case .batSpawnMinMoves, .batSpawnMaxMoves, .goatRespawnMinMoves, .goatRespawnMaxMoves,
+                  .raftDeliveryMinMoves, .raftDeliveryMaxMoves,
                  .toiletDirtyIntervalMoves:
                 return 999
             case .batDefeatDeadlineMoves, .toiletCleanDeadlineMoves:
@@ -143,6 +155,8 @@ final class UTSettings {
             case .batDefeatDeadlineMoves: return counts.batDefeatDeadlineMoves
             case .goatRespawnMinMoves: return counts.goatRespawnMinMoves
             case .goatRespawnMaxMoves: return counts.goatRespawnMaxMoves
+            case .raftDeliveryMinMoves: return counts.raftDeliveryMinMoves
+            case .raftDeliveryMaxMoves: return counts.raftDeliveryMaxMoves
             case .snowmobilePriceCoins: return counts.snowmobilePriceCoins
             case .potatoChipRewardPerPotato: return counts.potatoChipRewardPerPotato
             case .toiletDirtyIntervalMoves: return counts.toiletDirtyIntervalMoves
@@ -164,6 +178,8 @@ final class UTSettings {
             case .batDefeatDeadlineMoves: counts.batDefeatDeadlineMoves = clamped
             case .goatRespawnMinMoves: counts.goatRespawnMinMoves = clamped
             case .goatRespawnMaxMoves: counts.goatRespawnMaxMoves = clamped
+            case .raftDeliveryMinMoves: counts.raftDeliveryMinMoves = clamped
+            case .raftDeliveryMaxMoves: counts.raftDeliveryMaxMoves = clamped
             case .snowmobilePriceCoins: counts.snowmobilePriceCoins = clamped
             case .potatoChipRewardPerPotato: counts.potatoChipRewardPerPotato = clamped
             case .toiletDirtyIntervalMoves: counts.toiletDirtyIntervalMoves = clamped

@@ -1661,7 +1661,9 @@ class GameScene: SKScene {
     }
 
     func scheduleRaftDelivery() {
-        let deliveryMove = completedMoveCount + Int.random(in: 40...60)
+        let minMoves = UTSettings.shared.counts.raftDeliveryMinMoves
+        let maxMoves = UTSettings.shared.counts.raftDeliveryMaxMoves
+        let deliveryMove = completedMoveCount + Int.random(in: minMoves...maxMoves)
         pendingRaftDeliveryMoves.append(deliveryMove)
         pendingRaftDeliveryMoves.sort()
         markSaveDirty()
