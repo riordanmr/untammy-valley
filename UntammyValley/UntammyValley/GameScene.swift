@@ -102,6 +102,7 @@ func makeBasicTileSet() -> SKTileSet {
         "floor_carpet",
         "floor_outdoor",
         "floor_carroll_sales",
+        "vehicle_assembly_area",
         "septic_cover",
         "septic_trench",
         "wall_vertical"

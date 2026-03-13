@@ -121,6 +121,9 @@ enum WorldLoader {
 
         static var barWidth: Int { bedroomRoomWidth + diningRoomWidth + kitchenRoomWidth }
 
+        static let vehicleAssemblyWidthTiles = 12
+        static let vehicleAssemblyHeightTiles = 12
+
         static var bedroomDiningWallColumn: Int { minColumn + bedroomRoomWidth }
         static var diningKitchenWallColumn: Int { bedroomDiningWallColumn + diningRoomWidth }
 
@@ -247,6 +250,26 @@ enum WorldLoader {
                 TileCoordinate(column: carrollSignTile.column + 6, row: carrollSignTile.row - 3),
                 TileCoordinate(column: carrollSignTile.column + 7, row: carrollSignTile.row - 1)
             ]
+        }
+
+        static var vehicleAssemblyRegion: TileRegion {
+            let rightmostAssemblyColumn = minColumn - 6
+            let minColumn = rightmostAssemblyColumn - vehicleAssemblyWidthTiles + 1
+            let minRow = maxRowExclusive + 1
+
+            return TileRegion(
+                minColumn: max(0, minColumn),
+                maxColumnExclusive: max(0, minColumn) + vehicleAssemblyWidthTiles,
+                minRow: minRow,
+                maxRowExclusive: minRow + vehicleAssemblyHeightTiles
+            )
+        }
+
+        static var vehicleAssemblySignTile: TileCoordinate {
+            TileCoordinate(
+                column: vehicleAssemblyRegion.minColumn + 1,
+                row: vehicleAssemblyRegion.minRow + 1
+            )
         }
 
         static var carrollSalesRegion: TileRegion {
@@ -553,6 +576,10 @@ enum WorldLoader {
             FloorRegion(
                 tileName: "floor_carroll_sales",
                 region: BarLayout.carrollSalesRegion
+            ),
+            FloorRegion(
+                tileName: "vehicle_assembly_area",
+                region: BarLayout.vehicleAssemblyRegion
             ),
             FloorRegion(
                 tileName: "floor_linoleum",
@@ -934,6 +961,16 @@ enum WorldLoader {
             blocksMovement: false
         )
 
+        let vehicleAssemblySign = DecorationConfig(
+            id: "vehicleAssemblyAreaSign",
+            kind: .largeTextSign,
+            spriteName: "vehicle_assembly_area_sign",
+            labelText: "Vehicle Assembly Area",
+            tile: BarLayout.vehicleAssemblySignTile,
+            size: BarLayout.largeSignSize,
+            blocksMovement: false
+        )
+
         let cramerSign = DecorationConfig(
             id: "cramersLittleValleySign",
             kind: .largeTextSign,
@@ -1050,6 +1087,7 @@ enum WorldLoader {
 
         let staticDecorations = [
             carrollSign,
+            vehicleAssemblySign,
             cramerSign,
             schoolSign,
             livingRoomBar,
