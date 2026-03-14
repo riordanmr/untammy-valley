@@ -117,6 +117,8 @@ func makeBasicTileSet() -> SKTileSet {
 }
 
 class GameScene: SKScene {
+    private static let requiredSnowmobileCount = 6
+
     private enum FacingDirection {
         case up
         case down
@@ -240,6 +242,7 @@ class GameScene: SKScene {
     private var pendingLotSnowmobileID: String?
     private var warningIconContainerNode: SKNode!
     private var warningBatIconNode: SKSpriteNode!
+    private var warningSnowmobileIconNode: SKSpriteNode!
     private var warningToiletIconNode: SKSpriteNode!
     private var makerLoadedIndicatorNode: SKShapeNode?
     private var bucketSelectedIndicatorNode: SKShapeNode?
@@ -299,6 +302,10 @@ class GameScene: SKScene {
         UTSettings.shared.counts.goatChaseRewardCoins
     }
 
+    private var hasPendingSnowmobileTask: Bool {
+        ownedSnowmobileIDs.count < Self.requiredSnowmobileCount
+    }
+
     private var batEscapePenaltyMaxCoins: Int {
         UTSettings.shared.counts.batEscapePenaltyMaxCoins
     }
@@ -337,6 +344,7 @@ class GameScene: SKScene {
     private var toiletDirtyTexture: SKTexture?
 
     private var isStatusWindowVisible = false
+    private var isPendingTasksWindowVisible = false
     private var isStudySubjectPromptVisible = false
     private var isMapViewMode = false
     private var isDraggingMap = false
@@ -717,6 +725,9 @@ class GameScene: SKScene {
             bucketSelectedIndicatorNode?.position = CGPoint(x: bucketNode.position.x, y: bucketNode.position.y + 22)
         }
         updateWarningIcons()
+        if isPendingTasksWindowVisible {
+            updatePendingTasksWindowBody()
+        }
         updateSnowmobileOwnershipVisuals()
         updateBucketSelectedIndicator()
         updateBucketPotatoIcon()
@@ -840,6 +851,12 @@ class GameScene: SKScene {
             } else {
                 setSnowmobileChoiceDialogVisible(false)
             }
+            return
+        }
+
+        if warningIconStackContains(hudLocation) {
+            setPendingTasksWindowVisible(true)
+            setMenuVisible(false)
             return
         }
 
@@ -1842,6 +1859,7 @@ class GameScene: SKScene {
         scrollTextDialogNode.zPosition = ZLayer.scrollTextDialog
         scrollTextDialogNode.onClose = { [weak self] in
             self?.isStatusWindowVisible = false
+            self?.isPendingTasksWindowVisible = false
         }
         cameraNode.addChild(scrollTextDialogNode)
     }
@@ -2333,6 +2351,7 @@ class GameScene: SKScene {
     // MARK: - Warning Icons
     private func configureWarningIcons() {
         warningIconContainerNode = SKNode()
+        warningIconContainerNode.name = "warningIconContainer"
         warningIconContainerNode.zPosition = ZLayer.warningHUD
         cameraNode.addChild(warningIconContainerNode)
         updateWarningIconContainerPosition()
@@ -2348,6 +2367,16 @@ class GameScene: SKScene {
         warningBatIconNode.name = "warningBatIcon"
         warningBatIconNode.isHidden = true
         warningIconContainerNode.addChild(warningBatIconNode)
+
+        if let snowmobileTexture = loadTexture(named: "snowmobile1") {
+            warningSnowmobileIconNode = SKSpriteNode(texture: snowmobileTexture, color: .clear, size: iconSize)
+        } else {
+            let fallbackTexture = makeLabeledMarkerTexture(size: iconSize, emoji: "S", color: .systemTeal)
+            warningSnowmobileIconNode = SKSpriteNode(texture: fallbackTexture, color: .clear, size: iconSize)
+        }
+        warningSnowmobileIconNode.name = "warningSnowmobileIcon"
+        warningSnowmobileIconNode.isHidden = true
+        warningIconContainerNode.addChild(warningSnowmobileIconNode)
 
         if let toiletDirtyTexture {
             warningToiletIconNode = SKSpriteNode(texture: toiletDirtyTexture, color: .clear, size: iconSize)
@@ -2375,16 +2404,46 @@ class GameScene: SKScene {
         )
     }
 
-    private func updateWarningIcons() {
-        var activeIcons: [SKSpriteNode] = []
+    private func activeWarningIcons() -> [SKSpriteNode] {
+        var icons: [SKSpriteNode] = []
 
         if batDefeatDeadlineMove != nil {
-            activeIcons.append(warningBatIconNode)
+            icons.append(warningBatIconNode)
+        }
+
+        if hasPendingSnowmobileTask {
+            icons.append(warningSnowmobileIconNode)
         }
 
         if isToiletDirty {
-            activeIcons.append(warningToiletIconNode)
+            icons.append(warningToiletIconNode)
         }
+
+        return icons
+    }
+
+    private func warningIconStackContains(_ hudLocation: CGPoint) -> Bool {
+        let activeIcons = activeWarningIcons()
+        guard !activeIcons.isEmpty else { return false }
+
+        return activeIcons.contains { icon in
+            let center = CGPoint(
+                x: warningIconContainerNode.position.x + icon.position.x,
+                y: warningIconContainerNode.position.y + icon.position.y
+            )
+            let hitInset: CGFloat = 8
+            let hitRect = CGRect(
+                x: center.x - (icon.size.width * 0.5) - hitInset,
+                y: center.y - (icon.size.height * 0.5) - hitInset,
+                width: icon.size.width + (hitInset * 2),
+                height: icon.size.height + (hitInset * 2)
+            )
+            return hitRect.contains(hudLocation)
+        }
+    }
+
+    private func updateWarningIcons() {
+        let activeIcons = activeWarningIcons()
 
         let spacing: CGFloat = 30
         for (index, icon) in activeIcons.enumerated() {
@@ -2394,6 +2453,9 @@ class GameScene: SKScene {
 
         if !activeIcons.contains(warningBatIconNode) {
             warningBatIconNode.isHidden = true
+        }
+        if !activeIcons.contains(warningSnowmobileIconNode) {
+            warningSnowmobileIconNode.isHidden = true
         }
         if !activeIcons.contains(warningToiletIconNode) {
             warningToiletIconNode.isHidden = true
@@ -2539,9 +2601,23 @@ class GameScene: SKScene {
     func setStatusWindowVisible(_ visible: Bool) {
         isStatusWindowVisible = visible
         if visible {
+            isPendingTasksWindowVisible = false
             updateStatusWindowBody()
             scrollTextDialogNode.setVisible(true)
         } else {
+            scrollTextDialogNode.setVisible(false)
+        }
+    }
+
+    private func setPendingTasksWindowVisible(_ visible: Bool) {
+        isPendingTasksWindowVisible = visible
+        if visible {
+            isStatusWindowVisible = false
+            updatePendingTasksWindowBody()
+            if !pendingTaskLines().isEmpty {
+                scrollTextDialogNode.setVisible(true)
+            }
+        } else if !isStatusWindowVisible {
             scrollTextDialogNode.setVisible(false)
         }
     }
@@ -2550,6 +2626,36 @@ class GameScene: SKScene {
         guard isStatusWindowVisible else { return }
         let statusLines = makeStatusLines()
         scrollTextDialogNode.configure(title: "Status", lines: statusLines, paragraphSpacing: 0.0, closeButtonTitle: "Close")
+    }
+
+    private func pendingTaskLines() -> [String] {
+        var lines: [String] = []
+
+        if let batDeadline = batDefeatDeadlineMove {
+            let remainingMoves = max(0, batDeadline - completedMoveCount)
+            lines.append("Kill the bat (\(remainingMoves) moves before penalty)")
+        }
+
+        if isToiletDirty {
+            let remainingMoves = max(0, (toiletCleanDeadlineMove ?? completedMoveCount) - completedMoveCount)
+            lines.append("Clean the toilet (\(remainingMoves) moves before penalty)")
+        }
+
+        if hasPendingSnowmobileTask {
+            lines.append("Buy snowmobiles (\(ownedSnowmobileIDs.count) of \(Self.requiredSnowmobileCount) bought)")
+        }
+
+        return lines
+    }
+
+    private func updatePendingTasksWindowBody() {
+        guard isPendingTasksWindowVisible else { return }
+        let lines = pendingTaskLines()
+        guard !lines.isEmpty else {
+            setPendingTasksWindowVisible(false)
+            return
+        }
+        scrollTextDialogNode.configure(title: "Pending Tasks", lines: lines, paragraphSpacing: 0.0, closeButtonTitle: "Close")
     }
 
     private func makeStatusLines() -> [String] {
@@ -2586,7 +2692,7 @@ class GameScene: SKScene {
         var statusLines = [
             "Coins: \(GameState.shared.coins)",
             "Moves: \(completedMoveCount)",
-            "Snowmobiles owned: \(ownedSnowmobileIDs.count)/6",
+            "Snowmobiles owned: \(ownedSnowmobileIDs.count)/\(Self.requiredSnowmobileCount)",
             "Mounted snowmobile: \(mountedSnowmobileID == nil ? "No" : "Yes")",
             "Move speed: \(currentMoveSpeed) (\(movementModeText))",
             "Bucket carried: \(isBucketCarried ? "Yes" : "No")",
