@@ -3863,7 +3863,19 @@ class GameScene: SKScene {
         updateStatusWindowBody()
         markSaveDirty()
         saveGameStateNow()
-        showMessage("Progress reset.")
+
+        // Reload the scene so all physics bodies (wall colliders, decoration
+        // blockers) are freshly built from scratch.  This matches the behaviour
+        // of a cold reinstall and avoids stale static physics bodies that can
+        // block doorways after a soft Reset.
+        if let view = self.view {
+            let newScene = GameScene(size: self.size)
+            newScene.scaleMode = self.scaleMode
+            view.presentScene(newScene, transition: SKTransition.fade(withDuration: 0.3))
+            // There's no easy way to display a "Progress reset" message after the new scene is loaded.
+        } else {
+            showMessage("Reset complete (unexpected: no view).")
+        }
     }
 
     func showMessage(_ text: String) {
