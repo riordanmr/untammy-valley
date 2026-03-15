@@ -387,6 +387,8 @@ class GameScene: SKScene {
     private let mountedRaftSpeedMultiplier: CGFloat = 1.15
     private let carriedRaftVerticalOffset: CGFloat = -28
     private let indoorSnowmobileBlockedFloorTiles: Set<String> = ["floor_wood", "floor_linoleum", "floor_carpet"]
+    private var bearProximityColumns: Int { UTSettings.shared.counts.bearProximityColumns }
+    private var bearProximityRows: Int { UTSettings.shared.counts.bearProximityRows }
     private let walkingBobAmplitude: CGFloat = 2.5
     private let walkingBobCyclesPerSecond: CGFloat = 3.5
     private var walkingBobPhase: CGFloat = 0
@@ -3835,11 +3837,12 @@ class GameScene: SKScene {
         let deltaColumns = abs(playerTile.column - bearTile.column)
         let deltaRows = abs(playerTile.row - bearTile.row)
 
-        guard deltaColumns <= 6, deltaRows <= 5 else {
+        guard deltaColumns <= bearProximityColumns,
+              deltaRows <= bearProximityRows else {
             return
         }
 
-                guard let recoveryPoint = scenePointForTile(worldConfig.recoveryBedTile) else {
+        guard let recoveryPoint = scenePointForTile(worldConfig.recoveryBedTile) else {
             return
         }
 

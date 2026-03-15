@@ -27,6 +27,9 @@ final class UTSettings {
     }
 
     struct Counts: Codable {
+        var bearProximityColumns: Int = 6
+        var bearProximityRows: Int = 5
+
         var batSpawnMinMoves: Int = 50
         var batSpawnMaxMoves: Int = 120
         var batDefeatDeadlineMoves: Int = 22
@@ -51,6 +54,9 @@ final class UTSettings {
         var batEscapePenaltyMaxCoins: Int = 200
 
         mutating func normalize() {
+            bearProximityColumns = max(1, bearProximityColumns)
+            bearProximityRows = max(1, bearProximityRows)
+
             batSpawnMinMoves = max(1, batSpawnMinMoves)
             batSpawnMaxMoves = max(batSpawnMinMoves, batSpawnMaxMoves)
             batDefeatDeadlineMoves = max(1, batDefeatDeadlineMoves)
@@ -78,6 +84,9 @@ final class UTSettings {
     }
 
     enum CountField: String, CaseIterable {
+        case bearProximityColumns
+        case bearProximityRows
+
         case batSpawnMinMoves
         case batSpawnMaxMoves
         case batDefeatDeadlineMoves
@@ -103,6 +112,8 @@ final class UTSettings {
 
         var title: String {
             switch self {
+            case .bearProximityColumns: return "Bear proximity columns"
+            case .bearProximityRows: return "Bear proximity rows"
             case .batSpawnMinMoves: return "Bat spawn min moves"
             case .batSpawnMaxMoves: return "Bat spawn max moves"
             case .batDefeatDeadlineMoves: return "Bat escape moves"
@@ -125,18 +136,21 @@ final class UTSettings {
 
         var minimumValue: Int {
             switch self {
-              case .batSpawnMinMoves, .batSpawnMaxMoves, .batDefeatDeadlineMoves,
-                                    .goatRespawnMinMoves, .goatRespawnMaxMoves,
-                                    .raftDeliveryMinMoves, .raftDeliveryMaxMoves,
-                  .toiletDirtyIntervalMoves, .toiletCleanDeadlineMoves:
+                case .bearProximityColumns, .bearProximityRows,
+                    .batSpawnMinMoves, .batSpawnMaxMoves, .batDefeatDeadlineMoves,
+                    .goatRespawnMinMoves, .goatRespawnMaxMoves,
+                    .raftDeliveryMinMoves, .raftDeliveryMaxMoves,
+                    .toiletDirtyIntervalMoves, .toiletCleanDeadlineMoves:
                 return 1
-            default:
+            default:    
                 return 0
             }
         }
 
         var maximumValue: Int {
             switch self {
+            case .bearProximityColumns, .bearProximityRows:
+                return 100
               case .batSpawnMinMoves, .batSpawnMaxMoves, .goatRespawnMinMoves, .goatRespawnMaxMoves,
                   .raftDeliveryMinMoves, .raftDeliveryMaxMoves,
                  .toiletDirtyIntervalMoves:
@@ -150,6 +164,8 @@ final class UTSettings {
 
         func value(from counts: Counts) -> Int {
             switch self {
+            case .bearProximityColumns: return counts.bearProximityColumns
+            case .bearProximityRows: return counts.bearProximityRows
             case .batSpawnMinMoves: return counts.batSpawnMinMoves
             case .batSpawnMaxMoves: return counts.batSpawnMaxMoves
             case .batDefeatDeadlineMoves: return counts.batDefeatDeadlineMoves
@@ -173,6 +189,8 @@ final class UTSettings {
         func setValue(_ value: Int, in counts: inout Counts) {
             let clamped = min(max(value, minimumValue), maximumValue)
             switch self {
+            case .bearProximityColumns: counts.bearProximityColumns = clamped
+            case .bearProximityRows: counts.bearProximityRows = clamped
             case .batSpawnMinMoves: counts.batSpawnMinMoves = clamped
             case .batSpawnMaxMoves: counts.batSpawnMaxMoves = clamped
             case .batDefeatDeadlineMoves: counts.batDefeatDeadlineMoves = clamped
