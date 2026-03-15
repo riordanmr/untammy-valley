@@ -366,7 +366,9 @@ enum WorldLoader {
 
         static var bathroomLeftWallColumn: Int { bathroomInteriorMinColumn - 1 }
         static var bathroomBottomWallRow: Int { bathroomInteriorMinRow - 1 }
-        static var bathroomDoorColumn: Int { bathroomInteriorMaxColumnExclusive - 1 }
+        static var bathroomDoorColumns: Set<Int> {
+            [bathroomInteriorMaxColumnExclusive - 2, bathroomInteriorMaxColumnExclusive - 1]
+        }
 
         static var toiletTile: TileCoordinate {
             TileCoordinate(
@@ -461,7 +463,7 @@ enum WorldLoader {
         }
 
         for column in BarLayout.bathroomLeftWallColumn...BarLayout.bathroomInteriorMaxColumnExclusive {
-            if column == BarLayout.bathroomDoorColumn {
+            if BarLayout.bathroomDoorColumns.contains(column) {
                 continue
             }
             wallTiles.insert(TileCoordinate(column: column, row: BarLayout.bathroomBottomWallRow))
