@@ -114,6 +114,8 @@ struct WorldConfig {
     let doorwayFloorOverrides: [FloorRegion]
     let barInteriorRegions: [TileRegion]
     let carrollSalesRegion: TileRegion
+    let bearDecorationTile: TileCoordinate
+    let recoveryBedTile: TileCoordinate
     let septicDigTiles: Set<TileCoordinate>
     let roomLabels: [(name: String, tile: TileCoordinate)]
     let spawnTile: TileCoordinate

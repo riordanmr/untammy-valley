@@ -57,6 +57,7 @@ enum ZLayer {
     static let resetPanelLabel: CGFloat = 753
 
     static let settingsDialog: CGFloat = 760
+    static let bearAttackOverlay: CGFloat = 900
 }
 
 func makeBasicTileSet() -> SKTileSet {
@@ -367,6 +368,7 @@ class GameScene: SKScene {
     private var hasAttemptedSaveRestore = false
     private var playerSpawnPosition: CGPoint = .zero
     private var completedMoveCount = 0
+    private var isBearAttackInProgress = false
     private let worldConfig = WorldConfig.current
     private lazy var teacherDeskSubjectByID: [String: String] = {
         var map: [String: String] = [:]
@@ -725,6 +727,7 @@ class GameScene: SKScene {
             bucketSelectedIndicatorNode?.position = CGPoint(x: bucketNode.position.x, y: bucketNode.position.y + 22)
         }
         updateWarningIcons()
+        checkBearProximity()
         if isPendingTasksWindowVisible {
             updatePendingTasksWindowBody()
         }
@@ -778,6 +781,7 @@ class GameScene: SKScene {
     }
     
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard !isBearAttackInProgress else { return }
         guard let touch = touches.first else { return }
         let location = touch.location(in: self)
         let hudLocation = touch.location(in: cameraNode)
@@ -916,6 +920,7 @@ class GameScene: SKScene {
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard !isBearAttackInProgress else { return }
         guard let touch = touches.first else { return }
         let hudLocation = touch.location(in: cameraNode)
 
@@ -953,6 +958,7 @@ class GameScene: SKScene {
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard !isBearAttackInProgress else { return }
         guard let touch = touches.first else { return }
         let hudLocation = touch.location(in: cameraNode)
 
@@ -3816,6 +3822,86 @@ class GameScene: SKScene {
     private func isPlayerInCarrollSalesArea() -> Bool {
         guard let playerTile = tileCoordinate(for: player.position) else { return false }
         return tileRegionContains(worldConfig.carrollSalesRegion, tile: playerTile)
+    }
+
+    private func checkBearProximity() {
+                guard !isBearAttackInProgress,
+                            mountedSnowmobileID == nil,
+              let playerTile = tileCoordinate(for: player.position) else {
+            return
+        }
+
+        let bearTile = worldConfig.bearDecorationTile
+        let deltaColumns = abs(playerTile.column - bearTile.column)
+        let deltaRows = abs(playerTile.row - bearTile.row)
+
+        guard deltaColumns <= 6, deltaRows <= 5 else {
+            return
+        }
+
+                guard let recoveryPoint = scenePointForTile(worldConfig.recoveryBedTile) else {
+            return
+        }
+
+        beginBearAttackSequence(recoveryPoint: recoveryPoint)
+    }
+
+    private func beginBearAttackSequence(recoveryPoint: CGPoint) {
+        guard !isBearAttackInProgress else { return }
+        isBearAttackInProgress = true
+
+        clearMoveTarget()
+        player.physicsBody?.velocity = .zero
+        setMenuVisible(false)
+
+        let silhouetteOverlay = SKSpriteNode(color: UIColor.black.withAlphaComponent(0.55), size: size)
+        silhouetteOverlay.position = .zero
+        silhouetteOverlay.zPosition = ZLayer.bearAttackOverlay
+        cameraNode.addChild(silhouetteOverlay)
+
+        var silhouetteBearNode: SKSpriteNode?
+        if let bearTexture = loadTexture(named: "bear") {
+            let silhouetteBear = SKSpriteNode(texture: bearTexture)
+            silhouetteBear.color = .black
+            silhouetteBear.colorBlendFactor = 0.5  // 1.0 if you want a complete silhouette
+            silhouetteBear.alpha = 0.95
+            let maxWidth = size.width * 0.6
+            let scale = maxWidth / max(1, bearTexture.size().width)
+            silhouetteBear.size = CGSize(
+                width: bearTexture.size().width * scale,
+                height: bearTexture.size().height * scale
+            )
+            silhouetteBear.position = .zero
+            silhouetteBear.zPosition = ZLayer.bearAttackOverlay + 1
+            cameraNode.addChild(silhouetteBear)
+            silhouetteBearNode = silhouetteBear
+        }
+
+        let blackoutOverlay = SKSpriteNode(color: .black, size: size)
+        blackoutOverlay.position = .zero
+        blackoutOverlay.alpha = 0
+        blackoutOverlay.zPosition = ZLayer.bearAttackOverlay + 2
+        cameraNode.addChild(blackoutOverlay)
+
+        let waitBeforeFade = SKAction.wait(forDuration: 1.5)
+        let fadeToBlack = SKAction.fadeAlpha(to: 1.0, duration: 0.25)
+        let recover = SKAction.run { [weak self, weak silhouetteOverlay, weak silhouetteBearNode, weak blackoutOverlay] in
+            guard let self else { return }
+
+            self.player.position = recoveryPoint
+            self.player.physicsBody?.velocity = .zero
+            self.clearMoveTarget()
+
+            silhouetteOverlay?.removeFromParent()
+            silhouetteBearNode?.removeFromParent()
+            blackoutOverlay?.removeFromParent()
+
+            self.isBearAttackInProgress = false
+            self.showMessage("You were attacked by a bear! You are now recovering at home.")
+            self.markSaveDirty()
+        }
+
+        blackoutOverlay.run(SKAction.sequence([waitBeforeFade, fadeToBlack, recover]))
     }
 
     private func isSnowmobileDrivable(at scenePoint: CGPoint) -> Bool {

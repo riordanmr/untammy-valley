@@ -305,6 +305,17 @@ enum WorldLoader {
             TileCoordinate(column: maxColumnExclusive, row: minRow + roomHeight / 2)
         }
 
+        static var bearSignTile: TileCoordinate {
+            TileCoordinate(column: maxColumnExclusive + 8, row: minRow + roomHeight / 2)
+        }
+
+        static var bearDecorationTile: TileCoordinate {
+            TileCoordinate(
+                column: (maxColumnExclusive + SchoolLayout.minColumn) / 2,
+                row: SchoolLayout.hallMaxRowExclusive - 1
+            )
+        }
+
         static var tennisRacketTile: TileCoordinate {
             TileCoordinate(column: minColumn + 2, row: minRow + 10)
         }
@@ -991,6 +1002,26 @@ enum WorldLoader {
             blocksMovement: false
         )
 
+        let bearSign = DecorationConfig(
+            id: "bearDangerSign",
+            kind: .largeTextSign,
+            spriteName: "bear_danger_sign",
+            labelText: "Danger: Bears\nSnowmobiles Only",
+            tile: BarLayout.bearSignTile,
+            size: BarLayout.largeSignSize,
+            blocksMovement: false
+        )
+
+        let bearDecoration = DecorationConfig(
+            id: "bear",
+            kind: .sprite,
+            spriteName: "bear",
+            labelText: nil,
+            tile: BarLayout.bearDecorationTile,
+            size: BarLayout.snowmobileSize,
+            blocksMovement: true
+        )
+
         let bedroomBeds: [DecorationConfig] = BarLayout.bedTiles.enumerated().map { index, tile in
             DecorationConfig(
                 id: "bedroomBed\(index + 1)",
@@ -1090,6 +1121,8 @@ enum WorldLoader {
             vehicleAssemblySign,
             cramerSign,
             schoolSign,
+            bearSign,
+            bearDecoration,
             livingRoomBar,
             studyDesk,
             topBarStool,
@@ -1109,6 +1142,8 @@ enum WorldLoader {
             doorwayFloorOverrides: doorwayFloorOverrides,
             barInteriorRegions: barInteriorRegions,
             carrollSalesRegion: BarLayout.carrollSalesRegion,
+            bearDecorationTile: BarLayout.bearDecorationTile,
+            recoveryBedTile: BarLayout.bedTiles[0],
             septicDigTiles: BarLayout.septicDigTiles,
             roomLabels: roomLabels,
             spawnTile: BarLayout.spawnTile,
@@ -1119,7 +1154,7 @@ enum WorldLoader {
     }
 
     private static func makeTreeDecorations(wallTiles: Set<TileCoordinate>, blockedTiles: Set<TileCoordinate>) -> [DecorationConfig] {
-        let minTreeColumn = BarLayout.maxColumnExclusive + 2
+        let minTreeColumn = BarLayout.maxColumnExclusive + 10
         let maxTreeColumn = SchoolLayout.minColumn - 2
         guard minTreeColumn <= maxTreeColumn else { return [] }
 
@@ -1148,7 +1183,7 @@ enum WorldLoader {
         let treeSpriteNames = ["fir", "maple", "birch"]
         let treeSizes = BarLayout.treeSizes
 
-        var rng = SeededGenerator(seed: 20260223)
+        var rng = SeededGenerator(seed: 20260277)
         var placedTiles = Set<TileCoordinate>()
         var treeDecorations: [DecorationConfig] = []
 

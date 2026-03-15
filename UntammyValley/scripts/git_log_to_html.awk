@@ -74,6 +74,39 @@ function update_build_from_key(line, key, stop_key,    lower_line, key_pos, stop
     }
 }
 
+function update_project_version_pair(line,    lower_line, current_pos, marketing_pos, tail, paren_text, comma_pos, build_segment, version_segment, candidate) {
+    lower_line = tolower(line)
+    current_pos = index(lower_line, "current_project_version")
+    marketing_pos = index(lower_line, "marketing_version")
+    if (!current_pos || !marketing_pos) {
+        return
+    }
+
+    tail = substr(line, (current_pos < marketing_pos) ? current_pos : marketing_pos)
+    if (!match(tail, /\([^)]*\)/)) {
+        return
+    }
+
+    paren_text = substr(tail, RSTART + 1, RLENGTH - 2)
+    comma_pos = index(paren_text, ",")
+    if (!comma_pos) {
+        return
+    }
+
+    build_segment = substr(paren_text, 1, comma_pos - 1)
+    version_segment = substr(paren_text, comma_pos + 1)
+
+    candidate = last_integer(build_segment)
+    if (candidate != "") {
+        parsed_build = candidate
+    }
+
+    candidate = last_version(version_segment)
+    if (candidate != "") {
+        parsed_version = candidate
+    }
+}
+
 function parse_version_build(text,    lines, line_count, i, line, lower_line, candidate, combo) {
     parsed_version = ""
     parsed_build = ""
@@ -85,6 +118,7 @@ function parse_version_build(text,    lines, line_count, i, line, lower_line, ca
 
         update_version_from_key(line, "MARKETING_VERSION")
         update_build_from_key(line, "CURRENT_PROJECT_VERSION", "MARKETING_VERSION")
+        update_project_version_pair(line)
 
         if (match(line, /[0-9]+\.[0-9]+\.[0-9]+[[:space:]]*\([0-9]+\)/)) {
             combo = substr(line, RSTART, RLENGTH)
