@@ -32,7 +32,7 @@ final class UTSettings {
 
         var batSpawnMinMoves: Int = 50
         var batSpawnMaxMoves: Int = 120
-        var batDefeatDeadlineMoves: Int = 25
+        var batDefeatDeadlineMoves: Int = 30
 
         var goatRespawnMinMoves: Int = 30
         var goatRespawnMaxMoves: Int = 45
@@ -49,7 +49,7 @@ final class UTSettings {
         var foodOrderNonDeliveryPenaltyCoins: Int = 30
         var goatChaseRewardCoins: Int = 7
         var toiletDirtyIntervalMoves: Int = 100
-        var toiletCleanDeadlineMoves: Int = 20
+        var toiletCleanDeadlineMoves: Int = 30
         var toiletCleanRewardCoins: Int = 10
         var toiletOverduePenaltyCoinsPerMove: Int = 1
         var septicTrenchTileRewardCoins: Int = 1

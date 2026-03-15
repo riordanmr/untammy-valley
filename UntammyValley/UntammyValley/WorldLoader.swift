@@ -1076,16 +1076,6 @@ enum WorldLoader {
             blocksMovement: true
         )
 
-        let patronBarStool = DecorationConfig(
-            id: "patronBarStool",
-            kind: .sprite,
-            spriteName: "barstoolwithpatron1",
-            labelText: nil,
-            tile: BarLayout.patronBarStoolTile,
-            size: BarLayout.patronStoolTileSize,
-            blocksMovement: true
-        )
-
         let barCustomer = InteractableConfig(
             id: "barCustomer",
             kind: .barCustomer,
