@@ -208,6 +208,28 @@ class GameScene: SKScene {
         }
     }
 
+    private enum FoodOrderEventSettings {
+        static var minSpawnIntervalMoves: Int {
+            UTSettings.shared.counts.foodOrderMinMoves
+        }
+
+        static var maxSpawnIntervalMoves: Int {
+            UTSettings.shared.counts.foodOrderMaxMoves
+        }
+
+        static var deliverDeadlineMoves: Int {
+            UTSettings.shared.counts.foodOrderDeliverDeadlineMoves
+        }
+
+        static var nonDeliveryPenaltyCoins: Int {
+            UTSettings.shared.counts.foodOrderNonDeliveryPenaltyCoins
+        }
+
+        static func randomSpawnIntervalMoves() -> Int {
+            Int.random(in: minSpawnIntervalMoves...maxSpawnIntervalMoves)
+        }
+    }
+
     var player: PlayerNode!
     var cameraNode: SKCameraNode!
 
@@ -245,6 +267,7 @@ class GameScene: SKScene {
     private var warningBatIconNode: SKSpriteNode!
     private var warningSnowmobileIconNode: SKSpriteNode!
     private var warningToiletIconNode: SKSpriteNode!
+    private var warningFoodOrderIconNode: SKSpriteNode!
     private var makerLoadedIndicatorNode: SKShapeNode?
     private var bucketSelectedIndicatorNode: SKShapeNode?
     private var bucketPotatoIconNode: SKSpriteNode?
@@ -277,6 +300,7 @@ class GameScene: SKScene {
     private let bedroomBatID = "bedroomBat"
     private let shovelID = "shovel"
     private let mailboxID = "mailbox"
+    private let barCustomerID = "barCustomer"
     private let envelopeID = "envelope"
     private let goatChaseSpotID = "goatChaseSpot"
     private let parkingCarDecorationIDs = ["parkingCarSedan", "parkingCarPickupTruck", "parkingCarStationWagon"]
@@ -321,7 +345,7 @@ class GameScene: SKScene {
     private var isTrayCarried = false
     private var traySlicedPotatoCount = 0
     private var isChipsBasketCarried = false
-    private var chipsBasketContainsChips = false
+    private var chipsBasketChipCount = 0
     private var isToiletBowlBrushCarried = false
     private var isToiletDirty = false
     private var toiletCleanDeadlineMove: Int?
@@ -339,6 +363,8 @@ class GameScene: SKScene {
     private var mountedSnowmobileID: String?
     private var nextBatSpawnMove = BatEventSettings.randomSpawnIntervalMoves()
     private var batDefeatDeadlineMove: Int?
+    private var nextFoodOrderMove = FoodOrderEventSettings.randomSpawnIntervalMoves()
+    private var foodOrderDeadlineMove: Int?
     private var trenchedSepticTiles: Set<TileCoordinate> = []
     private var hasAwardedSepticCompletionBonus = false
     private var toiletCleanTexture: SKTexture?
@@ -1320,7 +1346,7 @@ class GameScene: SKScene {
 
             let body = SKPhysicsBody(rectangleOf: node.size)
             body.isDynamic = false
-            if config.kind == .mailbox {
+            if config.kind == .mailbox || config.kind == .barCustomer {
                 body.categoryBitMask = PhysicsCategory.wall
                 body.collisionBitMask = PhysicsCategory.player
                 body.contactTestBitMask = PhysicsCategory.none
@@ -1641,6 +1667,7 @@ class GameScene: SKScene {
         var intervalMessages: [String] = []
 
         processToiletEventProgress(messages: &intervalMessages)
+        processFoodOrderEventProgress(messages: &intervalMessages)
         processPendingRaftDeliveries(messages: &intervalMessages)
 
         for (interactableID, respawnMove) in respawnAtMoveByInteractableID where completedMoveCount >= respawnMove {
@@ -1684,6 +1711,27 @@ class GameScene: SKScene {
         }
 
         return false
+    }
+
+    private func processFoodOrderEventProgress(messages: inout [String]) {
+        if let deadline = foodOrderDeadlineMove,
+           completedMoveCount > deadline {
+            let configuredPenalty = FoodOrderEventSettings.nonDeliveryPenaltyCoins
+            _ = GameState.shared.removeCoins(configuredPenalty)
+            updateCoinLabel()
+            foodOrderDeadlineMove = nil
+            scheduleNextFoodOrder()
+            messages.append("You failed to deliver food in time. You're fined \(configuredPenalty) coins & job was reassigned.")
+            markSaveDirty()
+        }
+
+        if foodOrderDeadlineMove == nil,
+           completedMoveCount >= nextFoodOrderMove,
+           isPlayerInBarRooms() {
+            foodOrderDeadlineMove = completedMoveCount + FoodOrderEventSettings.deliverDeadlineMoves
+            messages.append("New food order! Deliver chips to the bar customer within \(FoodOrderEventSettings.deliverDeadlineMoves) moves.")
+            markSaveDirty()
+        }
     }
 
     func scheduleRaftDelivery() {
@@ -1824,10 +1872,19 @@ class GameScene: SKScene {
         bucketPotatoIconNode?.isHidden = bucketPotatoCount <= 0
     }
 
+    private func syncChipsBasketState() {
+        chipsBasketChipCount = max(0, chipsBasketChipCount)
+    }
+
+    private func scheduleNextFoodOrder() {
+        nextFoodOrderMove = completedMoveCount + FoodOrderEventSettings.randomSpawnIntervalMoves()
+    }
+
     private func updateFoodStateIcons() {
+        syncChipsBasketState()
         traySlicesIconNode?.isHidden = traySlicedPotatoCount <= 0
         fryerChipsIconNode?.isHidden = fryerSlicedPotatoCount <= 0
-        basketChipsIconNode?.isHidden = !chipsBasketContainsChips
+        basketChipsIconNode?.isHidden = chipsBasketChipCount <= 0
     }
 
     private func configureHUD() {
@@ -2396,6 +2453,16 @@ class GameScene: SKScene {
         warningToiletIconNode.isHidden = true
         warningIconContainerNode.addChild(warningToiletIconNode)
 
+        if let foodOrderTexture = loadTexture(named: "food_order_warning") {
+            warningFoodOrderIconNode = SKSpriteNode(texture: foodOrderTexture, color: .clear, size: iconSize)
+        } else {
+            let fallbackTexture = makeLabeledMarkerTexture(size: iconSize, emoji: "🍟", color: .systemOrange)
+            warningFoodOrderIconNode = SKSpriteNode(texture: fallbackTexture, color: .clear, size: iconSize)
+        }
+        warningFoodOrderIconNode.name = "warningFoodOrderIcon"
+        warningFoodOrderIconNode.isHidden = true
+        warningIconContainerNode.addChild(warningFoodOrderIconNode)
+
         updateWarningIcons()
     }
 
@@ -2425,6 +2492,10 @@ class GameScene: SKScene {
 
         if isToiletDirty {
             icons.append(warningToiletIconNode)
+        }
+
+        if foodOrderDeadlineMove != nil {
+            icons.append(warningFoodOrderIconNode)
         }
 
         return icons
@@ -2467,6 +2538,9 @@ class GameScene: SKScene {
         }
         if !activeIcons.contains(warningToiletIconNode) {
             warningToiletIconNode.isHidden = true
+        }
+        if !activeIcons.contains(warningFoodOrderIconNode) {
+            warningFoodOrderIconNode.isHidden = true
         }
     }
 
@@ -2649,6 +2723,11 @@ class GameScene: SKScene {
             lines.append("Clean the toilet (\(remainingMoves) moves before penalty)")
         }
 
+        if let foodDeadline = foodOrderDeadlineMove {
+            let remainingMoves = max(0, foodDeadline - completedMoveCount)
+            lines.append("Deliver food order (\(remainingMoves) moves before penalty)")
+        }
+
         if hasPendingSnowmobileTask {
             lines.append("Buy snowmobiles (\(ownedSnowmobileIDs.count) of \(Self.requiredSnowmobileCount) bought)")
         }
@@ -2689,7 +2768,14 @@ class GameScene: SKScene {
                 toiletStatusText = "Dirty"
             }
         } else {
-            toiletStatusText = "Clean (next in avg \(ToiletEventSettings.dirtyIntervalMoves), range \(ToiletEventSettings.minDirtyIntervalMoves)-\(ToiletEventSettings.maxDirtyIntervalMoves))"
+            toiletStatusText = "Clean (next dirty in \(max(0, nextToiletDirtyMove - completedMoveCount)) moves)"
+        }
+
+        let foodOrderStatusText: String
+        if let deadline = foodOrderDeadlineMove {
+            foodOrderStatusText = "Active (deliver in \(max(0, deadline - completedMoveCount)) moves)"
+        } else {
+            foodOrderStatusText = "Waiting (next in \(max(0, nextFoodOrderMove - completedMoveCount)) moves, range \(FoodOrderEventSettings.minSpawnIntervalMoves)-\(FoodOrderEventSettings.maxSpawnIntervalMoves))"
         }
 
         let currentMoveSpeed = mountedSnowmobileID == nil
@@ -2711,8 +2797,10 @@ class GameScene: SKScene {
             "Tray carried: \(isTrayCarried ? "Yes" : "No")",
             "Tray slices: \(traySlicedPotatoCount)",
             "Basket carried: \(isChipsBasketCarried ? "Yes" : "No")",
-            "Basket has chips: \(chipsBasketContainsChips ? "Yes" : "No")",
+            "Basket has chips: \(chipsBasketChipCount > 0 ? "Yes" : "No")",
+            "Basket chip count: \(chipsBasketChipCount)",
             "Fryer chips: \(fryerSlicedPotatoCount)",
+            "Food order: \(foodOrderStatusText)",
             "Toilet dirty: \(isToiletDirty ? "Yes" : "No")",
             "Brush carried: \(isToiletBowlBrushCarried ? "Yes" : "No")",
             "Toilet event: \(toiletStatusText)",
@@ -2833,6 +2921,9 @@ class GameScene: SKScene {
             return
         case .mailbox:
             handleMailboxInteraction()
+            return
+        case .barCustomer:
+            handleBarCustomerInteraction()
             return
         case .envelope:
             handleEnvelopeInteraction()
@@ -3070,8 +3161,8 @@ class GameScene: SKScene {
             return
         }
 
-        if chipsBasketContainsChips {
-            chipsBasketContainsChips = false
+        if chipsBasketChipCount > 0 {
+            chipsBasketChipCount = 0
             updateFoodStateIcons()
             showMessage("Emptied chips from basket.")
             return
@@ -3102,19 +3193,16 @@ class GameScene: SKScene {
                 showMessage("Carry the basket to collect chips from the fryer.")
                 return
             }
-            guard !chipsBasketContainsChips else {
+            guard chipsBasketChipCount == 0 else {
                 showMessage("Basket already has chips.")
                 return
             }
 
             let chipCount = fryerSlicedPotatoCount
             fryerSlicedPotatoCount = 0
-            chipsBasketContainsChips = true
-            let rewardCoins = potatoChipRewardPerPotato * chipCount
-            GameState.shared.addCoins(rewardCoins)
-            updateCoinLabel()
+            chipsBasketChipCount = chipCount
             updateFoodStateIcons()
-            showMessage("Moved \(chipCount) chip batch\(chipCount == 1 ? "" : "es") to basket. +\(rewardCoins) coins")
+            showMessage("Moved \(chipCount) chip batch\(chipCount == 1 ? "" : "es") to basket.")
             return
         }
 
@@ -3124,6 +3212,35 @@ class GameScene: SKScene {
         }
 
         showMessage("Load sliced potatoes onto the tray first.")
+    }
+
+    private func handleBarCustomerInteraction() {
+        guard isChipsBasketCarried else {
+            showMessage("Carry the chips basket before serving the customer.")
+            return
+        }
+
+        guard chipsBasketChipCount > 0 else {
+            showMessage("Your basket has no chips to deliver.")
+            return
+        }
+
+        guard foodOrderDeadlineMove != nil else {
+            showMessage("No active food order right now.")
+            return
+        }
+
+        let deliveredChipCount = chipsBasketChipCount
+        chipsBasketChipCount = 0
+        foodOrderDeadlineMove = nil
+        scheduleNextFoodOrder()
+
+        let rewardCoins = potatoChipRewardPerPotato * deliveredChipCount
+        GameState.shared.addCoins(rewardCoins)
+        updateCoinLabel()
+        updateFoodStateIcons()
+        showMessage("Delivered food order. +\(rewardCoins) coins")
+        markSaveDirty()
     }
 
     private func handleSnowmobileInteraction(interactableID: String) {
@@ -3494,7 +3611,8 @@ class GameScene: SKScene {
             traySlicedPotatoCount: traySlicedPotatoCount,
             isChipsBasketCarried: isChipsBasketCarried,
             basketSlicedPotatoCount: 0,
-            chipsBasketContainsChips: chipsBasketContainsChips,
+            chipsBasketChipCount: chipsBasketChipCount,
+            chipsBasketContainsChips: chipsBasketChipCount > 0,
             isToiletBowlBrushCarried: isToiletBowlBrushCarried,
             isTennisRacketCarried: isTennisRacketCarried,
             isShovelCarried: isShovelCarried,
@@ -3513,6 +3631,8 @@ class GameScene: SKScene {
             studyGuideOpenedBySubject: GameState.shared.studyGuideOpenedBySubject,
             nextBatSpawnMove: nextBatSpawnMove,
             batDefeatDeadlineMove: batDefeatDeadlineMove,
+            nextFoodOrderMove: nextFoodOrderMove,
+            foodOrderDeadlineMove: foodOrderDeadlineMove,
             trenchedSepticTiles: Array(trenchedSepticTiles),
             hasAwardedSepticCompletionBonus: hasAwardedSepticCompletionBonus
         )
@@ -3557,7 +3677,11 @@ class GameScene: SKScene {
         isTrayCarried = snapshot.isTrayCarried ?? false
         traySlicedPotatoCount = max(0, snapshot.traySlicedPotatoCount ?? 0)
         isChipsBasketCarried = snapshot.isChipsBasketCarried
-        chipsBasketContainsChips = snapshot.chipsBasketContainsChips
+        chipsBasketChipCount = max(
+            0,
+            snapshot.chipsBasketChipCount
+                ?? (snapshot.chipsBasketContainsChips ? max(1, snapshot.basketSlicedPotatoCount) : 0)
+        )
         isToiletBowlBrushCarried = snapshot.isToiletBowlBrushCarried
         isTennisRacketCarried = snapshot.isTennisRacketCarried
         isShovelCarried = snapshot.isShovelCarried
@@ -3587,6 +3711,8 @@ class GameScene: SKScene {
 
         nextBatSpawnMove = max(0, snapshot.nextBatSpawnMove)
         batDefeatDeadlineMove = snapshot.batDefeatDeadlineMove
+        nextFoodOrderMove = max(0, snapshot.nextFoodOrderMove ?? nextFoodOrderMove)
+        foodOrderDeadlineMove = snapshot.foodOrderDeadlineMove
 
         trenchedSepticTiles = Set(snapshot.trenchedSepticTiles.filter { worldConfig.septicDigTiles.contains($0) })
         hasAwardedSepticCompletionBonus = snapshot.hasAwardedSepticCompletionBonus
@@ -3610,7 +3736,7 @@ class GameScene: SKScene {
     }
 
     private func shouldPersistInteractablePosition(for id: String) -> Bool {
-        if id == "studyGuide" || id == "searsCatalog" || id == mailboxID {
+        if id == "studyGuide" || id == "searsCatalog" || id == mailboxID || id == barCustomerID {
             return false
         }
 
@@ -4006,7 +4132,7 @@ class GameScene: SKScene {
         isTrayCarried = false
         traySlicedPotatoCount = 0
         isChipsBasketCarried = false
-        chipsBasketContainsChips = false
+        chipsBasketChipCount = 0
         isToiletBowlBrushCarried = false
         isToiletDirty = false
         toiletCleanDeadlineMove = nil
@@ -4028,6 +4154,8 @@ class GameScene: SKScene {
         updateSnowmobileOwnershipVisuals()
         nextBatSpawnMove = BatEventSettings.randomSpawnIntervalMoves()
         batDefeatDeadlineMove = nil
+        nextFoodOrderMove = FoodOrderEventSettings.randomSpawnIntervalMoves()
+        foodOrderDeadlineMove = nil
         trenchedSepticTiles.removeAll()
         hasAwardedSepticCompletionBonus = false
         resetSepticDigTiles()

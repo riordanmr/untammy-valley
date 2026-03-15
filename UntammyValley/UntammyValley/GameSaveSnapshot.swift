@@ -34,6 +34,7 @@ struct GameSaveSnapshot: Codable {
     let traySlicedPotatoCount: Int?
     let isChipsBasketCarried: Bool
     let basketSlicedPotatoCount: Int
+    let chipsBasketChipCount: Int?
     let chipsBasketContainsChips: Bool
     let isToiletBowlBrushCarried: Bool
     let isTennisRacketCarried: Bool
@@ -57,6 +58,9 @@ struct GameSaveSnapshot: Codable {
 
     let nextBatSpawnMove: Int
     let batDefeatDeadlineMove: Int?
+
+    let nextFoodOrderMove: Int?
+    let foodOrderDeadlineMove: Int?
 
     let trenchedSepticTiles: [TileCoordinate]
     let hasAwardedSepticCompletionBonus: Bool

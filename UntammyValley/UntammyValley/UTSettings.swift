@@ -32,7 +32,7 @@ final class UTSettings {
 
         var batSpawnMinMoves: Int = 50
         var batSpawnMaxMoves: Int = 120
-        var batDefeatDeadlineMoves: Int = 22
+        var batDefeatDeadlineMoves: Int = 25
 
         var goatRespawnMinMoves: Int = 30
         var goatRespawnMaxMoves: Int = 45
@@ -43,6 +43,10 @@ final class UTSettings {
         var snowmobilePriceCoins: Int = 100
 
         var potatoChipRewardPerPotato: Int = 5
+        var foodOrderMinMoves: Int = 100
+        var foodOrderMaxMoves: Int = 150
+        var foodOrderDeliverDeadlineMoves: Int = 120
+        var foodOrderNonDeliveryPenaltyCoins: Int = 30
         var goatChaseRewardCoins: Int = 7
         var toiletDirtyIntervalMoves: Int = 100
         var toiletCleanDeadlineMoves: Int = 20
@@ -68,6 +72,11 @@ final class UTSettings {
             raftDeliveryMaxMoves = max(raftDeliveryMinMoves, raftDeliveryMaxMoves)
 
             snowmobilePriceCoins = max(0, snowmobilePriceCoins)
+
+            foodOrderMinMoves = max(1, foodOrderMinMoves)
+            foodOrderMaxMoves = max(foodOrderMinMoves, foodOrderMaxMoves)
+            foodOrderDeliverDeadlineMoves = max(1, foodOrderDeliverDeadlineMoves)
+            foodOrderNonDeliveryPenaltyCoins = max(0, foodOrderNonDeliveryPenaltyCoins)
 
             toiletDirtyIntervalMoves = max(1, toiletDirtyIntervalMoves)
             toiletCleanDeadlineMoves = max(1, toiletCleanDeadlineMoves)
@@ -101,6 +110,10 @@ final class UTSettings {
         case snowmobilePriceCoins
 
         case potatoChipRewardPerPotato
+        case foodOrderMinMoves
+        case foodOrderMaxMoves
+        case foodOrderDeliverDeadlineMoves
+        case foodOrderNonDeliveryPenaltyCoins
 
         case toiletDirtyIntervalMoves
         case toiletCleanDeadlineMoves
@@ -123,6 +136,10 @@ final class UTSettings {
             case .raftDeliveryMaxMoves: return "Raft delivery max moves"
             case .snowmobilePriceCoins: return "Snowmobile cost"
             case .potatoChipRewardPerPotato: return "Chip reward per potato"
+            case .foodOrderMinMoves: return "Food order min moves"
+            case .foodOrderMaxMoves: return "Food order max moves"
+            case .foodOrderDeliverDeadlineMoves: return "Food order delivery deadline"
+            case .foodOrderNonDeliveryPenaltyCoins: return "Food order non-delivery penalty"
             case .toiletDirtyIntervalMoves: return "Toilet dirty interval"
             case .toiletCleanDeadlineMoves: return "Toilet clean deadline"
             case .goatChaseRewardCoins: return "Goat chase reward"
@@ -140,7 +157,8 @@ final class UTSettings {
                     .batSpawnMinMoves, .batSpawnMaxMoves, .batDefeatDeadlineMoves,
                     .goatRespawnMinMoves, .goatRespawnMaxMoves,
                     .raftDeliveryMinMoves, .raftDeliveryMaxMoves,
-                    .toiletDirtyIntervalMoves, .toiletCleanDeadlineMoves:
+                        .toiletDirtyIntervalMoves, .toiletCleanDeadlineMoves,
+                        .foodOrderMinMoves, .foodOrderMaxMoves, .foodOrderDeliverDeadlineMoves:
                 return 1
             default:    
                 return 0
@@ -153,9 +171,10 @@ final class UTSettings {
                 return 100
               case .batSpawnMinMoves, .batSpawnMaxMoves, .goatRespawnMinMoves, .goatRespawnMaxMoves,
                   .raftDeliveryMinMoves, .raftDeliveryMaxMoves,
-                 .toiletDirtyIntervalMoves:
+                 .toiletDirtyIntervalMoves,
+                 .foodOrderMinMoves, .foodOrderMaxMoves:
                 return 999
-            case .batDefeatDeadlineMoves, .toiletCleanDeadlineMoves:
+            case .batDefeatDeadlineMoves, .toiletCleanDeadlineMoves, .foodOrderDeliverDeadlineMoves:
                 return 200
             default:
                 return 9999
@@ -175,6 +194,10 @@ final class UTSettings {
             case .raftDeliveryMaxMoves: return counts.raftDeliveryMaxMoves
             case .snowmobilePriceCoins: return counts.snowmobilePriceCoins
             case .potatoChipRewardPerPotato: return counts.potatoChipRewardPerPotato
+            case .foodOrderMinMoves: return counts.foodOrderMinMoves
+            case .foodOrderMaxMoves: return counts.foodOrderMaxMoves
+            case .foodOrderDeliverDeadlineMoves: return counts.foodOrderDeliverDeadlineMoves
+            case .foodOrderNonDeliveryPenaltyCoins: return counts.foodOrderNonDeliveryPenaltyCoins
             case .toiletDirtyIntervalMoves: return counts.toiletDirtyIntervalMoves
             case .toiletCleanDeadlineMoves: return counts.toiletCleanDeadlineMoves
             case .goatChaseRewardCoins: return counts.goatChaseRewardCoins
@@ -200,6 +223,10 @@ final class UTSettings {
             case .raftDeliveryMaxMoves: counts.raftDeliveryMaxMoves = clamped
             case .snowmobilePriceCoins: counts.snowmobilePriceCoins = clamped
             case .potatoChipRewardPerPotato: counts.potatoChipRewardPerPotato = clamped
+            case .foodOrderMinMoves: counts.foodOrderMinMoves = clamped
+            case .foodOrderMaxMoves: counts.foodOrderMaxMoves = clamped
+            case .foodOrderDeliverDeadlineMoves: counts.foodOrderDeliverDeadlineMoves = clamped
+            case .foodOrderNonDeliveryPenaltyCoins: counts.foodOrderNonDeliveryPenaltyCoins = clamped
             case .toiletDirtyIntervalMoves: counts.toiletDirtyIntervalMoves = clamped
             case .toiletCleanDeadlineMoves: counts.toiletCleanDeadlineMoves = clamped
             case .goatChaseRewardCoins: counts.goatChaseRewardCoins = clamped

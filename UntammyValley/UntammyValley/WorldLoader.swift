@@ -1084,6 +1084,16 @@ enum WorldLoader {
             blocksMovement: true
         )
 
+        let barCustomer = InteractableConfig(
+            id: "barCustomer",
+            kind: .barCustomer,
+            spriteName: "barstoolwithpatron1",
+            tile: BarLayout.patronBarStoolTile,
+            size: BarLayout.patronStoolTileSize,
+            rewardCoins: 0,
+            interactionRange: 100
+        )
+
         let parkingCars: [DecorationConfig] = [
             DecorationConfig(
                 id: "parkingCarSedan",
@@ -1114,7 +1124,7 @@ enum WorldLoader {
             )
         ]
 
-        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, studyGuide, searsCatalog, mailbox, envelope, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, goatChaseSpot] + snowmobiles
+        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, studyGuide, searsCatalog, mailbox, envelope, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, goatChaseSpot, barCustomer] + snowmobiles
 
         let staticDecorations = [
             carrollSign,
@@ -1126,8 +1136,7 @@ enum WorldLoader {
             livingRoomBar,
             studyDesk,
             topBarStool,
-            centerBarStool,
-            patronBarStool
+            centerBarStool
         ] + bedroomBeds + parkingCars
         let treeDecorations = makeTreeDecorations(
             wallTiles: wallTiles,
