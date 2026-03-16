@@ -30,7 +30,7 @@ final class UTSettings {
         var bearProximityColumns: Int = 6
         var bearProximityRows: Int = 5
 
-        var batSpawnMinMoves: Int = 50
+        var batSpawnMinMoves: Int = 80
         var batSpawnMaxMoves: Int = 120
         var batDefeatDeadlineMoves: Int = 30
 

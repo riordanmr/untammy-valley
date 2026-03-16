@@ -61,6 +61,7 @@ struct GameSaveSnapshot: Codable {
 
     let nextFoodOrderMove: Int?
     let foodOrderDeadlineMove: Int?
+    let hasShownFirstSuccessfulChipDeliveryMessage: Bool?
 
     let trenchedSepticTiles: [TileCoordinate]
     let hasAwardedSepticCompletionBonus: Bool

@@ -230,6 +230,13 @@ class GameScene: SKScene {
         }
     }
 
+    private enum HUDMessageLayout {
+        static let maxLines = 3
+        static let horizontalMargin: CGFloat = 32
+        static let minPreferredWidth: CGFloat = 220
+        static let topPadding: CGFloat = 56
+    }
+
     var player: PlayerNode!
     var cameraNode: SKCameraNode!
 
@@ -268,6 +275,7 @@ class GameScene: SKScene {
     private var warningSnowmobileIconNode: SKSpriteNode!
     private var warningToiletIconNode: SKSpriteNode!
     private var warningFoodOrderIconNode: SKSpriteNode!
+    private var warningTrenchIconNode: SKSpriteNode!
     private var makerLoadedIndicatorNode: SKShapeNode?
     private var bucketSelectedIndicatorNode: SKShapeNode?
     private var bucketPotatoIconNode: SKSpriteNode?
@@ -365,6 +373,7 @@ class GameScene: SKScene {
     private var batDefeatDeadlineMove: Int?
     private var nextFoodOrderMove = FoodOrderEventSettings.randomSpawnIntervalMoves()
     private var foodOrderDeadlineMove: Int?
+    private var hasShownFirstSuccessfulChipDeliveryMessage = false
     private var trenchedSepticTiles: Set<TileCoordinate> = []
     private var hasAwardedSepticCompletionBonus = false
     private var toiletCleanTexture: SKTexture?
@@ -797,6 +806,7 @@ class GameScene: SKScene {
 
     override func didChangeSize(_ oldSize: CGSize) {
         super.didChangeSize(oldSize)
+        updateMessageLabelLayout()
         updateWarningIconContainerPosition()
         updateMapCloseButtonPosition()
         settingsDialogNode?.updateLayout(sceneSize: size)
@@ -1721,7 +1731,7 @@ class GameScene: SKScene {
             updateCoinLabel()
             foodOrderDeadlineMove = nil
             scheduleNextFoodOrder()
-            messages.append("You failed to deliver food in time. You're fined \(configuredPenalty) coins & job was reassigned.")
+            messages.append("You failed to deliver food in time. You've been fined \(configuredPenalty) coins, and the job was reassigned to your sister.")
             markSaveDirty()
         }
 
@@ -1902,10 +1912,11 @@ class GameScene: SKScene {
         messageLabel.fontColor = .white
         messageLabel.horizontalAlignmentMode = .center
         messageLabel.verticalAlignmentMode = .top
-        messageLabel.position = CGPoint(x: 0, y: size.height / 2 - 56)
+        messageLabel.numberOfLines = HUDMessageLayout.maxLines
         messageLabel.zPosition = ZLayer.hud
         messageLabel.alpha = 0
         cameraNode.addChild(messageLabel)
+        updateMessageLabelLayout()
 
         configureMenu()
         configureResetConfirmationDialog()
@@ -1917,6 +1928,20 @@ class GameScene: SKScene {
         configureQuizDialog()
         configureSearsCatalogDialog()
         configureSettingsDialog()
+    }
+
+    private func updateMessageLabelLayout() {
+        guard messageLabel != nil else { return }
+        let safeAreaInsets = view?.safeAreaInsets ?? .zero
+        let availableWidth = max(0, size.width - safeAreaInsets.left - safeAreaInsets.right)
+        let preferredWidth = max(HUDMessageLayout.minPreferredWidth, 
+          availableWidth - (HUDMessageLayout.horizontalMargin * 2))
+
+        messageLabel.preferredMaxLayoutWidth = preferredWidth
+        messageLabel.position = CGPoint(
+            x: (safeAreaInsets.left - safeAreaInsets.right) * 0.5,
+            y: size.height / 2 - safeAreaInsets.top - HUDMessageLayout.topPadding
+        )
     }
 
     private func configureScrollTextDialog() {
@@ -2463,6 +2488,16 @@ class GameScene: SKScene {
         warningFoodOrderIconNode.isHidden = true
         warningIconContainerNode.addChild(warningFoodOrderIconNode)
 
+        if let shovelTexture = loadTexture(named: "shovel_marker") {
+            warningTrenchIconNode = SKSpriteNode(texture: shovelTexture, color: .clear, size: iconSize)
+        } else {
+            let fallbackTexture = makeLabeledMarkerTexture(size: iconSize, emoji: "⛏️", color: .systemBrown)
+            warningTrenchIconNode = SKSpriteNode(texture: fallbackTexture, color: .clear, size: iconSize)
+        }
+        warningTrenchIconNode.name = "warningTrenchIcon"
+        warningTrenchIconNode.isHidden = true
+        warningIconContainerNode.addChild(warningTrenchIconNode)
+
         updateWarningIcons()
     }
 
@@ -2496,6 +2531,10 @@ class GameScene: SKScene {
 
         if foodOrderDeadlineMove != nil {
             icons.append(warningFoodOrderIconNode)
+        }
+
+        if hasShownFirstSuccessfulChipDeliveryMessage && trenchedSepticTiles.count < worldConfig.septicDigTiles.count {
+            icons.append(warningTrenchIconNode)
         }
 
         return icons
@@ -2541,6 +2580,9 @@ class GameScene: SKScene {
         }
         if !activeIcons.contains(warningFoodOrderIconNode) {
             warningFoodOrderIconNode.isHidden = true
+        }
+        if !activeIcons.contains(warningTrenchIconNode) {
+            warningTrenchIconNode.isHidden = true
         }
     }
 
@@ -2730,6 +2772,10 @@ class GameScene: SKScene {
 
         if hasPendingSnowmobileTask {
             lines.append("Buy snowmobiles (\(ownedSnowmobileIDs.count) of \(Self.requiredSnowmobileCount) bought)")
+        }
+
+        if hasShownFirstSuccessfulChipDeliveryMessage && trenchedSepticTiles.count < worldConfig.septicDigTiles.count {
+            lines.append("Dig a trench between the septic systems")
         }
 
         return lines
@@ -3239,7 +3285,13 @@ class GameScene: SKScene {
         GameState.shared.addCoins(rewardCoins)
         updateCoinLabel()
         updateFoodStateIcons()
-        showMessage("Delivered food order. +\(rewardCoins) coins")
+        let baseMessage = "Delivered food order. +\(rewardCoins) coins"
+        if hasShownFirstSuccessfulChipDeliveryMessage {
+            showMessage(baseMessage)
+        } else {
+            hasShownFirstSuccessfulChipDeliveryMessage = true
+            showMessage(baseMessage + "\nNext goal: Earn money to buy a snowblower by digging a trench between the septic systems.")
+        }
         markSaveDirty()
     }
 
@@ -3633,6 +3685,7 @@ class GameScene: SKScene {
             batDefeatDeadlineMove: batDefeatDeadlineMove,
             nextFoodOrderMove: nextFoodOrderMove,
             foodOrderDeadlineMove: foodOrderDeadlineMove,
+            hasShownFirstSuccessfulChipDeliveryMessage: hasShownFirstSuccessfulChipDeliveryMessage,
             trenchedSepticTiles: Array(trenchedSepticTiles),
             hasAwardedSepticCompletionBonus: hasAwardedSepticCompletionBonus
         )
@@ -3713,6 +3766,7 @@ class GameScene: SKScene {
         batDefeatDeadlineMove = snapshot.batDefeatDeadlineMove
         nextFoodOrderMove = max(0, snapshot.nextFoodOrderMove ?? nextFoodOrderMove)
         foodOrderDeadlineMove = snapshot.foodOrderDeadlineMove
+        hasShownFirstSuccessfulChipDeliveryMessage = snapshot.hasShownFirstSuccessfulChipDeliveryMessage ?? false
 
         trenchedSepticTiles = Set(snapshot.trenchedSepticTiles.filter { worldConfig.septicDigTiles.contains($0) })
         hasAwardedSepticCompletionBonus = snapshot.hasAwardedSepticCompletionBonus
@@ -4156,6 +4210,7 @@ class GameScene: SKScene {
         batDefeatDeadlineMove = nil
         nextFoodOrderMove = FoodOrderEventSettings.randomSpawnIntervalMoves()
         foodOrderDeadlineMove = nil
+        hasShownFirstSuccessfulChipDeliveryMessage = false
         trenchedSepticTiles.removeAll()
         hasAwardedSepticCompletionBonus = false
         resetSepticDigTiles()
@@ -4205,7 +4260,7 @@ class GameScene: SKScene {
         messageLabel.removeAllActions()
         messageLabel.text = text
         messageLabel.alpha = 1
-        let wait = SKAction.wait(forDuration: 4.0)
+        let wait = SKAction.wait(forDuration: 5.0)
         let fade = SKAction.fadeOut(withDuration: 0.5)
         messageLabel.run(SKAction.sequence([wait, fade]))
     }
