@@ -1,5 +1,13 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.56 (53) 2026-03-16 11:52:38
+
+Add dummy Saves dialog
+
+## Version 0.7.55 (52) 2026-03-16 10:33:55
+
+Saves feature phase 1
+
 ## Version 0.7.54 (51) 2026-03-16 09:30:51
 
 Don't show snowmobile task icon until trench dug

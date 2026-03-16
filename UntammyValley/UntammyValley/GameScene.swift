@@ -407,6 +407,12 @@ class GameScene: SKScene {
     private var completedMoveCount = 0
     private var isBearAttackInProgress = false
     private let worldConfig = WorldConfig.current
+    private lazy var namedSaveDefaultNameFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd HH_mm_ss"
+        return formatter
+    }()
     private lazy var teacherDeskSubjectByID: [String: String] = {
         var map: [String: String] = [:]
         for desk in worldConfig.teachersDesks {
@@ -2001,8 +2007,8 @@ class GameScene: SKScene {
         savesDialogNode.onClose = { [weak self] in
             self?.setMenuVisible(false)
         }
-        savesDialogNode.onSaveTapped = { _ in
-            // Stub for upcoming named-save flow.
+        savesDialogNode.onSaveTapped = { [weak self] _ in
+            self?.beginNamedSaveFlow()
         }
         savesDialogNode.onRestoreTapped = { _ in
             // Stub for upcoming restore-confirmation flow.
@@ -2011,6 +2017,83 @@ class GameScene: SKScene {
             // Stub for upcoming delete-confirmation flow.
         }
         cameraNode.addChild(savesDialogNode)
+    }
+
+    private func beginNamedSaveFlow() {
+        let proposedName = namedSaveDefaultNameFormatter.string(from: Date())
+        presentSaveNameEditor(initialName: proposedName)
+    }
+
+    private func presentSaveNameEditor(initialName: String) {
+        guard let presenter = topmostPresenter() else {
+            showMessage("Could not open save name editor.")
+            return
+        }
+
+        let alert = UIAlertController(title: "Edit save name", message: nil, preferredStyle: .alert)
+        alert.addTextField { textField in
+            textField.text = initialName
+            textField.placeholder = "Save name"
+            textField.clearButtonMode = .whileEditing
+            textField.returnKeyType = .done
+        }
+
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+        let okAction = UIAlertAction(title: "OK", style: .default) { [weak self, weak alert] _ in
+            guard let self, let rawName = alert?.textFields?.first?.text else { return }
+            let finalName = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !finalName.isEmpty else {
+                self.showMessage("Save name cannot be empty.")
+                self.presentSaveNameEditor(initialName: initialName)
+                return
+            }
+            self.saveNamedSnapshot(named: finalName)
+        }
+
+        alert.addAction(cancelAction)
+        alert.addAction(okAction)
+
+        presenter.present(alert, animated: true) {
+            alert.textFields?.first?.becomeFirstResponder()
+        }
+    }
+
+    private func saveNamedSnapshot(named name: String) {
+        let snapshot = makeSaveSnapshot()
+
+        do {
+            let summary = try SaveManager.shared.saveNamedSnapshot(snapshot, named: name)
+            savesDialogNode.refreshFromPersistence()
+            savesDialogNode.selectSave(id: summary.id)
+            showMessage("Saved \"\(summary.name)\".")
+        } catch {
+            if let namedSaveError = error as? NamedGameSaveError,
+               let description = namedSaveError.errorDescription {
+                showMessage(description)
+            } else {
+                showMessage("Failed to save game.")
+            }
+        }
+    }
+
+    private func topmostPresenter() -> UIViewController? {
+        var rootViewController: UIViewController?
+
+        if let sceneWindow = view?.window {
+            rootViewController = sceneWindow.rootViewController
+        } else {
+            let windowScene = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .first(where: { $0.activationState == .foregroundActive })
+            rootViewController = windowScene?.windows.first(where: { $0.isKeyWindow })?.rootViewController
+        }
+
+        var presenter = rootViewController
+        while let presentedViewController = presenter?.presentedViewController {
+            presenter = presentedViewController
+        }
+
+        return presenter
     }
 
     private func refreshSettingsDependentUI() {

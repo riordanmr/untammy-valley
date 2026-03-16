@@ -70,6 +70,11 @@ final class SavesDialogNode: SKNode {
         renderSaveList()
     }
 
+    func selectSave(id: String?) {
+        selectedSaveID = id
+        updateSelectedState()
+    }
+
     func setVisible(_ visible: Bool) {
         backdropNode.isHidden = !visible
         panelNode.isHidden = !visible
