@@ -4,7 +4,10 @@
 # into a simple HTML summary of commits, extracting version and build information when available.
 # Mark Riordan  2026-03-13  mostly by Github Copilot
 #
-# Usage: git log --pretty=format:"%n%ad%n%s%n%b%n---" --date=iso | awk -f ./UntammyValley/scripts/git_log_to_html.awk >release-notes.html
+# Usage (Markdown default):
+#   git log --pretty=format:"%n%ad%n%s%n%b%n---" --date=iso | awk -f ./UntammyValley/scripts/git_log_to_html.awk >release-notes.md
+# Usage (HTML):
+#   git log --pretty=format:"%n%ad%n%s%n%b%n---" --date=iso | awk -v fmt=html -f ./UntammyValley/scripts/git_log_to_html.awk >release-notes.html
 
 function trim(value) {
     sub(/^[[:space:]]+/, "", value)
@@ -205,10 +208,17 @@ function emit_record(    full_text, date_time, header_text, summary_text, versio
 
     header_text = "Version " version_text " (" build_text ") " date_time
 
-    print "<div class=\"commit\">"
-    print "  <div class=\"meta\">" html_escape(header_text) "</div>"
-    print "  <div class=\"subject\">" html_escape(summary_text) "</div>"
-    print "</div>"
+    if (fmt == "html") {
+        print "<div class=\"commit\">"
+        print "  <div class=\"meta\">" html_escape(header_text) "</div>"
+        print "  <div class=\"subject\">" html_escape(summary_text) "</div>"
+        print "</div>"
+    } else {
+        print "## " header_text
+        print ""
+        print summary_text
+        print ""
+    }
 
     record_date = ""
     record_subject = ""
@@ -217,20 +227,33 @@ function emit_record(    full_text, date_time, header_text, summary_text, versio
 }
 
 BEGIN {
-    print "<!DOCTYPE html>"
-    print "<html lang=\"en\">"
-    print "<head>"
-    print "  <meta charset=\"utf-8\">"
-    print "  <title>Commit Summary</title>"
-    print "  <style>"
-    print "    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.35; }"
-    print "    .commit { margin-bottom: 1.2rem; }"
-    print "    .meta { font-weight: 700; }"
-    print "    .subject { margin-top: 0.15rem; }"
-    print "  </style>"
-    print "</head>"
-    print "<body>"
-    print "  <h1>Untammy Valley Commit Summary</h1>"
+    fmt = tolower(trim(fmt))
+    if (fmt == "") {
+        fmt = "md"
+    }
+    if (fmt != "md" && fmt != "html") {
+        fmt = "md"
+    }
+
+    if (fmt == "html") {
+        print "<!DOCTYPE html>"
+        print "<html lang=\"en\">"
+        print "<head>"
+        print "  <meta charset=\"utf-8\">"
+        print "  <title>Commit Summary</title>"
+        print "  <style>"
+        print "    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.35; }"
+        print "    .commit { margin-bottom: 1.2rem; }"
+        print "    .meta { font-weight: 700; }"
+        print "    .subject { margin-top: 0.15rem; }"
+        print "  </style>"
+        print "</head>"
+        print "<body>"
+        print "  <h1>Untammy Valley Commit Summary</h1>"
+    } else {
+        print "# Untammy Valley Commit Summary"
+        print ""
+    }
 }
 
 /^---[[:space:]]*$/ {
@@ -258,6 +281,8 @@ BEGIN {
 
 END {
     emit_record()
-    print "</body>"
-    print "</html>"
+    if (fmt == "html") {
+        print "</body>"
+        print "</html>"
+    }
 }
