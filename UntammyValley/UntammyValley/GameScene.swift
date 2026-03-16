@@ -2521,7 +2521,7 @@ class GameScene: SKScene {
             icons.append(warningBatIconNode)
         }
 
-        if hasPendingSnowmobileTask {
+        if hasPendingSnowmobileTask && trenchedSepticTiles.count == worldConfig.septicDigTiles.count {
             icons.append(warningSnowmobileIconNode)
         }
 
@@ -3568,7 +3568,7 @@ class GameScene: SKScene {
             hasAwardedSepticCompletionBonus = true
             GameState.shared.addCoins(septicCompletionBonusCoins)
             updateCoinLabel()
-            showMessage("Septic trench complete! +\(coinsPerTrenchTile + septicCompletionBonusCoins) coins")
+            showMessage("Septic trench complete. +\(coinsPerTrenchTile + septicCompletionBonusCoins) coins. Now you can afford a snowmobile!")
         } else {
             showMessage("Dug trench tile! +\(coinsPerTrenchTile) coin")
         }
