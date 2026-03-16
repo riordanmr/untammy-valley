@@ -56,6 +56,7 @@ enum ZLayer {
     static let resetPanelControl: CGFloat = 752
     static let resetPanelLabel: CGFloat = 753
 
+    static let savesDialog: CGFloat = 759
     static let settingsDialog: CGFloat = 760
     static let bearAttackOverlay: CGFloat = 900
 }
@@ -250,6 +251,7 @@ class GameScene: SKScene {
     private var menuMapLabel: SKLabelNode!
     private var mapCloseButtonNode: SKShapeNode!
     private var mapCloseLabel: SKLabelNode!
+    private var savesDialogNode: SavesDialogNode!
     private var settingsDialogNode: SettingsDialogNode!
     private var scrollTextDialogNode: ScrollTextDialogNode!
     private var studySubjectBackdropNode: SKShapeNode!
@@ -809,6 +811,7 @@ class GameScene: SKScene {
         updateMessageLabelLayout()
         updateWarningIconContainerPosition()
         updateMapCloseButtonPosition()
+        savesDialogNode?.updateLayout(sceneSize: size)
         settingsDialogNode?.updateLayout(sceneSize: size)
         scrollTextDialogNode?.updateLayout(sceneSize: size)
         quizDialogNode?.updateLayout(sceneSize: size)
@@ -831,6 +834,14 @@ class GameScene: SKScene {
             if hudNodes.contains(where: { $0.name == "mapCloseItem" || $0.parent?.name == "mapCloseItem" }) {
                 setMapViewMode(false)
             }
+            return
+        }
+
+        if savesDialogNode?.isVisible == true {
+            if savesDialogNode.endDrag() {
+                return
+            }
+            _ = savesDialogNode.handleTap(hudNodes: hudNodes)
             return
         }
 
@@ -935,6 +946,12 @@ class GameScene: SKScene {
             setMenuVisible(false)
             return
         }
+        if hudNodes.contains(where: { $0.name == "menuSavesItem" || $0.parent?.name == "menuSavesItem" }) {
+            savesDialogNode.refreshFromPersistence()
+            savesDialogNode.setVisible(true)
+            setMenuVisible(false)
+            return
+        }
         if !menuPanelNode.isHidden {
             setMenuVisible(false)
             return
@@ -961,6 +978,11 @@ class GameScene: SKScene {
         guard !isBearAttackInProgress else { return }
         guard let touch = touches.first else { return }
         let hudLocation = touch.location(in: cameraNode)
+
+        if savesDialogNode?.isVisible == true {
+            savesDialogNode.beginDrag(at: hudLocation)
+            return
+        }
 
         if settingsDialogNode?.isVisible == true {
             settingsDialogNode.beginDrag(at: hudLocation)
@@ -999,6 +1021,11 @@ class GameScene: SKScene {
         guard !isBearAttackInProgress else { return }
         guard let touch = touches.first else { return }
         let hudLocation = touch.location(in: cameraNode)
+
+        if savesDialogNode?.isVisible == true {
+            _ = savesDialogNode.drag(to: hudLocation)
+            return
+        }
 
         if settingsDialogNode?.isVisible == true {
             _ = settingsDialogNode.drag(to: hudLocation)
@@ -1927,6 +1954,7 @@ class GameScene: SKScene {
         configureStudySubjectPrompt()
         configureQuizDialog()
         configureSearsCatalogDialog()
+        configureSavesDialog()
         configureSettingsDialog()
     }
 
@@ -1965,6 +1993,24 @@ class GameScene: SKScene {
             self?.refreshSettingsDependentUI()
         }
         cameraNode.addChild(settingsDialogNode)
+    }
+
+    private func configureSavesDialog() {
+        savesDialogNode = SavesDialogNode(sceneSize: size)
+        savesDialogNode.zPosition = ZLayer.savesDialog
+        savesDialogNode.onClose = { [weak self] in
+            self?.setMenuVisible(false)
+        }
+        savesDialogNode.onSaveTapped = { _ in
+            // Stub for upcoming named-save flow.
+        }
+        savesDialogNode.onRestoreTapped = { _ in
+            // Stub for upcoming restore-confirmation flow.
+        }
+        savesDialogNode.onDeleteTapped = { _ in
+            // Stub for upcoming delete-confirmation flow.
+        }
+        cameraNode.addChild(savesDialogNode)
     }
 
     private func refreshSettingsDependentUI() {
@@ -2611,7 +2657,7 @@ class GameScene: SKScene {
 
         // Slightly narrower panel so it stays on-screen; compute X so panel sits left of the hamburger button
         let menuPanelWidth: CGFloat = 190
-        let menuPanelHeight: CGFloat = 316
+        let menuPanelHeight: CGFloat = 360
         menuPanelNode = SKShapeNode(rectOf: CGSize(width: menuPanelWidth, height: menuPanelHeight), cornerRadius: 9)
         menuPanelNode.name = "menuPanel"
         menuPanelNode.fillColor = UIColor.black.withAlphaComponent(0.6)
@@ -2667,13 +2713,16 @@ class GameScene: SKScene {
         let settingsButton = makeMenuButton(name: "menuSettingsItem", labelText: "Settings", y: 22)
         menuPanelNode.addChild(settingsButton)
 
-        let resetButton = makeMenuButton(name: "menuResetItem", labelText: "Reset", y: -22)
+        let savesButton = makeMenuButton(name: "menuSavesItem", labelText: "Saves", y: -22)
+        menuPanelNode.addChild(savesButton)
+
+        let resetButton = makeMenuButton(name: "menuResetItem", labelText: "Reset", y: -66)
         menuPanelNode.addChild(resetButton)
 
-        let move20Button = makeMenuButton(name: "menuMove20Item", labelText: "Move 20", y: -66)
+        let move20Button = makeMenuButton(name: "menuMove20Item", labelText: "Move 20", y: -110)
         menuPanelNode.addChild(move20Button)
 
-        let mapButton = makeMenuButton(name: "menuMapItem", labelText: "Map", y: -110)
+        let mapButton = makeMenuButton(name: "menuMapItem", labelText: "Map", y: -154)
         menuPanelNode.addChild(mapButton)
     }
 
