@@ -2010,13 +2010,57 @@ class GameScene: SKScene {
         savesDialogNode.onSaveTapped = { [weak self] _ in
             self?.beginNamedSaveFlow()
         }
-        savesDialogNode.onRestoreTapped = { _ in
-            // Stub for upcoming restore-confirmation flow.
+        savesDialogNode.onRestoreTapped = { [weak self] summary in
+            guard let self else { return }
+            guard let summary else {
+                self.showMessage("Select a save to restore.")
+                return
+            }
+            self.confirmAndRestore(summary: summary)
         }
         savesDialogNode.onDeleteTapped = { _ in
             // Stub for upcoming delete-confirmation flow.
         }
         cameraNode.addChild(savesDialogNode)
+    }
+
+    private func confirmAndRestore(summary: NamedGameSaveSummary) {
+        guard let presenter = topmostPresenter() else {
+            showMessage("Could not open restore confirmation.")
+            return
+        }
+
+        let alert = UIAlertController(
+            title: "Restore this save?",
+            message: "This cannot be undone.",
+            preferredStyle: .alert
+        )
+
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+        let okAction = UIAlertAction(title: "OK", style: .destructive) { [weak self] _ in
+            guard let self else { return }
+            self.restoreNamedSnapshot(summary: summary)
+        }
+
+        alert.addAction(cancelAction)
+        alert.addAction(okAction)
+        presenter.present(alert, animated: true)
+    }
+
+    private func restoreNamedSnapshot(summary: NamedGameSaveSummary) {
+        do {
+            let snapshot = try SaveManager.shared.loadNamedSnapshot(id: summary.id)
+            applySaveSnapshot(snapshot)
+            savesDialogNode.setVisible(false)
+            showMessage("Restored \"\(summary.name)\".")
+        } catch {
+            if let namedSaveError = error as? NamedGameSaveError,
+               let description = namedSaveError.errorDescription {
+                showMessage(description)
+            } else {
+                showMessage("Failed to restore save.")
+            }
+        }
     }
 
     private func beginNamedSaveFlow() {
