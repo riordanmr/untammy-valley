@@ -6,6 +6,7 @@ final class SavesDialogNode: SKNode {
     private let panelNode = SKShapeNode()
     private let titleLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
     private let emptyStateLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
+    private let feedbackLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
 
     private let listCropNode = SKCropNode()
     private let listContentNode = SKNode()
@@ -73,6 +74,26 @@ final class SavesDialogNode: SKNode {
     func selectSave(id: String?) {
         selectedSaveID = id
         updateSelectedState()
+        feedbackLabel.removeAllActions()
+        feedbackLabel.isHidden = true
+    }
+
+    func showFeedback(_ message: String) {
+        feedbackLabel.removeAllActions()
+        feedbackLabel.text = message
+        feedbackLabel.alpha = 0
+        feedbackLabel.isHidden = false
+
+        feedbackLabel.run(
+            .sequence([
+                .fadeAlpha(to: 1, duration: 0.12),
+                .wait(forDuration: 1.6),
+                .fadeOut(withDuration: 0.25),
+                .run { [weak self] in
+                    self?.feedbackLabel.isHidden = true
+                }
+            ])
+        )
     }
 
     func setVisible(_ visible: Bool) {
@@ -81,6 +102,8 @@ final class SavesDialogNode: SKNode {
         if !visible {
             isDraggingList = false
             didDragList = false
+            feedbackLabel.removeAllActions()
+            feedbackLabel.isHidden = true
         }
     }
 
@@ -221,6 +244,16 @@ final class SavesDialogNode: SKNode {
         emptyStateLabel.position = CGPoint(x: 0, y: listViewportRect.midY)
         emptyStateLabel.zPosition = 3
         panelNode.addChild(emptyStateLabel)
+
+        feedbackLabel.text = ""
+        feedbackLabel.fontSize = 18
+        feedbackLabel.fontColor = UIColor.systemYellow.withAlphaComponent(0.95)
+        feedbackLabel.horizontalAlignmentMode = .center
+        feedbackLabel.verticalAlignmentMode = .center
+        feedbackLabel.position = CGPoint(x: 0, y: -panelSize.height / 2 + 68)
+        feedbackLabel.zPosition = 3
+        feedbackLabel.isHidden = true
+        panelNode.addChild(feedbackLabel)
 
         saveButtonNode.path = CGPath(roundedRect: CGRect(x: -72, y: -21, width: 144, height: 42), cornerWidth: 8, cornerHeight: 8, transform: nil)
         saveButtonNode.name = "savesSaveItem"

@@ -410,7 +410,7 @@ class GameScene: SKScene {
     private lazy var namedSaveDefaultNameFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd HH_mm_ss"
+        formatter.dateFormat = "yyyy-MM-dd HHmmss"
         return formatter
     }()
     private lazy var teacherDeskSubjectByID: [String: String] = {
@@ -2013,15 +2013,58 @@ class GameScene: SKScene {
         savesDialogNode.onRestoreTapped = { [weak self] summary in
             guard let self else { return }
             guard let summary else {
-                self.showMessage("Select a save to restore.")
+                self.savesDialogNode.showFeedback("Select a save to restore.")
                 return
             }
             self.confirmAndRestore(summary: summary)
         }
-        savesDialogNode.onDeleteTapped = { _ in
-            // Stub for upcoming delete-confirmation flow.
+        savesDialogNode.onDeleteTapped = { [weak self] summary in
+            guard let self else { return }
+            guard let summary else {
+                self.savesDialogNode.showFeedback("Select a save to delete.")
+                return
+            }
+            self.confirmAndDelete(summary: summary)
         }
         cameraNode.addChild(savesDialogNode)
+    }
+
+    private func confirmAndDelete(summary: NamedGameSaveSummary) {
+        guard let presenter = topmostPresenter() else {
+            showMessage("Could not open delete confirmation.")
+            return
+        }
+
+        let alert = UIAlertController(
+            title: "Delete this save?",
+            message: "This cannot be undone.",
+            preferredStyle: .alert
+        )
+
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+        let okAction = UIAlertAction(title: "OK", style: .destructive) { [weak self] _ in
+            guard let self else { return }
+            self.deleteNamedSnapshot(summary: summary)
+        }
+
+        alert.addAction(cancelAction)
+        alert.addAction(okAction)
+        presenter.present(alert, animated: true)
+    }
+
+    private func deleteNamedSnapshot(summary: NamedGameSaveSummary) {
+        do {
+            try SaveManager.shared.deleteNamedSnapshot(id: summary.id)
+            savesDialogNode.refreshFromPersistence()
+            savesDialogNode.selectSave(id: nil)
+        } catch {
+            if let namedSaveError = error as? NamedGameSaveError,
+               let description = namedSaveError.errorDescription {
+                showMessage(description)
+            } else {
+                showMessage("Failed to delete save.")
+            }
+        }
     }
 
     private func confirmAndRestore(summary: NamedGameSaveSummary) {

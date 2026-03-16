@@ -1,5 +1,9 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.58 (55) 2026-03-16 12:15:24
+
+Implement restore of prior Save; Phase 4 of Saves
+
 ## Version 0.7.57 (54) 2026-03-16 12:07:48
 
 Implement actual Save; phase 3 of Save flow
