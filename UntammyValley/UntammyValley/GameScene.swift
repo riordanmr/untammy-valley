@@ -2989,7 +2989,7 @@ class GameScene: SKScene {
             lines.append("Deliver food order (\(remainingMoves) moves before penalty)")
         }
 
-        if hasPendingSnowmobileTask {
+        if hasPendingSnowmobileTask && trenchedSepticTiles.count == worldConfig.septicDigTiles.count {
             lines.append("Buy snowmobiles (\(ownedSnowmobileIDs.count) of \(Self.requiredSnowmobileCount) bought)")
         }
 
