@@ -1,5 +1,13 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.54 (51) 2026-03-16 09:30:51
+
+Don't show snowmobile task icon until trench dug
+
+## Version ? (?) 2026-03-15 20:58:55
+
+Commit release notes for the first time
+
 ## Version ? (?) 2026-03-15 20:01:16
 
 Tell user about trench task
