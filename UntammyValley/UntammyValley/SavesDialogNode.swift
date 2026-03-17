@@ -56,7 +56,7 @@ final class SavesDialogNode: SKNode {
         removeAllChildren()
         rowNodeBySaveID.removeAll()
         buildUI(sceneSize: sceneSize)
-        renderSaveList()
+        renderSaveList(resetScrollOffset: false)
         updateListScrollOffset(listScrollOffset)
     }
 
@@ -68,7 +68,7 @@ final class SavesDialogNode: SKNode {
             self.selectedSaveID = nil
         }
 
-        renderSaveList()
+        renderSaveList(resetScrollOffset: false)
     }
 
     func selectSave(id: String?) {
@@ -156,11 +156,19 @@ final class SavesDialogNode: SKNode {
         }
 
         if names.contains("savesRestoreItem") {
+            guard selectedSaveSummary() != nil else {
+                showFeedback("Select a save to restore.")
+                return true
+            }
             onRestoreTapped?(selectedSaveSummary())
             return true
         }
 
         if names.contains("savesDeleteItem") {
+            guard selectedSaveSummary() != nil else {
+                showFeedback("Select a save to delete.")
+                return true
+            }
             onDeleteTapped?(selectedSaveSummary())
             return true
         }
@@ -170,6 +178,8 @@ final class SavesDialogNode: SKNode {
             if saves.contains(where: { $0.id == saveID }) {
                 selectedSaveID = saveID
                 updateSelectedState()
+                feedbackLabel.removeAllActions()
+                feedbackLabel.isHidden = true
             }
             return true
         }
@@ -295,7 +305,7 @@ final class SavesDialogNode: SKNode {
         panelNode.addChild(closeButtonNode)
         addButtonLabel(text: "Close", name: "savesCloseItem", to: closeButtonNode)
 
-        renderSaveList()
+        renderSaveList(resetScrollOffset: true)
     }
 
     private func addButtonLabel(text: String, name: String, to buttonNode: SKShapeNode) {
@@ -310,16 +320,18 @@ final class SavesDialogNode: SKNode {
         buttonNode.addChild(label)
     }
 
-    private func renderSaveList() {
+    private func renderSaveList(resetScrollOffset: Bool) {
         listContentNode.removeAllChildren()
         rowNodeBySaveID.removeAll()
 
         emptyStateLabel.isHidden = !saves.isEmpty
+        feedbackLabel.position = CGPoint(x: 0, y: listViewportRect.minY - 20)
 
         guard !saves.isEmpty else {
             listContentHeight = listViewportHeight
             listContentBaseY = 0
-            updateListScrollOffset(0)
+            updateSelectedState()
+            updateListScrollOffset(resetScrollOffset ? 0 : listScrollOffset)
             return
         }
 
@@ -347,7 +359,12 @@ final class SavesDialogNode: SKNode {
 
             let nameLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
             nameLabel.name = rowName
-            nameLabel.text = save.name
+            nameLabel.text = truncatedSaveName(
+                save.name,
+                maxWidth: rowWidth - 24,
+                fontName: "AvenirNext-Bold",
+                fontSize: 21
+            )
             nameLabel.fontSize = 21
             nameLabel.fontColor = .white
             nameLabel.horizontalAlignmentMode = .left
@@ -372,7 +389,7 @@ final class SavesDialogNode: SKNode {
 
         listContentBaseY = (listViewportHeight - listContentHeight) / 2
         updateSelectedState()
-        updateListScrollOffset(0)
+        updateListScrollOffset(resetScrollOffset ? 0 : listScrollOffset)
     }
 
     private func selectedSaveSummary() -> NamedGameSaveSummary? {
@@ -381,6 +398,28 @@ final class SavesDialogNode: SKNode {
     }
 
     private func updateSelectedState() {
+        let hasSelection = selectedSaveSummary() != nil
+        restoreButtonNode.fillColor = hasSelection
+            ? UIColor.systemBlue.withAlphaComponent(0.9)
+            : UIColor.systemBlue.withAlphaComponent(0.35)
+        restoreButtonNode.strokeColor = hasSelection
+            ? UIColor.white
+            : UIColor.white.withAlphaComponent(0.5)
+
+        deleteButtonNode.fillColor = hasSelection
+            ? UIColor.systemRed.withAlphaComponent(0.85)
+            : UIColor.systemRed.withAlphaComponent(0.35)
+        deleteButtonNode.strokeColor = hasSelection
+            ? UIColor.white
+            : UIColor.white.withAlphaComponent(0.5)
+
+        if let restoreLabel = restoreButtonNode.childNode(withName: "savesRestoreItem") as? SKLabelNode {
+            restoreLabel.fontColor = UIColor.white.withAlphaComponent(hasSelection ? 1.0 : 0.65)
+        }
+        if let deleteLabel = deleteButtonNode.childNode(withName: "savesDeleteItem") as? SKLabelNode {
+            deleteLabel.fontColor = UIColor.white.withAlphaComponent(hasSelection ? 1.0 : 0.65)
+        }
+
         for save in saves {
             guard let rowNode = rowNodeBySaveID[save.id] else { continue }
 
@@ -431,6 +470,32 @@ final class SavesDialogNode: SKNode {
             return name
         }
         return node.parent?.name
+    }
+
+    private func truncatedSaveName(_ name: String, maxWidth: CGFloat, fontName: String, fontSize: CGFloat) -> String {
+        let font = UIFont(name: fontName, size: fontSize) ?? UIFont.boldSystemFont(ofSize: fontSize)
+        let attributes: [NSAttributedString.Key: Any] = [.font: font]
+
+        func textWidth(_ text: String) -> CGFloat {
+            (text as NSString).size(withAttributes: attributes).width
+        }
+
+        guard textWidth(name) > maxWidth else {
+            return name
+        }
+
+        let ellipsis = "..."
+        let ellipsisWidth = textWidth(ellipsis)
+        guard ellipsisWidth < maxWidth else {
+            return ellipsis
+        }
+
+        var truncated = name
+        while !truncated.isEmpty && textWidth(truncated) + ellipsisWidth > maxWidth {
+            truncated.removeLast()
+        }
+
+        return truncated.isEmpty ? ellipsis : truncated + ellipsis
     }
 
     private static let savedAtFormatter: DateFormatter = {

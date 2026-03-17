@@ -410,7 +410,7 @@ class GameScene: SKScene {
     private lazy var namedSaveDefaultNameFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd HHmmss"
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         return formatter
     }()
     private lazy var teacherDeskSubjectByID: [String: String] = {
@@ -2041,14 +2041,15 @@ class GameScene: SKScene {
             preferredStyle: .alert
         )
 
-        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+        let cancelAction = UIAlertAction(title: "Cancel", style: .default)
         let okAction = UIAlertAction(title: "OK", style: .destructive) { [weak self] _ in
             guard let self else { return }
             self.deleteNamedSnapshot(summary: summary)
         }
 
-        alert.addAction(cancelAction)
         alert.addAction(okAction)
+        alert.addAction(cancelAction)
+        alert.preferredAction = okAction
         presenter.present(alert, animated: true)
     }
 
@@ -2079,14 +2080,15 @@ class GameScene: SKScene {
             preferredStyle: .alert
         )
 
-        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+        let cancelAction = UIAlertAction(title: "Cancel", style: .default)
         let okAction = UIAlertAction(title: "OK", style: .destructive) { [weak self] _ in
             guard let self else { return }
             self.restoreNamedSnapshot(summary: summary)
         }
 
-        alert.addAction(cancelAction)
         alert.addAction(okAction)
+        alert.addAction(cancelAction)
+        alert.preferredAction = okAction
         presenter.present(alert, animated: true)
     }
 
@@ -4454,7 +4456,10 @@ class GameScene: SKScene {
 
         GameState.shared.resetCoins()
         GameState.shared.resetQuizStats()
-        GameState.shared.addCoins(200)
+        // This was to have "Reset" give you 200 coins for testing the snowmobile
+        // without needing to re-earn coins by doing chores.  Its need was obviated
+        // by the ability to save/restore game state.
+        //GameState.shared.addCoins(200)
         GameState.shared.resetStudyGuideOpenedBySubject()
         updateCoinLabel()
         updateStatusWindowBody()

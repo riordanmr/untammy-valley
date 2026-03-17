@@ -1,6 +1,14 @@
 # Untammy Valley Commit Summary
 
-## Version ? (59) 2026-03-16 14:52:29
+## Version ? (?) 2026-03-16 18:04:46
+
+Update git_log_to_html.awk
+
+## Version 0.7.60 (57) 2026-03-16 15:04:54
+
+Don't list snowmobile task if snowmobile icon not active
+
+## Version 0.7.59 (56) 2026-03-16 14:52:29
 
 Implement deletion of Saves, phase 5 of Saves
 
@@ -52,7 +60,7 @@ Update git_log_to_html.awk
 
 Add food order event; no coins until deliver to customer
 
-## Version 0.7.49 (45) 2026-03-14 20:45:31
+## Version 0.7.49 (44) 2026-03-14 20:45:31
 
 Make bear proximity settings configurable
 
@@ -172,7 +180,7 @@ add walk bob animation
 
 Add bed assets and place bedroom beds
 
-## Version 0.7.22 (18) 2026-02-24 19:45:41
+## Version 0.7.22 (17) 2026-02-24 19:45:41
 
 Fix missing fryer image (wrong filename)
 
@@ -180,7 +188,7 @@ Fix missing fryer image (wrong filename)
 
 Track study guides; add reset confirmation
 
-## Version 0.7.20 (16) 2026-02-24 17:35:38
+## Version 0.7.20 (15) 2026-02-24 17:35:38
 
 Make fryer larger. Refactor sizing calculations.
 
@@ -196,7 +204,7 @@ Add teachers desks
 
 Merge branch 'main' of https://github.com/riordanmr/untammy-valley
 
-## Version ? (12) 2026-02-23 11:05:36
+## Version 0.7.18 (12) 2026-02-23 11:05:36
 
 Use different goat image
 
