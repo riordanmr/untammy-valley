@@ -1,5 +1,9 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.61 (58) 2026-03-16 20:38:43
+
+Tweak UI of Saves dialog; set coins to 0 on Reset
+
 ## Version ? (?) 2026-03-16 18:04:46
 
 Update git_log_to_html.awk

@@ -185,6 +185,40 @@ function update_bumped_project_marketing_pair(line,    lower_line, key, key_pos,
     }
 }
 
+# Handles: "project version/marketing version (58 / 0.7.61)"
+function update_project_version_paren_format(line,    lower_line, key, key_pos, remainder, paren_text, slash_pos, build_segment, version_segment, candidate) {
+    lower_line = tolower(line)
+    key = "project version/marketing version"
+    key_pos = index(lower_line, key)
+    if (!key_pos) {
+        return
+    }
+
+    remainder = substr(line, key_pos + length(key))
+    if (!match(remainder, /\([^)]*\/[^)]*\)/)) {
+        return
+    }
+
+    paren_text = substr(remainder, RSTART + 1, RLENGTH - 2)
+    slash_pos = index(paren_text, "/")
+    if (!slash_pos) {
+        return
+    }
+
+    build_segment = substr(paren_text, 1, slash_pos - 1)
+    version_segment = substr(paren_text, slash_pos + 1)
+
+    candidate = last_integer(build_segment)
+    if (candidate != "") {
+        parsed_build = candidate
+    }
+
+    candidate = last_version(version_segment)
+    if (candidate != "") {
+        parsed_version = candidate
+    }
+}
+
 function parse_version_build(text,    lines, line_count, i, line, lower_line, candidate, combo) {
     parsed_version = ""
     parsed_build = ""
@@ -200,6 +234,7 @@ function parse_version_build(text,    lines, line_count, i, line, lower_line, ca
         update_project_version_pair(line)
         update_bumped_project_marketing_pair(line)
         update_project_marketing_current_format(line)
+        update_project_version_paren_format(line)
 
         if (match(line, /[0-9]+\.[0-9]+\.[0-9]+[[:space:]]*\([0-9]+\)/)) {
             combo = substr(line, RSTART, RLENGTH)
