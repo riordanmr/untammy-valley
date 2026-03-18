@@ -709,8 +709,7 @@ class GameScene: SKScene {
         cameraNode.position = player.position
 
         configureHUD()
-        updateCoinLabel()
-        updateStatusWindowBody()
+        applyInitialGameStateForCurrentScene()
         restoreGameFromDiskIfAvailable()
         if interactableNodesByID[goatChaseSpotID]?.isHidden == false {
             placeGoatOnRandomParkingCar()
@@ -1772,7 +1771,7 @@ class GameScene: SKScene {
            completedMoveCount >= nextFoodOrderMove,
            isPlayerInBarRooms() {
             foodOrderDeadlineMove = completedMoveCount + FoodOrderEventSettings.deliverDeadlineMoves
-            messages.append("New food order! Deliver chips to the bar customer within \(FoodOrderEventSettings.deliverDeadlineMoves) moves.")
+            messages.append("New food order! Make and deliver potato chips to the bar customer within \(FoodOrderEventSettings.deliverDeadlineMoves) moves.")
             markSaveDirty()
         }
     }
@@ -4383,7 +4382,7 @@ class GameScene: SKScene {
         return TileCoordinate(column: column, row: row)
     }
 
-    private func resetGameToInitialState() {
+    private func applyInitialGameStateForCurrentScene() {
         clearMoveTarget()
         player.physicsBody?.velocity = .zero
         isMapViewMode = false
@@ -4429,7 +4428,11 @@ class GameScene: SKScene {
         updateSnowmobileOwnershipVisuals()
         nextBatSpawnMove = BatEventSettings.randomSpawnIntervalMoves()
         batDefeatDeadlineMove = nil
-        nextFoodOrderMove = FoodOrderEventSettings.randomSpawnIntervalMoves()
+        // The first time through, don't wait so long for the first food order
+        // to spawn since the player starts with no coins and needs to earn some 
+        // before they can fulfill an order. After that, use the normal random 
+        // interval for subsequent orders.
+        nextFoodOrderMove = FoodOrderEventSettings.randomSpawnIntervalMoves() / 3
         foodOrderDeadlineMove = nil
         hasShownFirstSuccessfulChipDeliveryMessage = false
         trenchedSepticTiles.removeAll()
@@ -4463,6 +4466,10 @@ class GameScene: SKScene {
         GameState.shared.resetStudyGuideOpenedBySubject()
         updateCoinLabel()
         updateStatusWindowBody()
+    }
+
+    private func resetGameToInitialState() {
+        applyInitialGameStateForCurrentScene()
         markSaveDirty()
         saveGameStateNow()
 
