@@ -1086,6 +1086,19 @@ enum WorldLoader {
             interactionRange: 100
         )
 
+        let propaneTank = InteractableConfig(
+            id: "propaneTank",
+            kind: .propaneTank,
+            spriteName: "propane_tank_marker",
+            tile: TileCoordinate(
+                column: BarLayout.riverMinColumn + 4,
+                row: BarLayout.riverTopRow + 1
+            ),
+            size: BarLayout.standardObjectSize,
+            rewardCoins: 0,
+            interactionRange: 100
+        )
+
         let parkingCars: [DecorationConfig] = [
             DecorationConfig(
                 id: "parkingCarSedan",
@@ -1116,7 +1129,7 @@ enum WorldLoader {
             )
         ]
 
-        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, studyGuide, searsCatalog, mailbox, envelope, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, goatChaseSpot, barCustomer] + snowmobiles
+        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, studyGuide, searsCatalog, mailbox, envelope, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, goatChaseSpot, barCustomer, propaneTank] + snowmobiles
 
         let staticDecorations = [
             carrollSign,
@@ -1143,6 +1156,7 @@ enum WorldLoader {
             doorwayFloorOverrides: doorwayFloorOverrides,
             barInteriorRegions: barInteriorRegions,
             carrollSalesRegion: BarLayout.carrollSalesRegion,
+            vehicleAssemblyRegion: BarLayout.vehicleAssemblyRegion,
             bearDecorationTile: BarLayout.bearDecorationTile,
             recoveryBedTile: BarLayout.bedTiles[0],
             septicDigTiles: BarLayout.septicDigTiles,

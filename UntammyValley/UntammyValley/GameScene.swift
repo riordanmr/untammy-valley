@@ -278,6 +278,7 @@ class GameScene: SKScene {
     private var warningToiletIconNode: SKSpriteNode!
     private var warningFoodOrderIconNode: SKSpriteNode!
     private var warningTrenchIconNode: SKSpriteNode!
+    private var warningPropaneIconNode: SKSpriteNode!
     private var makerLoadedIndicatorNode: SKShapeNode?
     private var bucketSelectedIndicatorNode: SKShapeNode?
     private var bucketPotatoIconNode: SKSpriteNode?
@@ -309,6 +310,7 @@ class GameScene: SKScene {
     private let tennisRacketID = "tennisRacket"
     private let bedroomBatID = "bedroomBat"
     private let shovelID = "shovel"
+    private let propaneTankID = "propaneTank"
     private let mailboxID = "mailbox"
     private let barCustomerID = "barCustomer"
     private let envelopeID = "envelope"
@@ -363,6 +365,7 @@ class GameScene: SKScene {
     private var hasShownToiletPenaltyStartMessage = false
     private var isTennisRacketCarried = false
     private var isShovelCarried = false
+    private var isPropaneTankCarried = false
     private var isEnvelopeCarried = false
     private var carriedRaftID: String?
     private var riddenRaftID: String?
@@ -376,6 +379,8 @@ class GameScene: SKScene {
     private var nextFoodOrderMove = FoodOrderEventSettings.randomSpawnIntervalMoves()
     private var foodOrderDeadlineMove: Int?
     private var hasShownFirstSuccessfulChipDeliveryMessage = false
+    private var hasShownFirstRaftDeliveryHint = false
+    private var hasPropaneTankBeenDelivered = false
     private var trenchedSepticTiles: Set<TileCoordinate> = []
     private var hasAwardedSepticCompletionBonus = false
     private var toiletCleanTexture: SKTexture?
@@ -756,6 +761,10 @@ class GameScene: SKScene {
         }
         if isShovelCarried, let shovelNode = interactableNodesByID[shovelID] {
             shovelNode.position = CGPoint(x: player.position.x + 2, y: player.position.y - 24)
+        }
+        if isPropaneTankCarried, let propaneTankNode = interactableNodesByID[propaneTankID] {
+            propaneTankNode.position = CGPoint(x: player.position.x + 24, y: player.position.y - 12)
+            propaneTankNode.isHidden = false
         }
         if isEnvelopeCarried, let envelopeNode = interactableNodesByID[envelopeID] {
             envelopeNode.position = CGPoint(x: player.position.x + 24, y: player.position.y - 4)
@@ -1374,6 +1383,9 @@ class GameScene: SKScene {
                 } else if config.kind == .shovel {
                     let shovelTexture = makeLabeledMarkerTexture(size: config.size, emoji: "S", color: .systemGray)
                     node = SKSpriteNode(texture: shovelTexture, color: .clear, size: config.size)
+                } else if config.kind == .propaneTank {
+                    let propaneTexture = makeLabeledMarkerTexture(size: config.size, emoji: "P", color: .systemGray)
+                    node = SKSpriteNode(texture: propaneTexture, color: .clear, size: config.size)
                 } else if config.kind == .raft {
                     let raftTexture = makeLabeledMarkerTexture(size: config.size, emoji: "R", color: .systemBrown)
                     node = SKSpriteNode(texture: raftTexture, color: .clear, size: config.size)
@@ -1799,7 +1811,12 @@ class GameScene: SKScene {
 
         if deliveredCount > 0 {
             for _ in 0..<deliveredCount {
-                messages.append("Your raft has been delivered")
+                if hasShownFirstRaftDeliveryHint {
+                    messages.append("Your raft has been delivered")
+                } else {
+                    messages.append("Your raft has been delivered. Use it to fetch the propane tank. Bring the tank to the vehicle assembly area.")
+                    hasShownFirstRaftDeliveryHint = true
+                }
             }
             markSaveDirty()
         }
@@ -2715,6 +2732,16 @@ class GameScene: SKScene {
         warningTrenchIconNode.isHidden = true
         warningIconContainerNode.addChild(warningTrenchIconNode)
 
+        if let propaneTexture = loadTexture(named: "propane_tank_marker") {
+            warningPropaneIconNode = SKSpriteNode(texture: propaneTexture, color: .clear, size: iconSize)
+        } else {
+            let fallbackTexture = makeLabeledMarkerTexture(size: iconSize, emoji: "P", color: .systemOrange)
+            warningPropaneIconNode = SKSpriteNode(texture: fallbackTexture, color: .clear, size: iconSize)
+        }
+        warningPropaneIconNode.name = "warningPropaneIcon"
+        warningPropaneIconNode.isHidden = true
+        warningIconContainerNode.addChild(warningPropaneIconNode)
+
         updateWarningIcons()
     }
 
@@ -2754,7 +2781,35 @@ class GameScene: SKScene {
             icons.append(warningTrenchIconNode)
         }
 
+        if isPropaneTankTaskActive() {
+            icons.append(warningPropaneIconNode)
+        }
+
         return icons
+    }
+
+    private func isPropaneTankTaskActive() -> Bool {
+        guard hasShownFirstRaftDeliveryHint, !hasPropaneTankBeenDelivered else {
+            return false
+        }
+
+        if let carriedRaftID,
+           interactableNodesByID[carriedRaftID] != nil {
+            return true
+        }
+
+        if let riddenRaftID,
+           interactableNodesByID[riddenRaftID] != nil {
+            return true
+        }
+
+        return interactableConfigsByID.contains { id, config in
+            guard config.kind == .raft,
+                  let raftNode = interactableNodesByID[id] else {
+                return false
+            }
+            return !raftNode.isHidden
+        }
     }
 
     private func warningIconStackContains(_ hudLocation: CGPoint) -> Bool {
@@ -2800,6 +2855,9 @@ class GameScene: SKScene {
         }
         if !activeIcons.contains(warningTrenchIconNode) {
             warningTrenchIconNode.isHidden = true
+        }
+        if !activeIcons.contains(warningPropaneIconNode) {
+            warningPropaneIconNode.isHidden = true
         }
     }
 
@@ -2996,6 +3054,10 @@ class GameScene: SKScene {
 
         if hasShownFirstSuccessfulChipDeliveryMessage && trenchedSepticTiles.count < worldConfig.septicDigTiles.count {
             lines.append("Dig a trench between the septic systems")
+        }
+
+        if isPropaneTankTaskActive() {
+            lines.append("Use the raft to fetch the propane tank; bring the propane tank to the vehicle assembly area.")
         }
 
         return lines
@@ -3217,6 +3279,9 @@ class GameScene: SKScene {
             return
         case .shovel:
             handleShovelInteraction(node: node)
+            return
+        case .propaneTank:
+            handlePropaneTankInteraction(node: node)
             return
         case .raft:
             handleRaftInteraction(interactableID: interactableID, node: node)
@@ -3510,7 +3575,7 @@ class GameScene: SKScene {
             showMessage(baseMessage)
         } else {
             hasShownFirstSuccessfulChipDeliveryMessage = true
-            showMessage(baseMessage + "\nNext goal: Earn money to buy a snowblower by digging a trench between the septic systems.")
+            showMessage(baseMessage + "\nNext goal: Earn money to buy a snowmobile by digging a trench between the septic systems.")
         }
         markSaveDirty()
     }
@@ -3751,6 +3816,26 @@ class GameScene: SKScene {
         showMessage("Picked up shovel.")
     }
 
+    private func handlePropaneTankInteraction(node: SKSpriteNode) {
+        if isPropaneTankCarried {
+            isPropaneTankCarried = false
+            dropCarriedObject(node, interactableID: propaneTankID)
+            if !hasPropaneTankBeenDelivered,
+               let playerTile = tileCoordinate(for: player.position),
+               tileRegionContains(worldConfig.vehicleAssemblyRegion, tile: playerTile) {
+                hasPropaneTankBeenDelivered = true
+                showMessage("Propane tank delivered to the vehicle assembly area!")
+            } else {
+                showMessage("Dropped propane tank.")
+            }
+            markSaveDirty()
+            return
+        }
+
+        isPropaneTankCarried = true
+        showMessage("Picked up propane tank.")
+    }
+
     private func handleSepticDigTap(at scenePoint: CGPoint) -> Bool {
         guard let tappedTile = tileCoordinate(for: scenePoint),
               worldConfig.septicDigTiles.contains(tappedTile) else {
@@ -3888,11 +3973,13 @@ class GameScene: SKScene {
             isToiletBowlBrushCarried: isToiletBowlBrushCarried,
             isTennisRacketCarried: isTennisRacketCarried,
             isShovelCarried: isShovelCarried,
+            isPropaneTankCarried: isPropaneTankCarried,
             isEnvelopeCarried: isEnvelopeCarried,
             carriedRaftID: carriedRaftID,
             riddenRaftID: riddenRaftID,
             pendingRaftDeliveryMoves: pendingRaftDeliveryMoves,
             nextRaftSequenceID: nextRaftSequenceID,
+            hasShownFirstRaftDeliveryHint: hasShownFirstRaftDeliveryHint,
             ownedSnowmobileIDs: Array(ownedSnowmobileIDs),
             selectedOwnedSnowmobileID: selectedOwnedSnowmobileID,
             mountedSnowmobileID: mountedSnowmobileID,
@@ -3907,7 +3994,8 @@ class GameScene: SKScene {
             foodOrderDeadlineMove: foodOrderDeadlineMove,
             hasShownFirstSuccessfulChipDeliveryMessage: hasShownFirstSuccessfulChipDeliveryMessage,
             trenchedSepticTiles: Array(trenchedSepticTiles),
-            hasAwardedSepticCompletionBonus: hasAwardedSepticCompletionBonus
+            hasAwardedSepticCompletionBonus: hasAwardedSepticCompletionBonus,
+            hasPropaneTankBeenDelivered: hasPropaneTankBeenDelivered
         )
     }
 
@@ -3958,14 +4046,19 @@ class GameScene: SKScene {
         isToiletBowlBrushCarried = snapshot.isToiletBowlBrushCarried
         isTennisRacketCarried = snapshot.isTennisRacketCarried
         isShovelCarried = snapshot.isShovelCarried
+        isPropaneTankCarried = snapshot.isPropaneTankCarried ?? false
         isEnvelopeCarried = snapshot.isEnvelopeCarried ?? false
         carriedRaftID = snapshot.carriedRaftID
         riddenRaftID = snapshot.riddenRaftID
         pendingRaftDeliveryMoves = snapshot.pendingRaftDeliveryMoves ?? []
         nextRaftSequenceID = max(1, snapshot.nextRaftSequenceID ?? nextRaftSequenceID)
+        hasShownFirstRaftDeliveryHint = snapshot.hasShownFirstRaftDeliveryHint ?? false
 
         if isEnvelopeCarried {
             interactableNodesByID[envelopeID]?.isHidden = false
+        }
+        if isPropaneTankCarried {
+            interactableNodesByID[propaneTankID]?.isHidden = false
         }
         if let carriedRaftID,
            let raftNode = interactableNodesByID[carriedRaftID] {
@@ -3990,6 +4083,7 @@ class GameScene: SKScene {
 
         trenchedSepticTiles = Set(snapshot.trenchedSepticTiles.filter { worldConfig.septicDigTiles.contains($0) })
         hasAwardedSepticCompletionBonus = snapshot.hasAwardedSepticCompletionBonus
+        hasPropaneTankBeenDelivered = snapshot.hasPropaneTankBeenDelivered ?? false
 
         resetSepticDigTiles()
         for tile in trenchedSepticTiles {
@@ -4416,11 +4510,13 @@ class GameScene: SKScene {
         updateToiletVisualState()
         isTennisRacketCarried = false
         isShovelCarried = false
+        isPropaneTankCarried = false
         isEnvelopeCarried = false
         carriedRaftID = nil
         riddenRaftID = nil
         pendingRaftDeliveryMoves.removeAll()
         nextRaftSequenceID = 1
+        hasShownFirstRaftDeliveryHint = false
         ownedSnowmobileIDs.removeAll()
         selectedOwnedSnowmobileID = nil
         mountedSnowmobileID = nil

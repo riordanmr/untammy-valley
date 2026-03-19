@@ -1,5 +1,17 @@
 # Untammy Valley Commit Summary
 
+## Version ? (?) 2026-03-18 15:37:30
+
+Update GameScene.swift
+
+## Version 0.7.62 (58) 2026-03-18 15:36:57
+
+Refactor initialization code to call Reset code
+
+## Version ? (?) 2026-03-18 15:29:02
+
+git_log_to_html.awk: handle yet another commit version format
+
 ## Version 0.7.61 (58) 2026-03-16 20:38:43
 
 Tweak UI of Saves dialog; set coins to 0 on Reset

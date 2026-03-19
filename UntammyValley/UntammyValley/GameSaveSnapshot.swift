@@ -39,11 +39,13 @@ struct GameSaveSnapshot: Codable {
     let isToiletBowlBrushCarried: Bool
     let isTennisRacketCarried: Bool
     let isShovelCarried: Bool
+    let isPropaneTankCarried: Bool?
     let isEnvelopeCarried: Bool?
     let carriedRaftID: String?
     let riddenRaftID: String?
     let pendingRaftDeliveryMoves: [Int]?
     let nextRaftSequenceID: Int?
+    let hasShownFirstRaftDeliveryHint: Bool?
 
     let ownedSnowmobileIDs: [String]
     let selectedOwnedSnowmobileID: String?
@@ -65,4 +67,5 @@ struct GameSaveSnapshot: Codable {
 
     let trenchedSepticTiles: [TileCoordinate]
     let hasAwardedSepticCompletionBonus: Bool
+    let hasPropaneTankBeenDelivered: Bool?
 }

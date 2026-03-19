@@ -70,6 +70,7 @@ enum InteractableKind {
     case bedroomBat
     case shovel
     case raft
+    case propaneTank
 }
 
 struct InteractableConfig {
@@ -115,6 +116,7 @@ struct WorldConfig {
     let doorwayFloorOverrides: [FloorRegion]
     let barInteriorRegions: [TileRegion]
     let carrollSalesRegion: TileRegion
+    let vehicleAssemblyRegion: TileRegion
     let bearDecorationTile: TileCoordinate
     let recoveryBedTile: TileCoordinate
     let septicDigTiles: Set<TileCoordinate>
