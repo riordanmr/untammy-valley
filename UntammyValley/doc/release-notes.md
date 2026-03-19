@@ -1,5 +1,9 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.63 (60) 2026-03-18 20:42:37
+
+Add propane tank and task to deliver it
+
 ## Version ? (?) 2026-03-18 15:37:30
 
 Update GameScene.swift

@@ -3492,13 +3492,6 @@ class GameScene: SKScene {
             return
         }
 
-        if chipsBasketChipCount > 0 {
-            chipsBasketChipCount = 0
-            updateFoodStateIcons()
-            showMessage("Emptied chips from basket.")
-            return
-        }
-
         isChipsBasketCarried = false
         dropCarriedObject(node, interactableID: chipsBasketID)
         showMessage("Dropped basket.")
