@@ -15,6 +15,10 @@ function trim(value) {
     return value
 }
 
+function is_iso_date_line(line) {
+    return line ~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][[:space:]][0-9][0-9]:[0-9][0-9]:[0-9][0-9][[:space:]][+-][0-9][0-9][0-9][0-9][[:space:]]*$/
+}
+
 function html_escape(value, escaped) {
     escaped = value
     gsub(/&/, "\\&amp;", escaped)
@@ -23,22 +27,24 @@ function html_escape(value, escaped) {
     return escaped
 }
 
-function last_version(text,    value, remainder) {
+function last_version(text,    value, parts, part_count, i) {
     value = ""
-    remainder = text
-    while (match(remainder, /[0-9]+\.[0-9]+\.[0-9]+/)) {
-        value = substr(remainder, RSTART, RLENGTH)
-        remainder = substr(remainder, RSTART + RLENGTH)
+    part_count = split(text, parts, /[^0-9.]+/)
+    for (i = 1; i <= part_count; i++) {
+        if (parts[i] ~ /^[0-9]+\.[0-9]+\.[0-9]+$/) {
+            value = parts[i]
+        }
     }
     return value
 }
 
-function last_integer(text,    value, remainder) {
+function last_integer(text,    value, parts, part_count, i) {
     value = ""
-    remainder = text
-    while (match(remainder, /[0-9]+/)) {
-        value = substr(remainder, RSTART, RLENGTH)
-        remainder = substr(remainder, RSTART + RLENGTH)
+    part_count = split(text, parts, /[^0-9]+/)
+    for (i = 1; i <= part_count; i++) {
+        if (parts[i] ~ /^[0-9]+$/) {
+            value = parts[i]
+        }
     }
     return value
 }
@@ -58,6 +64,9 @@ function update_version_from_key(line, key,    key_pos, remainder, candidate) {
     }
 
     remainder = substr(line, key_pos + length(key))
+    if (index(remainder, ")")) {
+        remainder = substr(remainder, 1, index(remainder, ")") - 1)
+    }
     candidate = last_version(remainder)
     if (candidate != "") {
         parsed_version = candidate
@@ -88,7 +97,7 @@ function update_build_from_key(line, key, stop_key,    lower_line, key_pos, stop
         }
     }
 
-    candidate = first_integer(remainder)
+    candidate = last_integer(remainder)
     if (candidate != "") {
         parsed_build = candidate
     }
@@ -248,7 +257,7 @@ function parse_version_build(text,    lines, line_count, i, line, lower_line, ca
             }
         }
 
-        if (match(lower_line, /(version|v)[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+/)) {
+        if (index(lower_line, "marketing_version") == 0 && index(lower_line, "current_project_version") == 0 && match(lower_line, /(^|[^[:alnum:]_])(version|v)[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+/)) {
             candidate = substr(line, RSTART, RLENGTH)
             candidate = last_version(candidate)
             if (candidate != "") {
@@ -346,6 +355,10 @@ BEGIN {
 }
 
 {
+    if (record_line_count > 0 && is_iso_date_line($0)) {
+        emit_record()
+    }
+
     if (record_line_count == 0 && trim($0) == "") {
         next
     }

@@ -1,5 +1,9 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.64 (61) 2026-03-19 13:30:33
+
+Tapping full chips basket no longer empties chips
+
 ## Version 0.7.63 (60) 2026-03-18 20:42:37
 
 Add propane tank and task to deliver it
@@ -28,7 +32,7 @@ Update git_log_to_html.awk
 
 Don't list snowmobile task if snowmobile icon not active
 
-## Version 0.7.59 (56) 2026-03-16 14:52:29
+## Version ? (59) 2026-03-16 14:52:29
 
 Implement deletion of Saves, phase 5 of Saves
 
@@ -40,7 +44,7 @@ Implement restore of prior Save; Phase 4 of Saves
 
 Implement actual Save; phase 3 of Save flow
 
-## Version 0.7.56 (53) 2026-03-16 11:52:38
+## Version ? (53) 2026-03-16 11:52:38
 
 Add dummy Saves dialog
 
@@ -76,15 +80,15 @@ Widen bathroom door to work around player unable to enter
 
 Update git_log_to_html.awk
 
-## Version 0.7.50 (46) 2026-03-15 11:04:49
+## Version ? (46) 2026-03-15 11:04:49
 
 Add food order event; no coins until deliver to customer
 
-## Version 0.7.49 (44) 2026-03-14 20:45:31
+## Version 0.7.49 (45) 2026-03-14 20:45:31
 
 Make bear proximity settings configurable
 
-## Version 0.7.48 (44) 2026-03-14 20:25:45
+## Version ? (44) 2026-03-14 20:25:45
 
 Add bear encounter
 
@@ -104,11 +108,11 @@ Update .gitignore
 
 Add git_log_to_html.awk to create release notes
 
-## Version 0.7.45 (41) 2026-03-13 14:40:18
+## Version ? (41) 2026-03-13 14:40:18
 
 Add vehicle assembly area
 
-## Version 0.7.44 (40) 2026-03-13 11:29:00
+## Version ? (40) 2026-03-13 11:29:00
 
 Configurable raft delivery interval
 
@@ -116,7 +120,7 @@ Configurable raft delivery interval
 
 Add raft delivery and movement
 
-## Version 0.7.42 (38) 2026-03-12 16:56:07
+## Version ? (38) 2026-03-12 16:56:07
 
 Extract Sears catalog flow/UI to separate files
 
@@ -124,7 +128,7 @@ Extract Sears catalog flow/UI to separate files
 
 Extract Sears catalog UI to new file
 
-## Version 0.7.40 (36) 2026-03-12 16:25:27
+## Version ? (36) 2026-03-12 16:25:27
 
 Add mailbox & envelope, and ability to order from catalog
 
@@ -132,11 +136,11 @@ Add mailbox & envelope, and ability to order from catalog
 
 Resize unnecessarily large river assets
 
-## Version 0.7.38 (34) 2026-03-12 12:07:14
+## Version ? (34) 2026-03-12 12:07:14
 
 Add Sears catalog, but it doesn't do anything yet
 
-## Version 0.7.37 (33) 2026-03-11 21:25:40
+## Version ? (33) 2026-03-11 21:25:40
 
 Add river
 
@@ -144,7 +148,7 @@ Add river
 
 Extend the world to the left by 40 tiles
 
-## Version 0.7.35 (31) 2026-03-11 14:22:04
+## Version ? (31) 2026-03-11 14:22:04
 
 open up space at top for future river
 
@@ -152,7 +156,7 @@ open up space at top for future river
 
 Remove order table
 
-## Version 0.7.33 (29) 2026-03-10 15:57:41
+## Version ? (29) 2026-03-10 15:57:41
 
 Fix movement bug: constant oscillation when run into certain objects
 
@@ -160,23 +164,23 @@ Fix movement bug: constant oscillation when run into certain objects
 
 Add barstool and patron on stool
 
-## Version 0.7.32 (28) 2026-03-10 12:29:21
+## Version 0.7.31 (28) 2026-03-10 12:29:21
 
 Change iOS deployment target to iOS 18.6.
 
-## Version 0.7.31 (?) 2026-03-10 11:45:07
+## Version ? (?) 2026-03-10 11:45:07
 
 Add bar and order table
 
-## Version 0.7.30 (26) 2026-03-08 12:53:00
+## Version ? (26) 2026-03-08 12:53:00
 
 Add tray. Fix click-on-object move bug.
 
-## Version 0.7.29 (25) 2026-03-07 18:33:08
+## Version ? (25) 2026-03-07 18:33:08
 
 Add cars in front of bar, and place goat on top of one
 
-## Version 0.7.28 (24) 2026-03-06 18:35:05
+## Version ? (24) 2026-03-06 18:35:05
 
 When an object is dropped, put it on an adjacent square
 
@@ -184,23 +188,23 @@ When an object is dropped, put it on an adjacent square
 
 Enable String Catalog Symbol Generation
 
-## Version 0.7.27 (22) 2026-03-03 20:25:57
+## Version ? (22) 2026-03-03 20:25:57
 
 Resize fryer, grinder, and bin assets and tweak positions
 
-## Version 0.7.25 (20) 2026-03-01 14:29:32
+## Version 0.7.26 (20) 2026-03-01 14:29:32
 
 auto-move player if click on an object too far to interact
 
-## Version 0.7.25 (20) 2026-03-01 14:20:46
+## Version ? (20) 2026-03-01 14:20:46
 
 add walk bob animation
 
-## Version 0.7.24 (19) 2026-03-01 13:42:45
+## Version ? (19) 2026-03-01 13:42:45
 
 Add bed assets and place bedroom beds
 
-## Version 0.7.22 (17) 2026-02-24 19:45:41
+## Version 0.7.23 (18) 2026-02-24 19:45:41
 
 Fix missing fryer image (wrong filename)
 
@@ -208,11 +212,11 @@ Fix missing fryer image (wrong filename)
 
 Track study guides; add reset confirmation
 
-## Version 0.7.20 (15) 2026-02-24 17:35:38
+## Version 0.7.21 (16) 2026-02-24 17:35:38
 
 Make fryer larger. Refactor sizing calculations.
 
-## Version 0.7.20 (15) 2026-02-23 18:13:22
+## Version ? (15) 2026-02-23 18:13:22
 
 Add in-game quiz system and UI
 
@@ -232,7 +236,7 @@ Use different goat image
 
 Add MIT License to the project
 
-## Version 0.7.17 (12) 2026-02-23 10:19:35
+## Version ? (12) 2026-02-23 10:19:35
 
 Use ScrollTextDialog for Status window
 
