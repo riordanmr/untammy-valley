@@ -27,24 +27,22 @@ function html_escape(value, escaped) {
     return escaped
 }
 
-function last_version(text,    value, parts, part_count, i) {
+function last_version(text,    value, remainder) {
     value = ""
-    part_count = split(text, parts, /[^0-9.]+/)
-    for (i = 1; i <= part_count; i++) {
-        if (parts[i] ~ /^[0-9]+\.[0-9]+\.[0-9]+$/) {
-            value = parts[i]
-        }
+    remainder = text
+    while (match(remainder, /[0-9]+\.[0-9]+\.[0-9]+/)) {
+        value = substr(remainder, RSTART, RLENGTH)
+        remainder = substr(remainder, RSTART + RLENGTH)
     }
     return value
 }
 
-function last_integer(text,    value, parts, part_count, i) {
+function last_integer(text,    value, remainder) {
     value = ""
-    part_count = split(text, parts, /[^0-9]+/)
-    for (i = 1; i <= part_count; i++) {
-        if (parts[i] ~ /^[0-9]+$/) {
-            value = parts[i]
-        }
+    remainder = text
+    while (match(remainder, /[0-9]+/)) {
+        value = substr(remainder, RSTART, RLENGTH)
+        remainder = substr(remainder, RSTART + RLENGTH)
     }
     return value
 }
@@ -228,50 +226,53 @@ function update_project_version_paren_format(line,    lower_line, key, key_pos, 
     }
 }
 
-function parse_version_build(text,    lines, line_count, i, line, lower_line, candidate, combo) {
+function parse_line_for_version_build(line,    lower_line, candidate, combo) {
+    lower_line = tolower(line)
+
+    update_version_from_key(line, "MARKETING_VERSION")
+    update_version_from_key(line, "marketing version")
+    update_build_from_key(line, "CURRENT_PROJECT_VERSION", "MARKETING_VERSION")
+    update_project_version_pair(line)
+    update_bumped_project_marketing_pair(line)
+    update_project_marketing_current_format(line)
+    update_project_version_paren_format(line)
+
+    if (match(line, /[0-9]+\.[0-9]+\.[0-9]+[[:space:]]*\([0-9]+\)/)) {
+        combo = substr(line, RSTART, RLENGTH)
+        candidate = last_version(combo)
+        if (candidate != "") {
+            parsed_version = candidate
+        }
+        candidate = last_integer(combo)
+        if (candidate != "") {
+            parsed_build = candidate
+        }
+    }
+
+    if (index(lower_line, "marketing_version") == 0 && index(lower_line, "current_project_version") == 0 && match(lower_line, /(^|[^[:alnum:]_])(version|v)[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+/)) {
+        candidate = substr(line, RSTART, RLENGTH)
+        candidate = last_version(candidate)
+        if (candidate != "") {
+            parsed_version = candidate
+        }
+    }
+
+    if (match(lower_line, /build[^0-9]*[0-9]+/)) {
+        candidate = substr(line, RSTART, RLENGTH)
+        candidate = last_integer(candidate)
+        if (candidate != "") {
+            parsed_build = candidate
+        }
+    }
+}
+
+function parse_version_build(text,    lines, line_count, i) {
     parsed_version = ""
     parsed_build = ""
 
     line_count = split(text, lines, /\n/)
     for (i = 1; i <= line_count; i++) {
-        line = lines[i]
-        lower_line = tolower(line)
-
-        update_version_from_key(line, "MARKETING_VERSION")
-        update_version_from_key(line, "marketing version")
-        update_build_from_key(line, "CURRENT_PROJECT_VERSION", "MARKETING_VERSION")
-        update_project_version_pair(line)
-        update_bumped_project_marketing_pair(line)
-        update_project_marketing_current_format(line)
-        update_project_version_paren_format(line)
-
-        if (match(line, /[0-9]+\.[0-9]+\.[0-9]+[[:space:]]*\([0-9]+\)/)) {
-            combo = substr(line, RSTART, RLENGTH)
-            candidate = last_version(combo)
-            if (candidate != "") {
-                parsed_version = candidate
-            }
-            candidate = last_integer(combo)
-            if (candidate != "") {
-                parsed_build = candidate
-            }
-        }
-
-        if (index(lower_line, "marketing_version") == 0 && index(lower_line, "current_project_version") == 0 && match(lower_line, /(^|[^[:alnum:]_])(version|v)[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+/)) {
-            candidate = substr(line, RSTART, RLENGTH)
-            candidate = last_version(candidate)
-            if (candidate != "") {
-                parsed_version = candidate
-            }
-        }
-
-        if (match(lower_line, /build[^0-9]*[0-9]+/)) {
-            candidate = substr(line, RSTART, RLENGTH)
-            candidate = last_integer(candidate)
-            if (candidate != "") {
-                parsed_build = candidate
-            }
-        }
+        parse_line_for_version_build(lines[i])
     }
 }
 
