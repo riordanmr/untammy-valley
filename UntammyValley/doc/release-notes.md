@@ -1,5 +1,9 @@
 # Untammy Valley Commit Summary
 
+## Version ? (?) 2026-03-22 14:00:16
+
+fix git_log_to_html.awk to handle another version format
+
 ## Version 0.7.65 (62) 2026-03-22 11:57:47
 
 Add MessageLog and in-game Log viewer
@@ -40,7 +44,7 @@ Update git_log_to_html.awk
 
 Don't list snowmobile task if snowmobile icon not active
 
-## Version 0.7.59 (59) 2026-03-16 14:52:29
+## Version 0.7.59 (56) 2026-03-16 14:52:29
 
 Implement deletion of Saves, phase 5 of Saves
 
@@ -176,7 +180,7 @@ Add barstool and patron on stool
 
 Change iOS deployment target to iOS 18.6.
 
-## Version 0.7.31 (?) 2026-03-10 11:45:07
+## Version 0.7.31 (27) 2026-03-10 11:45:07
 
 Add bar and order table
 
