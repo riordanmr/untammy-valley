@@ -388,6 +388,7 @@ class GameScene: SKScene {
 
     private var isStatusWindowVisible = false
     private var isPendingTasksWindowVisible = false
+    private var isLogWindowVisible = false
     private var isStudySubjectPromptVisible = false
     private var isMapViewMode = false
     private var isDraggingMap = false
@@ -963,6 +964,11 @@ class GameScene: SKScene {
         if hudNodes.contains(where: { $0.name == "menuSavesItem" || $0.parent?.name == "menuSavesItem" }) {
             savesDialogNode.refreshFromPersistence()
             savesDialogNode.setVisible(true)
+            setMenuVisible(false)
+            return
+        }
+        if hudNodes.contains(where: { $0.name == "menuLogItem" || $0.parent?.name == "menuLogItem" }) {
+            openLogWindow()
             setMenuVisible(false)
             return
         }
@@ -2000,6 +2006,7 @@ class GameScene: SKScene {
         scrollTextDialogNode.onClose = { [weak self] in
             self?.isStatusWindowVisible = false
             self?.isPendingTasksWindowVisible = false
+            self?.isLogWindowVisible = false
         }
         cameraNode.addChild(scrollTextDialogNode)
     }
@@ -2886,7 +2893,7 @@ class GameScene: SKScene {
 
         // Slightly narrower panel so it stays on-screen; compute X so panel sits left of the hamburger button
         let menuPanelWidth: CGFloat = 190
-        let menuPanelHeight: CGFloat = 360
+        let menuPanelHeight: CGFloat = 408
         menuPanelNode = SKShapeNode(rectOf: CGSize(width: menuPanelWidth, height: menuPanelHeight), cornerRadius: 9)
         menuPanelNode.name = "menuPanel"
         menuPanelNode.fillColor = UIColor.black.withAlphaComponent(0.6)
@@ -2902,7 +2909,7 @@ class GameScene: SKScene {
         panelCenterX = min(panelCenterX, maxRightCenterX)
         panelCenterX = max(panelCenterX, minLeftCenterX)
 
-        menuPanelNode.position = CGPoint(x: panelCenterX, y: topY - 133)
+        menuPanelNode.position = CGPoint(x: panelCenterX, y: topY - 155)
         menuPanelNode.zPosition = ZLayer.menuPanel
         menuPanelNode.isHidden = true
         cameraNode.addChild(menuPanelNode)
@@ -2933,17 +2940,20 @@ class GameScene: SKScene {
         }
 
         // Create menu buttons (invisible targets) and add them to the panel
-        let introButton = makeMenuButton(name: "menuIntroItem", labelText: "Intro", y: 110)
+        let introButton = makeMenuButton(name: "menuIntroItem", labelText: "Intro", y: 154)
         menuPanelNode.addChild(introButton)
 
-        let statusButton = makeMenuButton(name: "menuStatusItem", labelText: "Status", y: 66)
+        let statusButton = makeMenuButton(name: "menuStatusItem", labelText: "Status", y: 110)
         menuPanelNode.addChild(statusButton)
 
-        let settingsButton = makeMenuButton(name: "menuSettingsItem", labelText: "Settings", y: 22)
+        let settingsButton = makeMenuButton(name: "menuSettingsItem", labelText: "Settings", y: 66)
         menuPanelNode.addChild(settingsButton)
 
-        let savesButton = makeMenuButton(name: "menuSavesItem", labelText: "Saves", y: -22)
+        let savesButton = makeMenuButton(name: "menuSavesItem", labelText: "Saves", y: 22)
         menuPanelNode.addChild(savesButton)
+
+        let logButton = makeMenuButton(name: "menuLogItem", labelText: "Log", y: -22)
+        menuPanelNode.addChild(logButton)
 
         let resetButton = makeMenuButton(name: "menuResetItem", labelText: "Reset", y: -66)
         menuPanelNode.addChild(resetButton)
@@ -2997,6 +3007,17 @@ class GameScene: SKScene {
         let clampedY: CGFloat = minY <= maxY ? min(max(cameraNode.position.y, minY), maxY) : 0
 
         cameraNode.position = CGPoint(x: clampedX, y: clampedY)
+    }
+
+    // MARK: - Log Dialog
+    private func openLogWindow() {
+        isLogWindowVisible = true
+        isStatusWindowVisible = false
+        isPendingTasksWindowVisible = false
+        let logMessages = MessageLog.shared.messages
+        let lines: [String] = logMessages.isEmpty ? ["No messages recorded yet."] : logMessages
+        scrollTextDialogNode.configure(title: "Log - newest messages first", lines: lines, paragraphSpacing: 0.0, closeButtonTitle: "Close")
+        scrollTextDialogNode.setVisible(true)
     }
 
     // MARK: - Status Dialog
@@ -4577,6 +4598,7 @@ class GameScene: SKScene {
     }
 
     func showMessage(_ text: String) {
+        MessageLog.shared.append(text)
         messageLabel.removeAllActions()
         messageLabel.text = text
         messageLabel.alpha = 1

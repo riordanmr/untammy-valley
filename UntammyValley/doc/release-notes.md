@@ -1,5 +1,9 @@
 # Untammy Valley Commit Summary
 
+## Version ? (?) 2026-03-21 15:27:42
+
+Fix git_log_to_html.awk to handle yet another version/build syntax
+
 ## Version 0.7.64 (61) 2026-03-19 13:30:33
 
 Tapping full chips basket no longer empties chips

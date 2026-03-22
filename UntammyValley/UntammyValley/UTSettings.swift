@@ -55,7 +55,9 @@ final class UTSettings {
         var septicTrenchTileRewardCoins: Int = 1
         var septicCompletionBonusCoins: Int = 100
 
-        var batEscapePenaltyMaxCoins: Int = 200
+        var batEscapePenaltyMaxCoins: Int = 100
+
+        var logMessageMaxCount: Int = 50
 
         mutating func normalize() {
             bearProximityColumns = max(1, bearProximityColumns)
@@ -89,6 +91,7 @@ final class UTSettings {
             septicCompletionBonusCoins = max(0, septicCompletionBonusCoins)
 
             batEscapePenaltyMaxCoins = max(0, batEscapePenaltyMaxCoins)
+            logMessageMaxCount = max(1, logMessageMaxCount)
         }
     }
 
@@ -123,6 +126,8 @@ final class UTSettings {
         case septicTrenchTileRewardCoins
         case septicCompletionBonusCoins
 
+        case logMessageMaxCount
+
         var title: String {
             switch self {
             case .bearProximityColumns: return "Bear proximity columns"
@@ -148,19 +153,21 @@ final class UTSettings {
             case .septicTrenchTileRewardCoins: return "Septic trench tile reward"
             case .septicCompletionBonusCoins: return "Septic completion bonus"
             case .batEscapePenaltyMaxCoins: return "Bat escape max penalty"
+            case .logMessageMaxCount: return "Log max messages"
             }
         }
 
         var minimumValue: Int {
             switch self {
-                case .bearProximityColumns, .bearProximityRows,
-                    .batSpawnMinMoves, .batSpawnMaxMoves, .batDefeatDeadlineMoves,
-                    .goatRespawnMinMoves, .goatRespawnMaxMoves,
-                    .raftDeliveryMinMoves, .raftDeliveryMaxMoves,
-                        .toiletDirtyIntervalMoves, .toiletCleanDeadlineMoves,
-                        .foodOrderMinMoves, .foodOrderMaxMoves, .foodOrderDeliverDeadlineMoves:
+            case .bearProximityColumns, .bearProximityRows,
+                .batSpawnMinMoves, .batSpawnMaxMoves, .batDefeatDeadlineMoves,
+                .goatRespawnMinMoves, .goatRespawnMaxMoves,
+                .raftDeliveryMinMoves, .raftDeliveryMaxMoves,
+                .toiletDirtyIntervalMoves, .toiletCleanDeadlineMoves,
+                .foodOrderMinMoves, .foodOrderMaxMoves, .foodOrderDeliverDeadlineMoves,
+                .logMessageMaxCount:
                 return 1
-            default:    
+            default:
                 return 0
             }
         }
@@ -176,6 +183,8 @@ final class UTSettings {
                 return 999
             case .batDefeatDeadlineMoves, .toiletCleanDeadlineMoves, .foodOrderDeliverDeadlineMoves:
                 return 200
+            case .logMessageMaxCount:
+                return 500
             default:
                 return 9999
             }
@@ -206,6 +215,7 @@ final class UTSettings {
             case .septicTrenchTileRewardCoins: return counts.septicTrenchTileRewardCoins
             case .septicCompletionBonusCoins: return counts.septicCompletionBonusCoins
             case .batEscapePenaltyMaxCoins: return counts.batEscapePenaltyMaxCoins
+            case .logMessageMaxCount: return counts.logMessageMaxCount
             }
         }
 
@@ -235,6 +245,7 @@ final class UTSettings {
             case .septicTrenchTileRewardCoins: counts.septicTrenchTileRewardCoins = clamped
             case .septicCompletionBonusCoins: counts.septicCompletionBonusCoins = clamped
             case .batEscapePenaltyMaxCoins: counts.batEscapePenaltyMaxCoins = clamped
+            case .logMessageMaxCount: counts.logMessageMaxCount = clamped
             }
         }
     }
