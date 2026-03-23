@@ -61,6 +61,14 @@ enum ZLayer {
     static let bearAttackOverlay: CGFloat = 900
 }
 
+/// Describes an object the player must collect to build the snowtanker.
+struct SnowTankerPart {
+    let interactableID: String
+    let displayName: String
+    /// Offset from the player's position when the part is being carried.
+    let carryOffset: CGPoint
+}
+
 func makeBasicTileSet() -> SKTileSet {
     let tileSize = CGSize(width: 64, height: 64)
 
@@ -312,6 +320,10 @@ class GameScene: SKScene {
     private let shovelID = "shovel"
     private let propaneTankID = "propaneTank"
     private let crescentWrenchID = "crescentWrench"
+    private let snowTankerParts: [SnowTankerPart] = [
+        SnowTankerPart(interactableID: "propaneTank", displayName: "propane tank", carryOffset: CGPoint(x: 24, y: -12)),
+        SnowTankerPart(interactableID: "crescentWrench", displayName: "crescent wrench", carryOffset: CGPoint(x: -24, y: -12)),
+    ]
     private let mailboxID = "mailbox"
     private let barCustomerID = "barCustomer"
     private let envelopeID = "envelope"
@@ -369,6 +381,7 @@ class GameScene: SKScene {
     private var isPropaneTankCarried = false
     private var isEnvelopeCarried = false
     private var isCrescentWrenchCarried = false
+    private var snowTankerPartsCarried: Set<String> = []
     private var carriedRaftID: String?
     private var riddenRaftID: String?
     private var pendingRaftDeliveryMoves: [Int] = []
@@ -765,17 +778,15 @@ class GameScene: SKScene {
         if isShovelCarried, let shovelNode = interactableNodesByID[shovelID] {
             shovelNode.position = CGPoint(x: player.position.x + 2, y: player.position.y - 24)
         }
-        if isPropaneTankCarried, let propaneTankNode = interactableNodesByID[propaneTankID] {
-            propaneTankNode.position = CGPoint(x: player.position.x + 24, y: player.position.y - 12)
-            propaneTankNode.isHidden = false
+        for part in snowTankerParts where snowTankerPartsCarried.contains(part.interactableID) {
+            if let partNode = interactableNodesByID[part.interactableID] {
+                partNode.position = CGPoint(x: player.position.x + part.carryOffset.x, y: player.position.y + part.carryOffset.y)
+                partNode.isHidden = false
+            }
         }
         if isEnvelopeCarried, let envelopeNode = interactableNodesByID[envelopeID] {
             envelopeNode.position = CGPoint(x: player.position.x + 24, y: player.position.y - 4)
             envelopeNode.isHidden = false
-        }
-        if isCrescentWrenchCarried, let wrenchNode = interactableNodesByID[crescentWrenchID] {
-            wrenchNode.position = CGPoint(x: player.position.x - 24, y: player.position.y - 12)
-            wrenchNode.isHidden = false
         }
         if let raftID = carriedRaftID,
            let raftNode = interactableNodesByID[raftID],
@@ -3165,7 +3176,7 @@ class GameScene: SKScene {
             "Racket carried: \(isTennisRacketCarried ? "Yes" : "No")",
             "Shovel carried: \(isShovelCarried ? "Yes" : "No")",
             "Envelope carried: \(isEnvelopeCarried ? "Yes" : "No")",
-            "Wrench carried: \(isCrescentWrenchCarried ? "Yes" : "No")",
+            "Snowtanker parts carried: \(snowTankerPartsCarried.isEmpty ? "None" : snowTankerParts.filter { snowTankerPartsCarried.contains($0.interactableID) }.map(\.displayName).joined(separator: ", "))",
             "Septic trenches: \(trenchedSepticTiles.count)/\(worldConfig.septicDigTiles.count)",
             "Bat event: \(batStatusText)",
             "Goat respawn: \(goatRespawnText)"
@@ -3312,10 +3323,10 @@ class GameScene: SKScene {
             handleShovelInteraction(node: node)
             return
         case .propaneTank:
-            handlePropaneTankInteraction(node: node)
+            handleSnowTankerPartInteraction(partID: propaneTankID, node: node)
             return
         case .crescentWrench:
-            handleCrescentWrenchInteraction(node: node)
+            handleSnowTankerPartInteraction(partID: crescentWrenchID, node: node)
             return
         case .raft:
             handleRaftInteraction(interactableID: interactableID, node: node)
@@ -3843,36 +3854,26 @@ class GameScene: SKScene {
         showMessage("Picked up shovel.")
     }
 
-    private func handlePropaneTankInteraction(node: SKSpriteNode) {
-        if isPropaneTankCarried {
-            isPropaneTankCarried = false
-            dropCarriedObject(node, interactableID: propaneTankID)
-            if !hasPropaneTankBeenDelivered,
+    private func handleSnowTankerPartInteraction(partID: String, node: SKSpriteNode) {
+        guard let part = snowTankerParts.first(where: { $0.interactableID == partID }) else { return }
+        if snowTankerPartsCarried.contains(partID) {
+            snowTankerPartsCarried.remove(partID)
+            dropCarriedObject(node, interactableID: partID)
+            if partID == propaneTankID,
+               !hasPropaneTankBeenDelivered,
                let playerTile = tileCoordinate(for: player.position),
                tileRegionContains(worldConfig.vehicleAssemblyRegion, tile: playerTile) {
                 hasPropaneTankBeenDelivered = true
                 showMessage("Propane tank delivered to the vehicle assembly area!")
             } else {
-                showMessage("Dropped propane tank.")
+                showMessage("Dropped \(part.displayName).")
             }
             markSaveDirty()
             return
         }
 
-        isPropaneTankCarried = true
-        showMessage("Picked up propane tank.")
-    }
-
-    private func handleCrescentWrenchInteraction(node: SKSpriteNode) {
-        if isCrescentWrenchCarried {
-            isCrescentWrenchCarried = false
-            dropCarriedObject(node, interactableID: crescentWrenchID)
-            showMessage("Dropped crescent wrench.")
-            return
-        }
-
-        isCrescentWrenchCarried = true
-        showMessage("Picked up crescent wrench.")
+        snowTankerPartsCarried.insert(partID)
+        showMessage("Picked up \(part.displayName).")
     }
 
     private func handleSepticDigTap(at scenePoint: CGPoint) -> Bool {
@@ -4032,9 +4033,9 @@ class GameScene: SKScene {
             isToiletBowlBrushCarried: isToiletBowlBrushCarried,
             isTennisRacketCarried: isTennisRacketCarried,
             isShovelCarried: isShovelCarried,
-            isPropaneTankCarried: isPropaneTankCarried,
+            isPropaneTankCarried: snowTankerPartsCarried.contains(propaneTankID),
             isEnvelopeCarried: isEnvelopeCarried,
-            isCrescentWrenchCarried: isCrescentWrenchCarried,
+            isCrescentWrenchCarried: snowTankerPartsCarried.contains(crescentWrenchID),
             carriedRaftID: carriedRaftID,
             riddenRaftID: riddenRaftID,
             pendingRaftDeliveryMoves: pendingRaftDeliveryMoves,
@@ -4055,7 +4056,8 @@ class GameScene: SKScene {
             hasShownFirstSuccessfulChipDeliveryMessage: hasShownFirstSuccessfulChipDeliveryMessage,
             trenchedSepticTiles: Array(trenchedSepticTiles),
             hasAwardedSepticCompletionBonus: hasAwardedSepticCompletionBonus,
-            hasPropaneTankBeenDelivered: hasPropaneTankBeenDelivered
+            hasPropaneTankBeenDelivered: hasPropaneTankBeenDelivered,
+            snowTankerPartsCarriedIDs: Array(snowTankerPartsCarried)
         )
     }
 
@@ -4084,8 +4086,8 @@ class GameScene: SKScene {
                 continue
             }
             if id == crescentWrenchID {
-                if snapshot.isCrescentWrenchCarried == nil {
-                    // Pre-wrench save: keep it hidden
+                // Pre-wrench save (neither new nor legacy carried field present): keep hidden
+                if snapshot.snowTankerPartsCarriedIDs == nil && snapshot.isCrescentWrenchCarried == nil {
                     node.isHidden = true
                 } else {
                     node.isHidden = hiddenIDs.contains(id)
@@ -4096,7 +4098,6 @@ class GameScene: SKScene {
         }
 
         respawnAtMoveByInteractableID = snapshot.respawnAtMoveByInteractableID
-
         isBucketCarried = snapshot.isBucketCarried
         bucketPotatoCount = max(0, min(bucketCapacity, snapshot.bucketPotatoCount))
         washedPotatoCount = max(0, min(bucketPotatoCount, snapshot.washedPotatoCount))
@@ -4115,9 +4116,14 @@ class GameScene: SKScene {
         isToiletBowlBrushCarried = snapshot.isToiletBowlBrushCarried
         isTennisRacketCarried = snapshot.isTennisRacketCarried
         isShovelCarried = snapshot.isShovelCarried
-        isPropaneTankCarried = snapshot.isPropaneTankCarried ?? false
+        if let ids = snapshot.snowTankerPartsCarriedIDs {
+            snowTankerPartsCarried = Set(ids)
+        } else {
+            snowTankerPartsCarried = []
+            if snapshot.isPropaneTankCarried == true { snowTankerPartsCarried.insert(propaneTankID) }
+            if snapshot.isCrescentWrenchCarried == true { snowTankerPartsCarried.insert(crescentWrenchID) }
+        }
         isEnvelopeCarried = snapshot.isEnvelopeCarried ?? false
-        isCrescentWrenchCarried = snapshot.isCrescentWrenchCarried ?? false
         carriedRaftID = snapshot.carriedRaftID
         riddenRaftID = snapshot.riddenRaftID
         pendingRaftDeliveryMoves = snapshot.pendingRaftDeliveryMoves ?? []
@@ -4127,11 +4133,8 @@ class GameScene: SKScene {
         if isEnvelopeCarried {
             interactableNodesByID[envelopeID]?.isHidden = false
         }
-        if isPropaneTankCarried {
-            interactableNodesByID[propaneTankID]?.isHidden = false
-        }
-        if isCrescentWrenchCarried {
-            interactableNodesByID[crescentWrenchID]?.isHidden = false
+        for partID in snowTankerPartsCarried {
+            interactableNodesByID[partID]?.isHidden = false
         }
         if let carriedRaftID,
            let raftNode = interactableNodesByID[carriedRaftID] {
@@ -4583,7 +4586,7 @@ class GameScene: SKScene {
         updateToiletVisualState()
         isTennisRacketCarried = false
         isShovelCarried = false
-        isPropaneTankCarried = false
+        snowTankerPartsCarried.removeAll()
         isEnvelopeCarried = false
         carriedRaftID = nil
         riddenRaftID = nil

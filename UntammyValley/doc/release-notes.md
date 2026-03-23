@@ -1,5 +1,13 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.66 (63) 2026-03-22 19:36:43
+
+Add crescent wrench and ability to find it
+
+## Version ? (?) 2026-03-22 14:23:02
+
+Refactor git_log_to_html.awk, fixing a couple of bugs
+
 ## Version ? (?) 2026-03-22 14:00:16
 
 fix git_log_to_html.awk to handle another version format
