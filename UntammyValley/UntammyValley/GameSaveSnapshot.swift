@@ -41,6 +41,7 @@ struct GameSaveSnapshot: Codable {
     let isShovelCarried: Bool
     let isPropaneTankCarried: Bool?
     let isEnvelopeCarried: Bool?
+    let isCrescentWrenchCarried: Bool?
     let carriedRaftID: String?
     let riddenRaftID: String?
     let pendingRaftDeliveryMoves: [Int]?

@@ -311,6 +311,7 @@ class GameScene: SKScene {
     private let bedroomBatID = "bedroomBat"
     private let shovelID = "shovel"
     private let propaneTankID = "propaneTank"
+    private let crescentWrenchID = "crescentWrench"
     private let mailboxID = "mailbox"
     private let barCustomerID = "barCustomer"
     private let envelopeID = "envelope"
@@ -367,6 +368,7 @@ class GameScene: SKScene {
     private var isShovelCarried = false
     private var isPropaneTankCarried = false
     private var isEnvelopeCarried = false
+    private var isCrescentWrenchCarried = false
     private var carriedRaftID: String?
     private var riddenRaftID: String?
     private var pendingRaftDeliveryMoves: [Int] = []
@@ -770,6 +772,10 @@ class GameScene: SKScene {
         if isEnvelopeCarried, let envelopeNode = interactableNodesByID[envelopeID] {
             envelopeNode.position = CGPoint(x: player.position.x + 24, y: player.position.y - 4)
             envelopeNode.isHidden = false
+        }
+        if isCrescentWrenchCarried, let wrenchNode = interactableNodesByID[crescentWrenchID] {
+            wrenchNode.position = CGPoint(x: player.position.x - 24, y: player.position.y - 12)
+            wrenchNode.isHidden = false
         }
         if let raftID = carriedRaftID,
            let raftNode = interactableNodesByID[raftID],
@@ -1426,6 +1432,9 @@ class GameScene: SKScene {
                 node.isHidden = true
             }
             if config.id == envelopeID {
+                node.isHidden = true
+            }
+            if config.id == crescentWrenchID {
                 node.isHidden = true
             }
 
@@ -3156,6 +3165,7 @@ class GameScene: SKScene {
             "Racket carried: \(isTennisRacketCarried ? "Yes" : "No")",
             "Shovel carried: \(isShovelCarried ? "Yes" : "No")",
             "Envelope carried: \(isEnvelopeCarried ? "Yes" : "No")",
+            "Wrench carried: \(isCrescentWrenchCarried ? "Yes" : "No")",
             "Septic trenches: \(trenchedSepticTiles.count)/\(worldConfig.septicDigTiles.count)",
             "Bat event: \(batStatusText)",
             "Goat respawn: \(goatRespawnText)"
@@ -3303,6 +3313,9 @@ class GameScene: SKScene {
             return
         case .propaneTank:
             handlePropaneTankInteraction(node: node)
+            return
+        case .crescentWrench:
+            handleCrescentWrenchInteraction(node: node)
             return
         case .raft:
             handleRaftInteraction(interactableID: interactableID, node: node)
@@ -3850,9 +3863,30 @@ class GameScene: SKScene {
         showMessage("Picked up propane tank.")
     }
 
+    private func handleCrescentWrenchInteraction(node: SKSpriteNode) {
+        if isCrescentWrenchCarried {
+            isCrescentWrenchCarried = false
+            dropCarriedObject(node, interactableID: crescentWrenchID)
+            showMessage("Dropped crescent wrench.")
+            return
+        }
+
+        isCrescentWrenchCarried = true
+        showMessage("Picked up crescent wrench.")
+    }
+
     private func handleSepticDigTap(at scenePoint: CGPoint) -> Bool {
         guard let tappedTile = tileCoordinate(for: scenePoint),
               worldConfig.septicDigTiles.contains(tappedTile) else {
+            return false
+        }
+
+        // If the wrench is sitting on this tile and visible, let the normal
+        // interactable handler pick it up rather than treating it as a dig tap.
+        if let wrenchNode = interactableNodesByID[crescentWrenchID],
+           !wrenchNode.isHidden,
+           let wrenchTile = tileCoordinate(for: wrenchNode.position),
+           wrenchTile == tappedTile {
             return false
         }
 
@@ -3883,12 +3917,23 @@ class GameScene: SKScene {
         GameState.shared.addCoins(coinsPerTrenchTile)
         updateCoinLabel()
 
+        // Check if leftmost septic tile is being dug; if so, reveal the crescent wrench
+        let leftmostColumn = worldConfig.septicDigTiles.min(by: { $0.column < $1.column })?.column ?? -1
+        let isLeftmostTile = tappedTile.column == leftmostColumn
+
+        if isLeftmostTile {
+            if let wrenchNode = interactableNodesByID[crescentWrenchID] {
+                wrenchNode.isHidden = false
+            }
+            showMessage("The crescent wrench you found will be helpful in assembling the snowtanker.")
+        }
+
         if trenchedSepticTiles.count == worldConfig.septicDigTiles.count && !hasAwardedSepticCompletionBonus {
             hasAwardedSepticCompletionBonus = true
             GameState.shared.addCoins(septicCompletionBonusCoins)
             updateCoinLabel()
             showMessage("Septic trench complete. +\(coinsPerTrenchTile + septicCompletionBonusCoins) coins. Now you can afford a snowmobile!")
-        } else {
+        } else if !isLeftmostTile {
             showMessage("Dug trench tile! +\(coinsPerTrenchTile) coin")
         }
 
@@ -3989,6 +4034,7 @@ class GameScene: SKScene {
             isShovelCarried: isShovelCarried,
             isPropaneTankCarried: isPropaneTankCarried,
             isEnvelopeCarried: isEnvelopeCarried,
+            isCrescentWrenchCarried: isCrescentWrenchCarried,
             carriedRaftID: carriedRaftID,
             riddenRaftID: riddenRaftID,
             pendingRaftDeliveryMoves: pendingRaftDeliveryMoves,
@@ -4037,6 +4083,15 @@ class GameScene: SKScene {
                 }
                 continue
             }
+            if id == crescentWrenchID {
+                if snapshot.isCrescentWrenchCarried == nil {
+                    // Pre-wrench save: keep it hidden
+                    node.isHidden = true
+                } else {
+                    node.isHidden = hiddenIDs.contains(id)
+                }
+                continue
+            }
             node.isHidden = hiddenIDs.contains(id)
         }
 
@@ -4062,6 +4117,7 @@ class GameScene: SKScene {
         isShovelCarried = snapshot.isShovelCarried
         isPropaneTankCarried = snapshot.isPropaneTankCarried ?? false
         isEnvelopeCarried = snapshot.isEnvelopeCarried ?? false
+        isCrescentWrenchCarried = snapshot.isCrescentWrenchCarried ?? false
         carriedRaftID = snapshot.carriedRaftID
         riddenRaftID = snapshot.riddenRaftID
         pendingRaftDeliveryMoves = snapshot.pendingRaftDeliveryMoves ?? []
@@ -4073,6 +4129,9 @@ class GameScene: SKScene {
         }
         if isPropaneTankCarried {
             interactableNodesByID[propaneTankID]?.isHidden = false
+        }
+        if isCrescentWrenchCarried {
+            interactableNodesByID[crescentWrenchID]?.isHidden = false
         }
         if let carriedRaftID,
            let raftNode = interactableNodesByID[carriedRaftID] {
@@ -4566,6 +4625,7 @@ class GameScene: SKScene {
         }
         interactableNodesByID[bedroomBatID]?.isHidden = true
         interactableNodesByID[envelopeID]?.isHidden = true
+        interactableNodesByID[crescentWrenchID]?.isHidden = true
 
         GameState.shared.resetCoins()
         GameState.shared.resetQuizStats()

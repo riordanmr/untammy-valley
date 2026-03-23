@@ -356,6 +356,10 @@ enum WorldLoader {
             TileCoordinate(column: cellarMaxColumnExclusive - 2, row: cellarMaxRowExclusive - 2)
         }
 
+        static var crescentWrenchTile: TileCoordinate {
+            TileCoordinate(column: leftSepticMinColumn + septicSystemWidth, row: septicMidRow)
+        }
+
         static let bathroomInteriorWidth = 3
         static let bathroomInteriorHeight = 2
 
@@ -952,6 +956,16 @@ enum WorldLoader {
             interactionRange: 95
         )
 
+        let crescentWrench = InteractableConfig(
+            id: "crescentWrench",
+            kind: .crescentWrench,
+            spriteName: "crescent_wrench",
+            tile: BarLayout.crescentWrenchTile,
+            size: BarLayout.standardObjectSize,
+            rewardCoins: 0,
+            interactionRange: 95
+        )
+
         let snowmobiles: [InteractableConfig] = BarLayout.snowmobileTiles.enumerated().map { index, tile in
             InteractableConfig(
                 id: "snowmobile\(index + 1)",
@@ -1129,7 +1143,7 @@ enum WorldLoader {
             )
         ]
 
-        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, studyGuide, searsCatalog, mailbox, envelope, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, goatChaseSpot, barCustomer, propaneTank] + snowmobiles
+        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, studyGuide, searsCatalog, mailbox, envelope, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, crescentWrench, goatChaseSpot, barCustomer, propaneTank] + snowmobiles
 
         let staticDecorations = [
             carrollSign,

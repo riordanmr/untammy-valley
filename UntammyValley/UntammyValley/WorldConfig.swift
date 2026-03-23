@@ -71,6 +71,7 @@ enum InteractableKind {
     case shovel
     case raft
     case propaneTank
+    case crescentWrench
 }
 
 struct InteractableConfig {
