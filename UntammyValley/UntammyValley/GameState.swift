@@ -141,6 +141,14 @@ final class GameState {
         studyGuideOpenedBySubject = Self.defaultStudyGuideOpenedBySubject()
     }
 
+    func hasEverOpenedAnyStudyGuide() -> Bool {
+        if studyGuideOpenedBySubject.values.contains(true) {
+            return true
+        }
+
+        return quizStatsBySubject.values.contains { $0.answered > 0 }
+    }
+
     func quizTotals(for subject: String) -> QuizSubjectStats {
         quizStatsBySubject[subject] ?? QuizSubjectStats(answered: 0, correct: 0)
     }

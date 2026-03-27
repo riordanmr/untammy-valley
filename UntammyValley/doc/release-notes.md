@@ -1,5 +1,9 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.67 (64) 2026-03-22 20:04:51
+
+Refactor handling of snowtanker parts and tools
+
 ## Version 0.7.66 (63) 2026-03-22 19:36:43
 
 Add crescent wrench and ability to find it

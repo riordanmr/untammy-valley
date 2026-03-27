@@ -287,6 +287,7 @@ class GameScene: SKScene {
     private var warningFoodOrderIconNode: SKSpriteNode!
     private var warningTrenchIconNode: SKSpriteNode!
     private var warningPropaneIconNode: SKSpriteNode!
+    private var warningStudyGuideIconNode: SKSpriteNode!
     private var makerLoadedIndicatorNode: SKShapeNode?
     private var bucketSelectedIndicatorNode: SKShapeNode?
     private var bucketPotatoIconNode: SKSpriteNode?
@@ -2604,6 +2605,8 @@ class GameScene: SKScene {
         scrollTextDialogNode.configure(title: "Study Guide", lines: paragraphs, paragraphSpacing: 0.5)
         scrollTextDialogNode.setVisible(true)
         GameState.shared.markStudyGuideOpened(for: subject)
+        updateWarningIcons()
+        updatePendingTasksWindowBody()
         markSaveDirty()
     }
 
@@ -2769,6 +2772,16 @@ class GameScene: SKScene {
         warningPropaneIconNode.isHidden = true
         warningIconContainerNode.addChild(warningPropaneIconNode)
 
+        if let studyGuideTexture = loadTexture(named: "studyguide") {
+            warningStudyGuideIconNode = SKSpriteNode(texture: studyGuideTexture, color: .clear, size: iconSize)
+        } else {
+            let fallbackTexture = makeLabeledMarkerTexture(size: iconSize, emoji: "B", color: .systemBlue)
+            warningStudyGuideIconNode = SKSpriteNode(texture: fallbackTexture, color: .clear, size: iconSize)
+        }
+        warningStudyGuideIconNode.name = "warningStudyGuideIcon"
+        warningStudyGuideIconNode.isHidden = true
+        warningIconContainerNode.addChild(warningStudyGuideIconNode)
+
         updateWarningIcons()
     }
 
@@ -2812,7 +2825,19 @@ class GameScene: SKScene {
             icons.append(warningPropaneIconNode)
         }
 
+        if isStudyGuideTaskActive() {
+            icons.append(warningStudyGuideIconNode)
+        }
+
         return icons
+    }
+
+    private func isStudyGuideTaskActive() -> Bool {
+        guard !ownedSnowmobileIDs.isEmpty else {
+            return false
+        }
+
+        return !GameState.shared.hasEverOpenedAnyStudyGuide()
     }
 
     private func isPropaneTankTaskActive() -> Bool {
@@ -2885,6 +2910,9 @@ class GameScene: SKScene {
         }
         if !activeIcons.contains(warningPropaneIconNode) {
             warningPropaneIconNode.isHidden = true
+        }
+        if !activeIcons.contains(warningStudyGuideIconNode) {
+            warningStudyGuideIconNode.isHidden = true
         }
     }
 
@@ -3099,6 +3127,10 @@ class GameScene: SKScene {
 
         if isPropaneTankTaskActive() {
             lines.append("Use the raft to fetch the propane tank; bring the propane tank to the vehicle assembly area.")
+        }
+
+        if isStudyGuideTaskActive() {
+            lines.append("Read the study guide before going to school.")
         }
 
         return lines
@@ -3613,7 +3645,12 @@ class GameScene: SKScene {
             showMessage(baseMessage)
         } else {
             hasShownFirstSuccessfulChipDeliveryMessage = true
-            showMessage(baseMessage + "\nNext goal: Earn money to buy a snowmobile by digging a trench between the septic systems.")
+            let shouldShowTrenchHint = trenchedSepticTiles.count < worldConfig.septicDigTiles.count
+            if shouldShowTrenchHint {
+                showMessage(baseMessage + "\nNext goal: Earn money to buy a snowmobile by digging a trench between the septic systems.")
+            } else {
+                showMessage(baseMessage)
+            }
         }
         markSaveDirty()
     }
@@ -3665,11 +3702,18 @@ class GameScene: SKScene {
         }
 
         _ = GameState.shared.removeCoins(snowmobilePriceCoins)
+        let isFirstSnowmobilePurchase = ownedSnowmobileIDs.isEmpty
         ownedSnowmobileIDs.insert(interactableID)
         selectedOwnedSnowmobileID = interactableID
         updateCoinLabel()
         updateSnowmobileOwnershipVisuals()
-        showMessage("Bought snowmobile for \(snowmobilePriceCoins) coins.")
+        updateWarningIcons()
+        updatePendingTasksWindowBody()
+        if isFirstSnowmobilePurchase {
+            showMessage("Now you can get to school. But study before you go.")
+        } else {
+            showMessage("Bought snowmobile for \(snowmobilePriceCoins) coins.")
+        }
     }
 
     private func attemptDismountSnowmobile() {
