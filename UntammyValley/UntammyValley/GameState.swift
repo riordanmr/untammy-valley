@@ -141,12 +141,24 @@ final class GameState {
         studyGuideOpenedBySubject = Self.defaultStudyGuideOpenedBySubject()
     }
 
-    func hasEverOpenedAnyStudyGuide() -> Bool {
-        if studyGuideOpenedBySubject.values.contains(true) {
+    func hasEverOpenedStudyGuide(for subject: String) -> Bool {
+        guard Self.trackedQuizSubjects.contains(subject) else {
+            return false
+        }
+
+        if studyGuideOpenedBySubject[subject] == true {
             return true
         }
 
-        return quizStatsBySubject.values.contains { $0.answered > 0 }
+        return (quizStatsBySubject[subject]?.answered ?? 0) > 0
+    }
+
+    func hasEverOpenedAllStudyGuides() -> Bool {
+        Self.trackedQuizSubjects.allSatisfy { hasEverOpenedStudyGuide(for: $0) }
+    }
+
+    func remainingStudyGuidesToOpen() -> [String] {
+        Self.trackedQuizSubjects.filter { !hasEverOpenedStudyGuide(for: $0) }
     }
 
     func hasReachedQuizMastery(minimumPercent: Int = 80) -> Bool {

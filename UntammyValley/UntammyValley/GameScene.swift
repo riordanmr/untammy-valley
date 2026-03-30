@@ -2852,11 +2852,11 @@ class GameScene: SKScene {
             return false
         }
 
-        return !GameState.shared.hasEverOpenedAnyStudyGuide()
+        return !GameState.shared.hasEverOpenedAllStudyGuides()
     }
 
     private func isQuizMasteryTaskActive() -> Bool {
-        guard GameState.shared.hasEverOpenedAnyStudyGuide() else {
+        guard GameState.shared.hasEverOpenedAllStudyGuides() else {
             return false
         }
 
@@ -3156,7 +3156,9 @@ class GameScene: SKScene {
         }
 
         if isStudyGuideTaskActive() {
-            lines.append("Read the study guide before going to school.")
+            let remainingGuides = GameState.shared.remainingStudyGuidesToOpen()
+            let remainingList = remainingGuides.isEmpty ? "none" : remainingGuides.joined(separator: ", ")
+            lines.append("Read the study guides before going to school. Remaining: \(remainingList)")
         }
 
         if isQuizMasteryTaskActive() {
