@@ -149,6 +149,24 @@ final class GameState {
         return quizStatsBySubject.values.contains { $0.answered > 0 }
     }
 
+    func hasReachedQuizMastery(minimumPercent: Int = 80) -> Bool {
+        let requiredPercent = max(0, minimumPercent)
+
+        for subject in Self.trackedQuizSubjects {
+            let totals = quizTotals(for: subject)
+            guard totals.answered > 0 else {
+                return false
+            }
+
+            let percent = (Double(totals.correct) / Double(totals.answered)) * 100.0
+            if percent < Double(requiredPercent) {
+                return false
+            }
+        }
+
+        return true
+    }
+
     func quizTotals(for subject: String) -> QuizSubjectStats {
         quizStatsBySubject[subject] ?? QuizSubjectStats(answered: 0, correct: 0)
     }

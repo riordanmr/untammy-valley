@@ -1,0 +1,789 @@
+
+2026-03-27 14:42:21 -0500
+Add study-guide warning upon 1st snowmobile purchase
+Also, don't mention the trench task upon serving chips, if the trench task has already been done.
+
+Add a study-guide warning icon and related logic to GameScene: declare and initialize the icon (with fallback texture), include it in active warning icons, hide/show it based on isStudyGuideTaskActive (requires owning a snowmobile and not having opened any study guide), append a pending-task line prompting the player to read the study guide, and update UI after opening a study guide or after buying a snowmobile. Tweak chip-delivery message to only show a trench hint when septic trenching remains. Add GameState.hasEverOpenedAnyStudyGuide() to detect if any study guide has been opened or any quiz answered. Also bump project CURRENT_PROJECT_VERSION to 65 and MARKETING_VERSION to 0.7.68. These changes encourage players to read the study guide before going to school and ensure UI/messages reflect the new task state.
+
+---
+
+2026-03-22 20:04:51 -0500
+Refactor handling of snowtanker parts and tools
+Introduce SnowTankerPart to model parts (propane tank, crescent wrench) and allow carrying multiple parts via a snowTankerPartsCarried set. Replace individual boolean carry flags with generic handling for rendering, pickup/drop, and debug text. Persist carried parts in GameSaveSnapshot.snowTankerPartsCarriedIDs and add migration logic to load legacy boolean fields (isPropaneTankCarried / isCrescentWrenchCarried). Also update node visibility/restoration and clear carried parts on reset. Bump Xcode project CURRENT_PROJECT_VERSION to 64 and MARKETING_VERSION to 0.7.67.
+
+---
+
+2026-03-22 19:36:43 -0500
+Add crescent wrench and ability to find it
+Introduce a new crescent wrench interactable: add asset files (PNG @1x/@2x/@3x and Contents.json), register a .crescentWrench kind in WorldConfig, and place the object via WorldLoader. Update GameScene to support picking up/dropping, display while carried, reveal the wrench when digging the leftmost septic tile, and avoid dig handling when the wrench sits on a tile. Persist carry state by adding isCrescentWrenchCarried to GameSaveSnapshot and include it in save/load logic. Also bump project CURRENT_PROJECT_VERSION to  63 and MARKETING_VERSION to 0.7.66.
+
+---
+
+2026-03-22 14:23:02 -0500
+Refactor git_log_to_html.awk, fixing a couple of bugs
+
+---
+
+2026-03-22 14:00:16 -0500
+fix git_log_to_html.awk to handle another version format
+
+---
+
+2026-03-22 11:57:47 -0500
+Add MessageLog and in-game Log viewer
+Introduce a MessageLog singleton to record recent showMessage() texts (capped by UTSettings.counts.logMessageMaxCount). Wire a new "Log" menu item and a log dialog in GameScene (with isLogWindowVisible, openLogWindow, and menu handling), update showMessage() to append to the log, and adjust the menu panel layout/height to fit the new entry. Add UTSettings.counts.logMessageMaxCount with normalization, bounds and UI mapping (default 50, max 500). Also bump Xcode project CURRENT_PROJECT_VERSION to 62 and MARKETING_VERSION to 0.7.65.
+
+---
+
+2026-03-21 15:27:42 -0500
+Fix git_log_to_html.awk to handle yet another version/build syntax
+
+---
+
+2026-03-19 13:30:33 -0500
+Tapping full chips basket no longer empties chips
+Fixes #6.
+Bump project version/marketing version (CURRENT_PROJECT_VERSION 60→61, MARKETING_VERSION 0.7.63→0.7.64) in project.pbxproj for the new release. Remove the auto-emptying behavior in GameScene.swift so dropping a chips basket no longer clears its contents (keeps chips when dropped). Add a release-notes entry for 0.7.63 noting the propane tank and delivery task.
+
+---
+
+2026-03-18 20:42:37 -0500
+Add propane tank and task to deliver it
+Introduce a new propane tank task: add propane_tank_marker image set and sprite, register a propaneTank interactable in WorldLoader, and extend WorldConfig with vehicleAssemblyRegion and InteractableKind.propaneTank. Update GameScene to show a propane warning icon, handle pickup/drop interactions, display raft-delivery hint, and include task text in the HUD; add helper isPropaneTankTaskActive(). Persist propane state by extending GameSaveSnapshot and wiring save/load logic. Also bump project CURRENT_PROJECT_VERSION to 60 and MARKETING_VERSION to 0.7.63 and update release notes.
+
+---
+
+2026-03-18 15:37:30 -0500
+Update GameScene.swift
+
+---
+
+2026-03-18 15:36:57 -0500
+Refactor initialization code to call Reset code
+Update UntammyValley.xcodeproj/project.pbxproj to increment the build and marketing versions for the next release. CURRENT_PROJECT_VERSION was bumped from 58 to 59 and MARKETING_VERSION from 0.7.61 to 0.7.62 across the affected build configurations.
+
+---
+
+2026-03-18 15:29:02 -0500
+git_log_to_html.awk: handle yet another commit version format
+
+---
+
+2026-03-16 20:38:43 -0500
+Tweak UI of Saves dialog; set coins to 0 on Reset
+Update project version/marketing version (58 / 0.7.61) and refresh release notes. Fix named-save timestamp format to include colons (HH:mm:ss).
+
+SavesDialogNode improvements:
+- Add optional resetScrollOffset param to renderSaveList to preserve or reset scroll position.
+- Disable/guard restore and delete actions when no save is selected and show feedback.
+- Update button visuals and label alpha based on selection state.
+- Truncate long save names to fit row width with a new helper truncatedSaveName().
+- Hide feedback when a save is selected and reposition feedback label.
+
+GameScene tweak:
+- Comment out the test-only GameState.shared.addCoins(200) in reset (kept rationale as comment).
+
+Small UI/action ordering cleanup in GameScene alerts and release-notes updates.
+
+---
+
+2026-03-16 18:04:46 -0500
+Update git_log_to_html.awk
+Handle yet another way the autogenned commit comment expresses version and build number.
+
+---
+
+2026-03-16 15:04:54 -0500
+Don't list snowmobile task if snowmobile icon not active
+Update project version and marketing version to 0.7.60 / CURRENT_PROJECT_VERSION 57 for the new release. Adjust GameScene logic so the snowmobile purchase prompt only appears when hasPendingSnowmobileTask is true and all septic dig tiles have been trenched (trenchedSepticTiles.count == worldConfig.septicDigTiles.count). Add a release-notes entry for the new version noting "Implement deletion of Saves, phase 5 of Saves."
+
+---
+
+2026-03-16 14:52:29 -0500
+Implement deletion of Saves, phase 5 of Saves
+Bump project version (CURRENT_PROJECT_VERSION -> 56) and marketing version to 0.7.59. Add a delete-confirmation flow and deletion logic for named saves: when delete is tapped without a selection show inline feedback; otherwise present an alert, call SaveManager.shared.deleteNamedSnapshot, refresh the saves list, and surface errors. Add a feedbackLabel and showFeedback/select/hide behavior to SavesDialogNode to display short messages. Also tweak named save date formatter (remove underscore) and update release notes.
+
+---
+
+2026-03-16 12:15:24 -0500
+Implement restore of prior Save; Phase 4 of Saves
+Implement a restore-confirmation flow for named saves: onRestoreTapped now validates selection, presents a UIAlertController to confirm destructive restore, and restores the snapshot via restoreNamedSnapshot (loads snapshot, applies it, hides the saves dialog, and shows success/error messages). Also added error handling for NamedGameSaveError. Bumped project CURRENT_PROJECT_VERSION from 54 to 55 and MARKETING_VERSION from 0.7.57 to 0.7.58 in the Xcode project settings.
+
+---
+
+2026-03-16 12:07:48 -0500
+Implement actual Save; phase 3 of Save flow
+Restore and Delete are not yet implemented.
+
+Update project version/marketing version to CURRENT_PROJECT_VERSION=54 and MARKETING_VERSION=0.7.57 in the Xcode project. Implement a named-save flow in GameScene: add a default timestamp formatter, wire savesDialogNode.onSaveTapped to beginNamedSaveFlow, present a UIAlertController to edit the save name with validation, save the snapshot via SaveManager, handle errors, refresh the saves dialog and select the new save. Add topmostPresenter helper to find a UIViewController to present the alert. Add selectSave(id:) to SavesDialogNode to update selection state.
+
+---
+
+2026-03-16 11:52:38 -0500
+Add dummy Saves dialog
+Introduce a new SavesDialogNode to display, select, save, restore, and delete named saves, including scrolling list UI, empty state, buttons and selection handling. Integrate the dialog into GameScene: add ZLayer, instance property, layout/update hooks, touch/drag handling, menu item to open the dialog, and a configureSavesDialog() initializer with callback stubs for save/restore/delete/close flows. Adjust menu panel height and menu item positions to accommodate the new Saves entry. Also bump project CURRENT_PROJECT_VERSION to 53 and MARKETING_VERSION to 0.7.56.
+
+---
+
+2026-03-16 10:33:55 -0500
+Saves feature phase 1
+Introduce named save feature and related persistence changes.
+
+- Add NamedGameSave.swift: Codable models (slot, summary, store), error types and utilities for named saves.
+- Extend SaveManager: rename autosave file, add separate named-saves file and schema version, JSON encoder/decoder helpers, name normalization/comparison, sorting, and read/write functions for the named save store. Implement listing, saving (create/update), loading (by id or name) and deletion (by id or name) of named saves. Autosave read/write now uses helper functions and ISO8601 date formatting.
+- Update project settings: increment CURRENT_PROJECT_VERSION to 52 and MARKETING_VERSION to 0.7.55 in the Xcode project file.
+- Update release-notes.md with a new version entry.
+
+These changes add persistent, user-named save slots while preserving existing autosave behavior and ensuring stable ordering and storage format.
+
+---
+
+2026-03-16 09:30:51 -0500
+Don't show snowmobile task icon until trench dug
+Increment project build and marketing versions (CURRENT_PROJECT_VERSION -> 51, MARKETING_VERSION -> 0.7.54) in the Xcode project. In GameScene.swift refine the septic-completion behavior: only show the snowmobile warning if hasPendingSnowmobileTask and all septic trench tiles are dug (trenchedSepticTiles.count == worldConfig.septicDigTiles.count). Also update the trench completion message to note the player can now afford a snowmobile.
+
+---
+
+2026-03-15 20:58:55 -0500
+Commit release notes for the first time
+Also enhance git_log_to_html.awk to be able to output in HTML or Markdown.
+
+---
+
+2026-03-15 20:01:16 -0500
+Tell user about trench task
+Bump project version/marketing version and introduce UI and state for guiding players after their first successful chip delivery. Adds a new optional snapshot field (hasShownFirstSuccessfulChipDeliveryMessage) and a GameScene flag to track it; persist/load/reset this flag with saves. Introduces HUDMessageLayout and updateMessageLabelLayout() to better position multi-line HUD messages and sets messageLabel to support multiple lines. Adds a trench warning icon (warningTrenchIconNode), shows it in the warning area and menu when appropriate (if first-delivery message shown and trenches remain), and hides it otherwise. Changes the delivery flow to show an extended instructional message on first delivery and sets the hasShownFirstSuccessfulChipDeliveryMessage flag. Increases HUD message display time from 4s to 5s. Also increases bat spawn minimum moves from 50 to 80 in UTSettings.
+
+---
+
+2026-03-15 12:13:51 -0500
+Declare that app does not use non-exempt encryption
+Declaring this in the app removes a step to get the app approved for TestFlight.
+
+Add ITSAppUsesNonExemptEncryption = false to AppInfo.plist to declare the app does not use non-exempt encryption (required for App Store export). Increment CURRENT_PROJECT_VERSION from 48 to 49 in project.pbxproj to update the build number.
+
+---
+
+2026-03-15 11:54:51 -0500
+Increase deadlines for bat and toilet
+Update project build and marketing versions (CURRENT_PROJECT_VERSION -> 48, MARKETING_VERSION -> 0.7.52) in the Xcode project. Adjust gameplay timing in UTSettings: increase batDefeatDeadlineMoves from 25 to 30 and toiletCleanDeadlineMoves from 20 to 30. Remove the unused patronBarStool DecorationConfig from WorldLoader (cleanup). These changes tune game pacing and clean up dead code.
+
+---
+
+2026-03-15 11:46:18 -0500
+Widen bathroom door to work around player unable to enter
+Treat the bathroom door as two adjacent columns in WorldLoader by replacing bathroomDoorColumn with bathroomDoorColumns (Set<Int>) and updating the wall-building loop to skip both columns. Also incremented CURRENT_PROJECT_VERSION to 47 and MARKETING_VERSION to 0.7.51 in the Xcode project settings.
+
+---
+
+2026-03-15 11:16:26 -0500
+Update git_log_to_html.awk
+This implements yet another version phraseology used in commit comments.
+
+---
+
+2026-03-15 11:04:49 -0500
+Add food order event; no coins until deliver to customer
+Introduce a new food order gameplay feature: adds assets (food_order_warning images), settings, game logic, UI warnings and persistence. Key changes:
+
+- GameScene: new FoodOrderEventSettings, scheduling, deadline handling, HUD/warning icon, status text, messages, and interaction handling for a new barCustomer interactable (serve chips, reward/penalty flow).
+- GameSaveSnapshot: persist nextFoodOrderMove and foodOrderDeadlineMove and replace boolean basket flag with chip count.
+- UTSettings: new configurable counts (min/max spawn, delivery deadline, non-delivery penalty) and validation/UI labels.
+- WorldConfig/WorldLoader: add InteractableKind.barCustomer and spawn config for the bar customer; include in interactables.
+- Project version/marketing version bumped to 46 / 0.7.50.
+
+This change adds the end-to-end feature (config, world object, UI, save/load, and reward/penalty mechanics) so food orders appear, can be delivered, and affect player coins.
+
+---
+
+2026-03-14 20:45:31 -0500
+Make bear proximity settings configurable
+Introduce configurable bear proximity counts (bearProximityColumns, bearProximityRows) to UTSettings with defaults, normalization (min 1) and UI metadata (CountField entries, titles, min/max, getters/setters). Replace hard-coded proximity thresholds in GameScene with values read from UTSettings. Also bump project CURRENT_PROJECT_VERSION (44→45) and MARKETING_VERSION (0.7.48→0.7.49) in the Xcode project file.
+
+---
+
+2026-03-14 20:25:45 -0500
+Add bear encounter
+Introduce a bear encounter feature and assets, update world layout, and add release-notes tooling. Added bear sprite files and asset catalog entry; GameScene now checks proximity to the bear, blocks input during an attack, displays overlay effects, moves the player to a recovery bed, shows a message, and marks the save dirty. WorldConfig and WorldLoader updated with bearDecorationTile and recoveryBedTile, decoration entries for the bear and a warning sign, adjusted tree placement (don't put trees so close to the bar) and RNG seed. Bumped Xcode project CURRENT_PROJECT_VERSION to 44 and MARKETING_VERSION to 0.7.48. Enhanced git_log_to_html.awk to better parse project version/build pairs and added scripts/make-release-notes.sh to generate release-notes.html.
+
+---
+
+2026-03-14 14:13:07 -0500
+Add pending tasks dialog, and snowmobile task icon
+The dialog (reusing status dialog code) is displayed when the user taps on any warning icon.
+Introduce a pending-tasks panel and snowmobile warning support in GameScene: add requiredSnowmobileCount constant, track pending tasks visibility, compute pendingTaskLines, and show a scrollTextDialog with pending tasks. Refactor warning icon handling (activeWarningIcons, warningIconStackContains) and add a snowmobile warning icon to the warningIconContainer; tapping warning icons opens the pending tasks window. Update update loop and status window behavior to keep dialog visibility in sync and make the snowmobile count in the status lines use the new constant. Also bump project CURRENT_PROJECT_VERSION and MARKETING_VERSION in the Xcode project (42→43, 0.7.46→0.7.47).
+
+---
+
+2026-03-14 12:52:20 -0500
+Reload scene on Reset
+When performing a progress reset, present a fresh GameScene to rebuild physics bodies (wall colliders and decoration blockers) and avoid stale static bodies that can block doorways. If no view is available, show a fallback message. Also incremented project version numbers: CURRENT_PROJECT_VERSION -> 42 and MARKETING_VERSION -> 0.7.46 in the Xcode project file.
+
+---
+
+2026-03-14 12:34:38 -0500
+Update .gitignore
+
+---
+
+2026-03-14 09:53:08 -0500
+Add git_log_to_html.awk to create release notes
+Usage: git log --pretty=format:"%n%ad%n%s%n%b%n---" --date=iso | awk -f ./UntammyValley/scripts/git_log_to_html.awk >release-notes.html
+
+---
+
+2026-03-13 14:40:18 -0500
+Add vehicle assembly area
+Add a new vehicle_assembly_area imageset (1x/2x/3x + Contents.json) and include it in the tile set. Introduce vehicle assembly layout in WorldLoader (width/height, region, sign tile), register a floor region and a large-text sign DecorationConfig, and add the sign to staticDecorations. Bump Xcode project CURRENT_PROJECT_VERSION to 41 and MARKETING_VERSION to 0.7.45.
+
+---
+
+2026-03-13 11:29:00 -0500
+Configurable raft delivery interval
+Add configurable min/max moves for raft deliveries and use them when scheduling deliveries. UTSettings: introduce raftDeliveryMinMoves and raftDeliveryMaxMoves (defaults 40/60), add enum cases, labels, clamping/validation and getters/setters so the value appears in the settings system. GameScene: scheduleRaftDelivery now picks a random move between the configured min/max instead of using a hardcoded range. Also bump project CURRENT_PROJECT_VERSION to 40 and MARKETING_VERSION to 0.7.44.
+
+---
+
+2026-03-13 10:51:54 -0500
+Add raft delivery and movement
+Add raft assets and full raft gameplay flow: assets (raft @1/2/3x) and asset catalog entry. Persist raft state by extending GameSaveSnapshot (carried/ridden IDs, pending deliveries, next sequence ID) and restore dynamic rafts on load. Implement raft mechanics in GameScene: carry/ride/place rafts, river-only movement while riding, dismount-to-shore checks, placement footprint validation, spawn/delivery logic near mailbox (scheduleRaftDelivery, processPendingRaftDeliveries, spawnDeliveredRaftNearMailbox), helper utilities (isRiverTile, canDismountRaftToShore, canPlaceRaftFootprint, addDynamicInteractable, ensureDynamicRaftsExist), interaction handling (handleRaftInteraction, placeCarriedRaftIntoRiverIfPossible) and persistence/cleanup for dynamic raft objects. Also prevent snowmobile/raft conflicts and update WorldConfig and WorldLoader with raft kind/size. Mark save dirty where needed and update UI messages for raft events. Version 0.7.43, build 39.
+
+---
+
+2026-03-12 16:56:07 -0500
+Extract Sears catalog flow/UI to separate files
+Bump project CURRENT_PROJECT_VERSION to 38 and MARKETING_VERSION to 0.7.42. Refactor Sears catalog functionality out of GameScene into dedicated files: GameSceneSearsCatalogConstants.swift (node name constants) and GameSceneSearsCatalogFlow.swift (interaction/flow handlers). Update GameSceneSearsCatalogUI to use the new constants for node names. Make several previously private GameScene methods internal (func) so the new extensions can call them, and reorganize envelope/mailbox/envelope visibility/carrying helpers (isEnvelopeCurrentlyCarried, isEnvelopeVisibleForPickup, setEnvelopeCarried, hideEnvelopeAndResetHomePosition, createEnvelopeAndCarry). Route HUD tap handling and modal input blocking to handleSearsCatalogHUDTap and shouldBlockWorldInputForSearsModal to keep GameScene smaller and improve separation of concerns.
+
+---
+
+2026-03-12 16:40:54 -0500
+Extract Sears catalog UI to new file
+Move the Sears catalog UI implementation out of GameScene.swift into a new GameSceneSearsCatalogUI.swift extension to improve separation of concerns. Adjusted member visibility (ZLayer enum and searsCatalog-related properties/flags and searsCatalogRaftPriceCoins) so the extension can access them. Also bumped project build and marketing versions in the Xcode project (CURRENT_PROJECT_VERSION -> 37, MARKETING_VERSION -> 0.7.41).
+
+---
+
+2026-03-12 16:25:27 -0500
+Add mailbox & envelope, and ability to order from catalog
+Bump project version/marketing version and add mailbox/envelope assets and logic.
+
+- Increment project CURRENT_PROJECT_VERSION to 36 and MARKETING_VERSION to 0.7.40.
+- Add envelope and mailbox image assets and Contents.json entries.
+- Extend InteractableKind with mailbox and envelope and add mailbox/envelope sizes, tile positions, and InteractableConfig entries in WorldLoader.
+- Implement Sears Catalog UI and flow in GameScene: dialog UI, list, checkbox, Prepare Order/Cancel buttons, alert panel, and modal visibility management.
+- Implement order handling: charge coins, create an envelope, carry logic, and message flow.
+- Add mailbox and envelope interaction handlers: pick up envelope, mail envelope, and prevent re-ordering while an envelope is outstanding.
+- Track envelope state in GameScene (isEnvelopeCarried) and persist it via GameSaveSnapshot (added optional isEnvelopeCarried), save/load handling, and snapshot inclusion.
+- Update various UI/layout, z-layers and persist rules (exclude mailbox from position persistence), reset logic, and debug/status output to include envelope state.
+
+This commit wires the in-game catalog purchase flow to mailbox/envelope interactions and persists the envelope state across saves.
+
+---
+
+2026-03-12 12:42:26 -0500
+Resize unnecessarily large river assets
+Increment project build and marketing versions (CURRENT_PROJECT_VERSION -> 35, MARKETING_VERSION -> 0.7.39) in the Xcode project. Replace river tile assets (river_bend and river_with_banks) for @1x/@2x/@3x. Add two helper scripts: scripts/generate_sips_imageset.sh (creates @1x/@2x/@3x images from tmp/<name>.png using sips) and scripts/report_image_size.sh (reports pixel dimensions of an image). These additions support updated artwork and simplify image sizing/asset generation.
+
+---
+
+2026-03-12 12:07:14 -0500
+Add Sears catalog, but it doesn't do anything yet
+Introduce studyGuide and searsCatalog interactables and their image assets (PNGs + Contents.json). Replace the old desk interactable with a study desk decoration and adjust desk sizing. Add placement offsets for study items, new interaction handlers (handleStudyGuideInteraction, handleSearsCatalogInteraction), and logic to exclude these items from persisted positions (shouldPersistInteractablePosition). Update loading/restore code to respect persistence rules. Bump project CURRENT_PROJECT_VERSION to 34 and MARKETING_VERSION to 0.7.38. Small sprite/asset updates included.
+
+---
+
+2026-03-11 21:25:40 -0500
+Add river
+Add river overlay art and rendering support.
+
+- Add river tile assets (river_bend and river_with_banks) with 1x/2x/3x Contents.json files.
+- Introduce RiverOverlayConfig and expose an optional riverOverlay in WorldConfig.
+- Define river layout values in WorldLoader, create a riverOverlay instance, attach it to WorldConfig, and skip river tiles when populating world tiles.
+- Implement buildRiverOverlay(on:) in GameScene, add ZLayer.worldFloorOverlay, and call it after the base tile layer to render repeated center segments and a bend edge textured sprite.
+- Bump project CURRENT_PROJECT_VERSION to 33 and MARKETING_VERSION to 0.7.37.
+
+---
+
+2026-03-11 14:45:13 -0500
+Extend the world to the left by 40 tiles
+version 0.7.36; build 32.
+
+---
+
+2026-03-11 14:22:04 -0500
+open up space at top for future river
+Expand world height by changing worldRows from 46 to 70 in GameScene. Update tree placement logic in WorldLoader to compute a topOccupiedRow and cap maxTreeRow accordingly, preventing trees from being placed above occupied rows. Also bump Xcode project CURRENT_PROJECT_VERSION to 31 and MARKETING_VERSION to 0.7.35.
+
+---
+
+2026-03-11 11:36:41 -0500
+Remove order table
+Remove the 'orderTable' decoration and related special-casing across the world loader and scene. It turned out that the order table and gap in the wall between living room and kitchen was non-canonical.
+
+Deleted orderTable ID, size, tile, and decoration entry in WorldLoader, removed special placement offset and blocking-exception in GameScene, and adjusted diningKitchenDoorRows. Also bumped project CURRENT_PROJECT_VERSION to 30 and MARKETING_VERSION to 0.7.34 in the Xcode project file.
+
+---
+
+2026-03-10 15:57:41 -0500
+Fix movement bug: constant oscillation when run into certain objects
+Refactor movement stall handling in GameScene.swift: rename previousMoveTargetDistance to bestMoveTargetDistance, add stalledMoveDistanceEpsilon, and update the update loop to track the best (closest) distance, increment stalledMoveFrameCount when progress is below the epsilon, and clear the move target (stopping velocity) after the stalled frame limit. Also reset bestDistance appropriately when targets change or player mounts a vehicle. Incremented Xcode project CURRENT_PROJECT_VERSION to 29 and MARKETING_VERSION to 0.7.33.
+
+---
+
+2026-03-10 15:47:52 -0500
+Add barstool and patron on stool
+Add barstool and barstoolwithpatron1 image assets (1x/2x/3x) and their Contents.json files. Update WorldLoader.swift to define stool and patron sizes (64x64, 64x128), tile coordinates for top/center/patron barstools, and DecorationConfig entries for the three barstool variants. Register the new decorations in staticDecorations so they appear in the world and block movement.
+
+---
+
+2026-03-10 12:29:21 -0500
+Change iOS deployment target to iOS 18.6.
+Update UntammyValley Xcode project settings: change IPHONEOS_DEPLOYMENT_TARGET from 26.2 to 18.6, increment CURRENT_PROJECT_VERSION from 27 to 28, and bump MARKETING_VERSION from 0.7.31 to 0.7.32. These edits are in UntammyValley.xcodeproj/project.pbxproj across the relevant build configurations.
+
+---
+
+2026-03-10 11:45:07 -0500
+Add bar and order table
+Not sure we really want the order table; must check with Tammy.
+
+Add new assets for a bar and an order table and register their image sets. Introduce DecorationConfig entries (livingRoomBar, orderTable) and layout helpers/sizes/tiles in WorldLoader, adjust bathroom and door layout logic (bathroom interior columns, door rows, toilet/bucket tiles), and include the new decorations in staticDecorations. Update GameScene to recognize orderTable (adjust render Y offset) and exclude it from movement-blocking checks; also include toilet in the list of interactables exempt from position restoration. Bump project CURRENT_PROJECT_VERSION and MARKETING_VERSION to 27 / 0.7.31.
+
+---
+
+2026-03-08 12:53:00 -0500
+Add tray. Fix click-on-object move bug.
+Now the potato slices are put onto a tray, rather than the basket. Now the basket doesn't have to do double-duty for carrying potato slices and chip, which was confusing to users.
+Add overlays to tray and basket to indicate when something is in them.
+Fix a bug related to clicking on an object to move next to it:  sometimes the movement wasn't far enough to be able to interact with the object - notably the potato bin.
+
+Bump project version and add tray-based slicing/frying flow.
+
+- Xcode: increment CURRENT_PROJECT_VERSION to 26 and MARKETING_VERSION to 0.7.30.
+- Assets: add potato_icon, potato_slices_icon, potato_chips_icon and tray images + Contents.json for each imageset.
+- World: add InteractableKind.tray and register a tray interactable/tile in WorldLoader; include tray in allInteractables.
+- Game state/save: extend GameSaveSnapshot with optional isTrayCarried and traySlicedPotatoCount and persist/load these fields in GameScene.
+- GameScene: add tray-related state and nodes (isTrayCarried, traySlicedPotatoCount, traySlicesIconNode, fryerChipsIconNode, basketChipsIconNode, bucketPotatoIconNode), create HUD/indicator icons, and update status text.
+- Interactions: implement tray pickup/drop, adding slices from peeler to tray, moving tray slices to fryer, and collecting chips into basket (with coin rewards). Update messages to reference tray where appropriate.
+- Movement/interaction improvements: introduce moveTargetArrivalDistance, configurable arrival distance for setMoveTarget, minimumReachableDistance and effectiveInteractionRange to compute sensible reach distances for interactables.
+- Misc: update node creation to include tray marker, hide/show icons based on state, and clean up nodes on reset.
+
+These changes add a tray object to the game loop and wiring so players can load sliced potatoes onto a tray, fry them into chips, and collect chips in the basket.
+
+---
+
+2026-03-07 18:33:08 -0600
+Add cars in front of bar, and place goat on top of one
+Add three parking car sprites (sedan, pickup, station wagon) and their asset catalogs; register them as decoration configs and include parkingCarTiles/parkingCarSize in WorldLoader. Implement goat placement logic in GameScene to position the goat randomly on one of the parked cars on restore and respawn, and add parkingCarDecorationIDs to track those decorations. Increase goat interactionRange and update the RNG seed for placement. Also bump Xcode project CURRENT_PROJECT_VERSION to 25 and MARKETING_VERSION to 0.7.29.
+
+---
+
+2026-03-06 18:35:05 -0600
+When an object is dropped, put it on an adjacent square
+and animate its movement towards that square. Previously, dropped objects went directly under the player, making them difficult to see, and difficult to distinguish from objects still being carried.
+
+Bump project CURRENT_PROJECT_VERSION to 24 and MARKETING_VERSION to 0.7.28. Add FacingDirection enum and track lastMoveDirection to determine player facing. Implement updateLastMoveDirection(delta) and tileCanContainDroppedObject checks to avoid walls, blocking decorations, and occupied tiles. Add candidateDropTiles(from:) and dropCarriedObject(...) to choose a nearby valid tile and animate a short slide instead of teleporting items to the player. Replace direct position assignments with dropCarriedObject for multiple interactables so dropped objects are placed more naturally.
+
+---
+
+2026-03-03 20:29:04 -0600
+Enable String Catalog Symbol Generation
+as requested by XCode. Build 23.
+
+---
+
+2026-03-03 20:25:57 -0600
+Resize fryer, grinder, and bin assets and tweak positions
+Update asset images and sizing/placement for deep fryer, potato bin, and potato grinder; adjust asset catalog metadata (deep_fryer_marker Contents.json). Increase chip maker and deep fryer sizes, add potatoBinSize, and switch potato_bin layout to use the new size. Tweak tile coordinates for potato peeler, deep fryer, and potato bin to match updated assets. Prevent restoring saved positions for immovable interactables (teachersDesk, potatoPeeler, deepFryer, potatoBin) in GameScene. Also bump project CURRENT_PROJECT_VERSION to 22 and MARKETING_VERSION to 0.7.27.
+
+---
+
+2026-03-01 14:29:32 -0600
+auto-move player if click on an object too far to interact
+Increment project build and marketing versions (CURRENT_PROJECT_VERSION 20 -> 21, MARKETING_VERSION 0.7.25 -> 0.7.26). Add movePlayerNearInteractable(_:) which computes a stand-off point using player and interactable sizes plus a small gap (8 pts) and calls setMoveTarget. Replace the previous "Move closer to interact." message with this automatic movement when the player is out of interaction range.
+
+---
+
+2026-03-01 14:20:46 -0600
+add walk bob animation
+Introduce a ZLayer enum to centralize all zPosition constants and replace hardcoded numeric zPositions across GameScene for world, HUD, dialogs, panels, and debug layers. Add walking bob animation in GameScene (amplitude, frequency, phase tracking, updateWalkingAnimation, and per-frame movement delta handling) so the player avatar visually bobs while walking. Update player layering for mounted vs on-foot states to use ZLayer values and ensure snowmobile rendering depth is correct. Refactor PlayerNode to contain an avatarSpriteNode child (so avatar texture updates and vertical visual offsets can be applied independently), add setVisualVerticalOffset, and update refreshAvatarTexture accordingly. Also bump project CURRENT_PROJECT_VERSION to 20 and MARKETING_VERSION to 0.7.25.
+
+---
+
+2026-03-01 13:42:45 -0600
+Add bed assets and place bedroom beds
+Add three new bed image sets (bed1/bed2/bed3) with Contents.json and 1x/2x/3x PNGs. Update project settings: bump CURRENT_PROJECT_VERSION to 19 and MARKETING_VERSION to 0.7.24. Modify WorldLoader: introduce bedSize, adjust tennisRacketTile position, add bedTiles array, create bedroomBeds DecorationConfig entries (mapping bed1..3 sprites to tiles) and include them in staticDecorations so beds are placed in the bedroom.
+
+---
+
+2026-02-24 19:45:41 -0600
+Fix missing fryer image (wrong filename)
+Also: Remove a leftover debug print from GameState initializer to clean up console output. Increment project version and marketing version (CURRENT_PROJECT_VERSION 17→18, MARKETING_VERSION 0.7.22→0.7.23) in the Xcode project.
+
+---
+
+2026-02-24 19:15:40 -0600
+Track study guides; add reset confirmation
+Introduce study-guide tracking and a reset confirmation dialog. GameState now tracks studyGuideOpenedBySubject (persisted to UserDefaults), with helpers to mark/clear/reset/normalize subjects; quiz start now requires reading the study guide and viewing a guide marks it opened; submitting a quiz clears the opened flag for that subject. GameScene: add reset confirmation UI and handlers, resize/reflow study subject panel (add Mathematics), prevent quizzes until guide read, display studied status in quiz totals, include studyGuideOpenedBySubject in save snapshot load/save, and clear study flags on full game reset. Also bump project CURRENT_PROJECT_VERSION to 16 and MARKETING_VERSION to 0.7.22 and update one quiz question background text.
+
+---
+
+2026-02-24 17:35:38 -0600
+Make fryer larger. Refactor sizing calculations.
+Replace deep fryer asset images with new files (renamed PNGs in the deep_fryer_marker image set and updated Contents.json), and add image properties. Refactor layout sizing in WorldLoader: use scaledSize for desk and teacher desk, add deepFryerSize and a centralized treeSizes array, and update object layout to use the new deepFryerSize and BarLayout.treeSizes. These changes centralize size calculations and prepare the app to use the updated fryer artwork.
+Increment project versions (CURRENT_PROJECT_VERSION 15→16, MARKETING_VERSION 0.7.20→0.7.21).
+
+---
+
+2026-02-23 18:13:22 -0600
+Add in-game quiz system and UI
+Introduce a complete quiz feature: new QuizModels, QuizEngine, QuizDialogNode UI, and QuizStatusFormatter. Integrate quiz flows into GameScene (configure/start/handle quiz dialog, teacher desk interactions, and HUD tap handling). Persist per-subject quiz stats in GameState via UserDefaults and expose methods to add/query totals. Add subject display names in WorldConfig and include quiz totals in the status window. Also bump project CURRENT_PROJECT_VERSION to 15 and MARKETING_VERSION to 0.7.20.
+
+---
+
+2026-02-23 13:39:27 -0600
+Add teachers desks
+Introduce teacher's desk interactables and assets for classroom subjects. Adds teachers_desk image set (1x/2x/3x) and updates Xcode project versions (CURRENT_PROJECT_VERSION -> 14, MARKETING_VERSION -> 0.7.19). WorldConfig gains a .teachersDesk kind, ClassroomSubject enum, TeachersDeskConfig struct and a teachersDesks property. SchoolLayout defines desk tile coordinates for four classroom desks. WorldLoader creates four teacher desk InteractableConfig entries (English, History, Mathematics, Science), registers them with interactables and supplies teachersDesks to the world, and defines a teachersDeskSize. GameScene short-circuits .teachersDesk interaction handling and excludes teachers_desk nodes from position restoration.
+
+---
+
+2026-02-23 11:05:38 -0600
+Merge branch 'main' of https://github.com/riordanmr/untammy-valley
+
+---
+
+2026-02-23 11:05:36 -0600
+Use different goat image
+Increment build number (CURRENT_PROJECT_VERSION 12 → 13) and marketing version (0.7.17 → 0.7.18) in project.pbxproj.
+
+---
+
+2026-02-23 10:26:29 -0600
+Add MIT License to the project
+
+---
+
+2026-02-23 10:19:35 -0600
+Use ScrollTextDialog for Status window
+Replace the bespoke Status window and its custom scroll implementation by reusing ScrollTextDialogNode. Removed status-specific nodes, scroll state and rendering logic from GameScene and instead build status content via makeStatusLines() and configure the shared scroll dialog. Wire ScrollTextDialogNode.onClose to clear status visibility. Adjust ScrollTextDialogNode API (configure title:lines:paragraphSpacing:closeButtonTitle:), improve viewport/layout (widths, positions, font/line sizing), and add isInScrollViewport helper. Also clean up touch handling related to the old status scroll. Bump project CURRENT_PROJECT_VERSION to 12 and MARKETING_VERSION to 0.7.17.
+
+---
+
+2026-02-23 09:41:55 -0600
+Increase message time; show build number
+version 0.7.16 (11).
+
+---
+
+2026-02-23 09:29:03 -0600
+Add intro text; refactor text dialog
+Introduce a reusable ScrollTextDialogNode for displaying long, scrollable text and use it for both the game Introduction and Study Guide. Integrate the dialog into GameScene (configure, layout updates, input handling, visibility toggles) and present the intro automatically on first run via UserDefaults (key: "ut.intro.shown"). Remove the old study background window implementation and its scrolling logic in favor of the new dialog. Add an "Intro" item to the in-game menu and adjust menu layout. Bump Xcode project CURRENT_PROJECT_VERSION and MARKETING_VERSION (0.7.14 -> 0.7.15 / version bump to 10).
+
+---
+
+2026-02-22 11:39:19 -0600
+Merge pull request #3 from riordanmr/copilot/fix-player-leave-world-issue
+Prevent player from walking off the world edge
+---
+
+2026-02-22 11:34:00 -0600
+Update .gitignore
+
+---
+
+2026-02-22 11:33:42 -0600
+Old mods to .af files
+I had briefly used Affinity to create images.
+
+---
+
+2026-02-22 13:18:07 +0000
+Fix: Prevent player from walking off the edge of the world
+Co-authored-by: riordanmr <3752729+riordanmr@users.noreply.github.com>
+
+---
+
+2026-02-22 13:15:10 +0000
+Initial plan
+
+---
+
+2026-02-21 22:59:47 -0600
+Add trees between bar and school
+Add fir/maple/birch sprite assets and asset catalog entries; introduce DecorationKind.sprite. Implement a seeded RNG and makeTreeDecorations(...) in WorldLoader to procedurally place tree decorations while avoiding walls, blocked/interactable tiles, septic areas and corridor space. Integrate generated trees into WorldConfig.decorations and factor interactables/static decorations.
+Version 0.7.14.
+
+---
+
+2026-02-21 22:10:16 -0600
+Add ability to change avatar
+Introduce configurable player avatars: add avatar image assets and an Avatars asset catalog. Add UTSettings.Avatar enum with persistence and methods to set/reset avatars. Implement an Avatar tab in SettingsDialogNode with scrollable selection UI, selection borders, reset feedback, and callbacks (onAvatarChanged). Update SettingsDialogNode to manage tabs, scrolling, and apply selection state. Update PlayerNode to load avatar textures with fallbacks, provide refreshAvatarTexture(), and use a shared display size. Wire GameScene to refresh the player avatar and mark saves dirty when the avatar changes.
+Version 0.7.13.
+
+---
+
+2026-02-21 20:11:35 -0600
+Add autosave & persistent game save
+Introduce persistent save/restore and autosave support.
+
+- Add GameSaveSnapshot model to capture full game state (player, interactables, inventory, timers, etc.).
+- Add SaveManager to read/write a JSON snapshot in Application Support (ISO8601 dates, pretty-printed).
+- Integrate autosave in GameScene: markSaveDirty(), autosave every 2s, saveGameStateNow(), make/apply snapshot helpers, and restore on scene startup.
+- Wire lifecycle persistence: SceneDelegate calls GameViewController.saveGameStateIfPossible when resigning/entering background; GameViewController exposes a helper to trigger scene save.
+- Minor gameplay/UI tweaks to ensure saves after key actions and improved bucket picked-up message.
+- Add TileCoordinate Codable conformance and a GameState.setCoins(_:) setter.
+Version 0.7.12; build 7.
+
+---
+
+2026-02-21 18:58:27 -0600
+Add school layout and improve movement/snowmobile
+Introduce a SchoolLayout and integrate a new school area into the world: generate walls, doors, floor regions, room labels and a school sign in WorldLoader; add SchoolLayout.swift. Extend WorldConfig with barInteriorRegions and a computed recommendedWorldColumns based on configured tiles so the world width adapts to new content.
+To fix a "vibrating" effect when on a snowmobile, revamp player movement in GameScene: add helpers to manage/clear move targets, compute stable deltaTime, improve mounted snowmobile movement by stepping and probing for walls/drivability, increase mounted speed multiplier, and adjust physics/collision behavior while mounted. Misc: clear move targets in several state transitions (map mode, dismount, simulate/resets). Bump Xcode project CURRENT_PROJECT_VERSION and MARKETING_VERSION (0.7.10 -> 0.7.11).
+
+---
+
+2026-02-21 17:35:56 -0600
+Display version in Status window
+
+---
+
+2026-02-21 14:30:54 -0600
+Merge branch 'main' of https://github.com/riordanmr/untammy-valley
+
+---
+
+2026-02-21 14:30:52 -0600
+Add desk and study guide
+
+---
+
+2026-02-21 12:40:52 -0600
+Create Settings dialog controlling Counts
+
+---
+
+2026-02-21 11:33:05 -0600
+Make the hamburger menu easier to use
+Larger font, allow touch even outside text area
+
+---
+
+2026-02-20 19:30:31 -0600
+Add initial README for Untammy Valley game
+
+---
+
+2026-02-20 19:16:33 -0600
+Cap the bat escape penalty to 200 coins
+v 0.7.8. (Note that the version uploaded to App Store Connect was really 0.7.7, but was mislabeled 0.7.8.)
+
+---
+
+2026-02-20 18:10:10 -0600
+Add Cramer's Little Valley sign
+
+---
+
+2026-02-20 17:44:46 -0600
+Cache some UI assets to avoid memory crashes
+version 0.7.6.
+
+---
+
+2026-02-20 14:49:29 -0600
+Be sure to show all warning messages
+If multiple warning conditions were triggered, only one would show. v 0.7.5.
+
+---
+
+2026-02-20 14:21:14 -0600
+Improve snowmobile mounting
+Add dialog to disambiguate the meaning of tapping on an owned snowmobile while in the lot.
+v 0.7.4.
+
+---
+
+2026-02-20 13:53:40 -0600
+Change potato chip reward to 5 coins/potato
+
+---
+
+2026-02-20 13:46:27 -0600
+Add snowmobiles and buying them
+Add a snowmobile lot as a defined area.
+Reset now gives you 200 coins, for ease of testing purchasing.
+
+---
+
+2026-02-20 12:31:08 -0600
+Change shape of world for future additions
+Also don't spawn the bat as often
+
+---
+
+2026-02-20 11:47:19 -0600
+Implement Map mode
+This provides a view-only zoomed out view of the world.
+
+---
+
+2026-02-20 11:25:25 -0600
+Add "Move 20" menu entry
+
+---
+
+2026-02-20 11:21:56 -0600
+Add warning icons at lower left
+These alert you to tasks you must complete that have non-completion penalties.
+
+---
+
+2026-02-20 11:06:54 -0600
+Add need to clean toilet
+And add dirty toilet image.
+
+---
+
+2026-02-19 20:48:57 -0600
+Add toilet bowl brush (but no interaction)
+
+---
+
+2026-02-19 19:13:32 -0600
+Add toilet (but no interaction)
+
+---
+
+2026-02-19 18:53:22 -0600
+Add Status window scroll indicator
+Previously, it wasn't obvious that the Status window scrolled at all.
+
+---
+
+2026-02-19 18:50:50 -0600
+Add deep fryer. Add remaining images.
+I may want to improve the deep frying experience: it's not that clear how many chips are in the basket. It may be simpler to have 2 types of baskets.
+
+---
+
+2026-02-19 14:34:35 -0600
+Add digging of septic trench
+Also, in order to be able to "Validate" the app, add     <key>UIRequiresFullScreen</key>
+    <true/>
+to AppInfo.plist.
+
+---
+
+2026-02-19 09:16:49 -0600
+Stop tracking UserInterfaceState.xcuserstate
+
+---
+
+2026-02-19 09:09:57 -0600
+Tweak object sizes; choose standard size
+Previously, each object had a separate size; not sure exactly why. Now there's a way to scale all objects with one variable. The PNGs may need to be regenerated at a larger size eventually, but so far they seem OK.
+
+---
+
+2026-02-19 08:06:33 -0600
+Darken grass. Use color chip maker.
+
+---
+
+2026-02-18 21:22:46 -0600
+Add bat and racket. Make Status scroll.
+
+---
+
+2026-02-18 20:34:26 -0600
+Tweak Status window text positions
+
+---
+
+2026-02-18 19:53:40 -0600
+Reset now returns bucket to orig place
+
+---
+
+2026-02-18 19:41:09 -0600
+Use images, not emojis, for bucket and spigot
+Also change wall image
+
+---
+
+2026-02-18 18:45:30 -0600
+Add requirement of washing potatos
+
+---
+
+2026-02-18 18:39:43 -0600
+Add Status window. Add potato chip making.
+
+---
+
+2026-02-18 17:58:52 -0600
+Use better carpet image
+
+---
+
+2026-02-18 17:48:32 -0600
+Speed up player movement
+
+---
+
+2026-02-18 17:44:11 -0600
+Use PNG tiles for flooring
+
+---
+
+2026-02-18 16:21:22 -0600
+Generalize objects, and add goat
+
+---
+
+2026-02-18 15:53:12 -0600
+Switch to data-driven desc of world
+
+---
+
+2026-02-18 15:29:55 -0600
+Use PNGs for player and chip maker. Add Reset.
+
+---
+
+2026-02-18 11:31:46 -0600
+ut2: Use an image to represent the player
+
+---
+
+2026-02-18 09:47:35 -0600
+hide instructions upon leaving bar
+
+---
+
+2026-02-17 20:16:25 -0600
+Add control to show/hide Map vs Stats selectors
+
+---
+
+2026-02-17 20:03:27 -0600
+Initial commit of ut2
+ut2 was written from scratch by GitHub Copilot. Yesterday's commit was written by Microsoft Copilot in many small pieces, with a lot more oversight by me. GitHub Copilot wrote a more complete game, but it's not clear whether it's a better basis for what I really want long-term.
+
+---
+
+2026-02-17 18:39:07 -0600
+Minor code refactoring
+
+---
+
+2026-02-16 18:57:07 -0600
+Add floor and walls. Fix UIScene warning.
+We now have AppInfo.plist now because we moved to explicit UIScene lifecycle config, and generated plist settings were causing launch/runtime issues. Some settings that used to be in Build Settings now live in the plist file, so you we need to edit there instead.
+
+---
+
+2026-02-15 19:37:54 -0600
+Initial commit. App doesn't do much
+Has a teal square representing the player, and a checkerboard background. The player is moved with the mouse (in the simulator); the player is shown fixed in the center of the screen, while the background moves.
+
+---

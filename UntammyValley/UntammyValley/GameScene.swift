@@ -288,6 +288,7 @@ class GameScene: SKScene {
     private var warningTrenchIconNode: SKSpriteNode!
     private var warningPropaneIconNode: SKSpriteNode!
     private var warningStudyGuideIconNode: SKSpriteNode!
+    private var warningQuizIconNode: SKSpriteNode!
     private var makerLoadedIndicatorNode: SKShapeNode?
     private var bucketSelectedIndicatorNode: SKShapeNode?
     private var bucketPotatoIconNode: SKSpriteNode?
@@ -2782,6 +2783,16 @@ class GameScene: SKScene {
         warningStudyGuideIconNode.isHidden = true
         warningIconContainerNode.addChild(warningStudyGuideIconNode)
 
+        if let quizTexture = loadTexture(named: "quiz_warning") {
+            warningQuizIconNode = SKSpriteNode(texture: quizTexture, color: .clear, size: iconSize)
+        } else {
+            let fallbackTexture = makeLabeledMarkerTexture(size: iconSize, emoji: "Q", color: .systemIndigo)
+            warningQuizIconNode = SKSpriteNode(texture: fallbackTexture, color: .clear, size: iconSize)
+        }
+        warningQuizIconNode.name = "warningQuizIcon"
+        warningQuizIconNode.isHidden = true
+        warningIconContainerNode.addChild(warningQuizIconNode)
+
         updateWarningIcons()
     }
 
@@ -2829,6 +2840,10 @@ class GameScene: SKScene {
             icons.append(warningStudyGuideIconNode)
         }
 
+        if isQuizMasteryTaskActive() {
+            icons.append(warningQuizIconNode)
+        }
+
         return icons
     }
 
@@ -2838,6 +2853,14 @@ class GameScene: SKScene {
         }
 
         return !GameState.shared.hasEverOpenedAnyStudyGuide()
+    }
+
+    private func isQuizMasteryTaskActive() -> Bool {
+        guard GameState.shared.hasEverOpenedAnyStudyGuide() else {
+            return false
+        }
+
+        return !GameState.shared.hasReachedQuizMastery(minimumPercent: 80)
     }
 
     private func isPropaneTankTaskActive() -> Bool {
@@ -2913,6 +2936,9 @@ class GameScene: SKScene {
         }
         if !activeIcons.contains(warningStudyGuideIconNode) {
             warningStudyGuideIconNode.isHidden = true
+        }
+        if !activeIcons.contains(warningQuizIconNode) {
+            warningQuizIconNode.isHidden = true
         }
     }
 
@@ -3131,6 +3157,10 @@ class GameScene: SKScene {
 
         if isStudyGuideTaskActive() {
             lines.append("Read the study guide before going to school.")
+        }
+
+        if isQuizMasteryTaskActive() {
+            lines.append("Get 80% in quizzes for each of the 4 subjects")
         }
 
         return lines
