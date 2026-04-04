@@ -1,5 +1,13 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.70 (67) 2026-03-29 20:08:56
+
+Study guide task is done when all guides read
+
+## Version 0.7.69 (66) 2026-03-29 19:01:44
+
+Add quiz task warning
+
 ## Version 0.7.68 (65) 2026-03-27 14:42:21
 
 Add study-guide warning upon 1st snowmobile purchase

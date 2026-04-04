@@ -17,6 +17,7 @@ struct GameSaveSnapshot: Codable {
 
     let coins: Int
     let completedMoveCount: Int
+    let barCompletedMoveCount: Int?
     let playerPosition: SavedPoint
 
     let interactablePositionsByID: [String: SavedPoint]

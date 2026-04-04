@@ -1,4 +1,16 @@
 
+2026-03-29 20:08:56 -0500
+Study guide task is done when all guides read
+Bump project version (CURRENT_PROJECT_VERSION 66→67) and marketing version 0.7.69→0.7.70 in the Xcode project. Refactor GameState to track study-guide openings per subject: add hasEverOpenedStudyGuide(for:), hasEverOpenedAllStudyGuides(), and remainingStudyGuidesToOpen(); replace the old any-study-guide check with subject-aware logic. Update GameScene to use the new all-guides check for quiz/task gating and show a human-readable list of remaining study guides in the task message.
+
+---
+
+2026-03-29 19:01:44 -0500
+Add quiz task warning
+Add a new quiz warning asset (quiz_warning @1x/@2x/@3x + Contents.json) and wire a warningQuizIcon into GameScene (create node with texture/fallback, include in warning container, show/hide logic, and pending-task text). Add GameState.hasReachedQuizMastery(minimumPercent:) to require per-subject quiz mastery (default 80%). Update task/pending-lines and warning icon handling to include the quiz mastery requirement. Bump project build/marketing versions (CURRENT_PROJECT_VERSION -> 66, MARKETING_VERSION -> 0.7.69), add a detailed commit-history.txt, update release-notes.md, and modify scripts/make-release-notes.sh.
+
+---
+
 2026-03-27 14:42:21 -0500
 Add study-guide warning upon 1st snowmobile purchase
 Also, don't mention the trench task upon serving chips, if the trench task has already been done.

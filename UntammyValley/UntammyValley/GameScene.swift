@@ -428,6 +428,7 @@ class GameScene: SKScene {
     private var hasAttemptedSaveRestore = false
     private var playerSpawnPosition: CGPoint = .zero
     private var completedMoveCount = 0
+    private var barCompletedMoveCount = 0
     private var isBearAttackInProgress = false
     private let worldConfig = WorldConfig.current
     private lazy var namedSaveDefaultNameFormatter: DateFormatter = {
@@ -482,6 +483,25 @@ class GameScene: SKScene {
 
     func markSaveDirty() {
         isSaveDirty = true
+    }
+
+    private var taskMoveCount: Int {
+        barCompletedMoveCount
+    }
+
+    private func incrementMoveCountersForCurrentPosition() {
+        completedMoveCount += 1
+        if isPlayerInBarRooms() {
+            barCompletedMoveCount += 1
+        }
+    }
+
+    private func remainingTaskMoves(until deadlineMove: Int?) -> Int {
+        max(0, (deadlineMove ?? taskMoveCount) - taskMoveCount)
+    }
+
+    private func scheduleTaskMove(after offset: Int) -> Int {
+        taskMoveCount + max(0, offset)
     }
 
     private func updateLastMoveDirection(from movementDelta: CGVector) {
@@ -1142,7 +1162,7 @@ class GameScene: SKScene {
         if distance < moveTargetArrivalDistance {
             clearMoveTarget()
             body.velocity = .zero
-            completedMoveCount += 1
+            incrementMoveCountersForCurrentPosition()
             processInteractableRespawns()
             markSaveDirty()
             return
@@ -1198,7 +1218,7 @@ class GameScene: SKScene {
             let remainingDistance = hypot(remainingDx, remainingDy)
             if remainingDistance < moveTargetArrivalDistance {
                 clearMoveTarget()
-                completedMoveCount += 1
+                incrementMoveCountersForCurrentPosition()
                 processInteractableRespawns()
                 markSaveDirty()
             }
@@ -1244,7 +1264,7 @@ class GameScene: SKScene {
             let remainingDistance = hypot(remainingDx, remainingDy)
             if remainingDistance < moveTargetArrivalDistance {
                 clearMoveTarget()
-                completedMoveCount += 1
+                incrementMoveCountersForCurrentPosition()
                 processInteractableRespawns()
                 markSaveDirty()
             }
@@ -1764,7 +1784,7 @@ class GameScene: SKScene {
         }
 
         if let batDeadline = batDefeatDeadlineMove,
-           completedMoveCount >= batDeadline,
+           taskMoveCount >= batDeadline,
            let batNode = interactableNodesByID[bedroomBatID],
            !batNode.isHidden {
             let previousCoins = GameState.shared.coins
@@ -1772,18 +1792,18 @@ class GameScene: SKScene {
             _ = GameState.shared.removeCoins(penalty)
             batNode.isHidden = true
             batDefeatDeadlineMove = nil
-            nextBatSpawnMove = completedMoveCount + BatEventSettings.randomSpawnIntervalMoves()
+            nextBatSpawnMove = scheduleTaskMove(after: BatEventSettings.randomSpawnIntervalMoves())
             updateCoinLabel()
             intervalMessages.append("Bat escaped. Exterminator called: -\(penalty) coins.")
         }
 
         if batDefeatDeadlineMove == nil,
-           completedMoveCount >= nextBatSpawnMove,
+           taskMoveCount >= nextBatSpawnMove,
            isPlayerInBarRooms(),
            let batNode = interactableNodesByID[bedroomBatID] {
             batNode.position = interactableHomePositionByID[bedroomBatID] ?? batNode.position
             batNode.isHidden = false
-            batDefeatDeadlineMove = completedMoveCount + BatEventSettings.defeatDeadlineMoves
+            batDefeatDeadlineMove = scheduleTaskMove(after: BatEventSettings.defeatDeadlineMoves)
             intervalMessages.append("A bat appeared in the bedroom! Use the tennis racket within \(BatEventSettings.defeatDeadlineMoves) moves.")
         }
 
@@ -1797,7 +1817,7 @@ class GameScene: SKScene {
 
     private func processFoodOrderEventProgress(messages: inout [String]) {
         if let deadline = foodOrderDeadlineMove,
-           completedMoveCount > deadline {
+           taskMoveCount > deadline {
             let configuredPenalty = FoodOrderEventSettings.nonDeliveryPenaltyCoins
             _ = GameState.shared.removeCoins(configuredPenalty)
             updateCoinLabel()
@@ -1808,9 +1828,9 @@ class GameScene: SKScene {
         }
 
         if foodOrderDeadlineMove == nil,
-           completedMoveCount >= nextFoodOrderMove,
+           taskMoveCount >= nextFoodOrderMove,
            isPlayerInBarRooms() {
-            foodOrderDeadlineMove = completedMoveCount + FoodOrderEventSettings.deliverDeadlineMoves
+            foodOrderDeadlineMove = scheduleTaskMove(after: FoodOrderEventSettings.deliverDeadlineMoves)
             messages.append("New food order! Make and deliver potato chips to the bar customer within \(FoodOrderEventSettings.deliverDeadlineMoves) moves.")
             markSaveDirty()
         }
@@ -1964,7 +1984,7 @@ class GameScene: SKScene {
     }
 
     private func scheduleNextFoodOrder() {
-        nextFoodOrderMove = completedMoveCount + FoodOrderEventSettings.randomSpawnIntervalMoves()
+        nextFoodOrderMove = scheduleTaskMove(after: FoodOrderEventSettings.randomSpawnIntervalMoves())
     }
 
     private func updateFoodStateIcons() {
@@ -3129,17 +3149,17 @@ class GameScene: SKScene {
         var lines: [String] = []
 
         if let batDeadline = batDefeatDeadlineMove {
-            let remainingMoves = max(0, batDeadline - completedMoveCount)
+            let remainingMoves = remainingTaskMoves(until: batDeadline)
             lines.append("Kill the bat (\(remainingMoves) moves before penalty)")
         }
 
         if isToiletDirty {
-            let remainingMoves = max(0, (toiletCleanDeadlineMove ?? completedMoveCount) - completedMoveCount)
+            let remainingMoves = remainingTaskMoves(until: toiletCleanDeadlineMove)
             lines.append("Clean the toilet (\(remainingMoves) moves before penalty)")
         }
 
         if let foodDeadline = foodOrderDeadlineMove {
-            let remainingMoves = max(0, foodDeadline - completedMoveCount)
+            let remainingMoves = remainingTaskMoves(until: foodDeadline)
             lines.append("Deliver food order (\(remainingMoves) moves before penalty)")
         }
 
@@ -3188,27 +3208,27 @@ class GameScene: SKScene {
 
         let batStatusText: String
         if let batDeadline = batDefeatDeadlineMove {
-            batStatusText = "Defeat in \(max(0, batDeadline - completedMoveCount)) moves"
+            batStatusText = "Defeat in \(remainingTaskMoves(until: batDeadline)) moves"
         } else {
-            batStatusText = "Waiting (avg \(BatEventSettings.spawnIntervalMoves), range \(BatEventSettings.minSpawnIntervalMoves)-\(BatEventSettings.maxSpawnIntervalMoves))"
+            batStatusText = "Waiting (next in \(remainingTaskMoves(until: nextBatSpawnMove)) moves)"
         }
 
         let toiletStatusText: String
         if isToiletDirty {
             if let deadline = toiletCleanDeadlineMove {
-                toiletStatusText = "Dirty (clean in \(max(0, deadline - completedMoveCount)) moves)"
+                toiletStatusText = "Dirty (clean in \(remainingTaskMoves(until: deadline)) moves)"
             } else {
                 toiletStatusText = "Dirty"
             }
         } else {
-            toiletStatusText = "Clean (next dirty in \(max(0, nextToiletDirtyMove - completedMoveCount)) moves)"
+            toiletStatusText = "Clean (next dirty in \(remainingTaskMoves(until: nextToiletDirtyMove)) moves)"
         }
 
         let foodOrderStatusText: String
         if let deadline = foodOrderDeadlineMove {
-            foodOrderStatusText = "Active (deliver in \(max(0, deadline - completedMoveCount)) moves)"
+            foodOrderStatusText = "Active (deliver in \(remainingTaskMoves(until: deadline)) moves)"
         } else {
-            foodOrderStatusText = "Waiting (next in \(max(0, nextFoodOrderMove - completedMoveCount)) moves, range \(FoodOrderEventSettings.minSpawnIntervalMoves)-\(FoodOrderEventSettings.maxSpawnIntervalMoves))"
+            foodOrderStatusText = "Waiting (next in \(remainingTaskMoves(until: nextFoodOrderMove)) moves, range \(FoodOrderEventSettings.minSpawnIntervalMoves)-\(FoodOrderEventSettings.maxSpawnIntervalMoves))"
         }
 
         let currentMoveSpeed = mountedSnowmobileID == nil
@@ -3881,7 +3901,7 @@ class GameScene: SKScene {
         isToiletDirty = false
         toiletCleanDeadlineMove = nil
         hasShownToiletPenaltyStartMessage = false
-        nextToiletDirtyMove = completedMoveCount + ToiletEventSettings.randomDirtyIntervalMoves()
+        nextToiletDirtyMove = scheduleTaskMove(after: ToiletEventSettings.randomDirtyIntervalMoves())
         updateToiletVisualState()
 
         GameState.shared.addCoins(ToiletEventSettings.cleanRewardCoins)
@@ -3914,7 +3934,7 @@ class GameScene: SKScene {
 
         node.isHidden = true
         batDefeatDeadlineMove = nil
-        nextBatSpawnMove = completedMoveCount + BatEventSettings.randomSpawnIntervalMoves()
+        nextBatSpawnMove = scheduleTaskMove(after: BatEventSettings.randomSpawnIntervalMoves())
         showMessage("You killed the bat.")
     }
 
@@ -4020,10 +4040,10 @@ class GameScene: SKScene {
     private func processToiletEventProgress(messages: inout [String]) {
 
         if !isToiletDirty,
-           completedMoveCount >= nextToiletDirtyMove,
+           taskMoveCount >= nextToiletDirtyMove,
            isPlayerInBarRooms() {
             isToiletDirty = true
-            toiletCleanDeadlineMove = completedMoveCount + ToiletEventSettings.cleanDeadlineMoves
+            toiletCleanDeadlineMove = scheduleTaskMove(after: ToiletEventSettings.cleanDeadlineMoves)
             hasShownToiletPenaltyStartMessage = false
             updateToiletVisualState()
             messages.append("The toilet became dirty! Clean it with the brush within \(ToiletEventSettings.cleanDeadlineMoves) moves.")
@@ -4031,7 +4051,7 @@ class GameScene: SKScene {
 
         guard isToiletDirty,
               let deadline = toiletCleanDeadlineMove,
-              completedMoveCount > deadline else {
+              taskMoveCount > deadline else {
             return
         }
 
@@ -4057,7 +4077,7 @@ class GameScene: SKScene {
         var showedEventMessage = false
 
         for _ in 0..<count {
-            completedMoveCount += 1
+            incrementMoveCountersForCurrentPosition()
             if processInteractableRespawns() {
                 showedEventMessage = true
             }
@@ -4089,6 +4109,7 @@ class GameScene: SKScene {
             savedAt: Date(),
             coins: GameState.shared.coins,
             completedMoveCount: completedMoveCount,
+            barCompletedMoveCount: barCompletedMoveCount,
             playerPosition: savedPoint(from: player.position),
             interactablePositionsByID: interactablePositionsByID,
             hiddenInteractableIDs: hiddenInteractableIDs,
@@ -4140,6 +4161,7 @@ class GameScene: SKScene {
     private func applySaveSnapshot(_ snapshot: GameSaveSnapshot) {
         GameState.shared.setCoins(snapshot.coins)
         completedMoveCount = max(0, snapshot.completedMoveCount)
+        barCompletedMoveCount = max(0, snapshot.barCompletedMoveCount ?? snapshot.completedMoveCount)
         player.position = point(from: snapshot.playerPosition)
 
         ensureDynamicRaftsExist(for: snapshot)
@@ -4641,6 +4663,7 @@ class GameScene: SKScene {
         player.position = playerSpawnPosition
         cameraNode.position = playerSpawnPosition
         completedMoveCount = 0
+        barCompletedMoveCount = 0
         respawnAtMoveByInteractableID.removeAll()
         isBucketCarried = false
         bucketPotatoCount = 0
@@ -4656,7 +4679,7 @@ class GameScene: SKScene {
         isToiletBowlBrushCarried = false
         isToiletDirty = false
         toiletCleanDeadlineMove = nil
-        nextToiletDirtyMove = ToiletEventSettings.randomDirtyIntervalMoves()
+        nextToiletDirtyMove = scheduleTaskMove(after: ToiletEventSettings.randomDirtyIntervalMoves())
         hasShownToiletPenaltyStartMessage = false
         // Restore visual state of the toilet to match the reset logical state
         updateToiletVisualState()
@@ -4674,13 +4697,13 @@ class GameScene: SKScene {
         mountedSnowmobileID = nil
         updateMountedSnowmobileUI()
         updateSnowmobileOwnershipVisuals()
-        nextBatSpawnMove = BatEventSettings.randomSpawnIntervalMoves()
+        nextBatSpawnMove = scheduleTaskMove(after: BatEventSettings.randomSpawnIntervalMoves())
         batDefeatDeadlineMove = nil
         // The first time through, don't wait so long for the first food order
         // to spawn since the player starts with no coins and needs to earn some 
         // before they can fulfill an order. After that, use the normal random 
         // interval for subsequent orders.
-        nextFoodOrderMove = FoodOrderEventSettings.randomSpawnIntervalMoves() / 3
+        nextFoodOrderMove = scheduleTaskMove(after: FoodOrderEventSettings.randomSpawnIntervalMoves() / 3)
         foodOrderDeadlineMove = nil
         hasShownFirstSuccessfulChipDeliveryMessage = false
         trenchedSepticTiles.removeAll()
