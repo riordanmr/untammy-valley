@@ -1,4 +1,25 @@
 
+2026-04-08 19:56:57 -0500
+Add raft task indicator; tweak status text
+Modify the way that the study guide task works so that once the player has studied a subject, it remains studied - it does NOT reset once a quiz has been taken. This will probably result in a net deletion of code.
+
+Tweak quiz status to include which quiz subjects have been passed.
+
+Create an "order a raft" task. This is the display and tracking of the task; actual ordering of a raft has already been implemented.
+
+Details:
+Introduce a new raft-catalog task that becomes active when the player reaches quiz mastery. GameScene: add hasActivatedRaftCatalogTask state, a warningRaftCatalogIconNode, activation logic (activateRaftCatalogTaskIfNeeded) called after quiz completion, UI updates for warning icons and pending tasks, save/load/reset wiring for the new state, and improved pending tasks text to show completed vs remaining items. GameSaveSnapshot: persist hasActivatedRaftCatalogTask. GameState: remove clearStudyGuideOpened(for:), add helpers completedStudyGuides(), quizMasteryCompletedSubjects(), and quizMasteryRemainingSubjects() used to display progress. Set CURRENT_PROJECT_VERSION to 69 and MARKETING_VERSION to 0.7.72.
+
+---
+
+2026-04-03 20:09:53 -0500
+Count only moves in bar for certain task deadlines
+Also, for bat spawns, for consistency with other tasks, report actual number of moves until spawn rather than range.
+
+Introduce a separate move counter for bar rooms to decouple task deadlines/spawns from global movement. GameScene: add barCompletedMoveCount, taskMoveCount accessor, incrementMoveCountersForCurrentPosition(), remainingTaskMoves(until:), and scheduleTaskMove(after:) and replace direct completedMoveCount math with these helpers for bat, food, toilet and other timed events. Persist barCompletedMoveCount in GameSaveSnapshot and restore/reset it on load/respawn. Bump Xcode project build/marketing versions and update commit-history/release-notes to reflect the changes. Version 0.7.71; build 68.
+
+---
+
 2026-03-29 20:08:56 -0500
 Study guide task is done when all guides read
 Bump project version (CURRENT_PROJECT_VERSION 66→67) and marketing version 0.7.69→0.7.70 in the Xcode project. Refactor GameState to track study-guide openings per subject: add hasEverOpenedStudyGuide(for:), hasEverOpenedAllStudyGuides(), and remainingStudyGuidesToOpen(); replace the old any-study-guide check with subject-aware logic. Update GameScene to use the new all-guides check for quiz/task gating and show a human-readable list of remaining study guides in the task message.

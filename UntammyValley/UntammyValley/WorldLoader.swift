@@ -79,6 +79,15 @@ enum WorldLoader {
             scaledSize(width: baseObjectSize * 2, height: baseObjectSize * 2)
         }
 
+        static var radioSize: CGSize {
+            // Match tmp/radio.png aspect ratio (1408x768 = 11:6) to avoid sprite distortion.
+            scaledSize(width: baseObjectSize * (11.0 / 6.0), height: baseObjectSize)
+        }
+
+        static var padlockSize: CGSize {
+            scaledSize(width: baseObjectSize, height: baseObjectSize)
+        }
+
         static var parkingCarSize: CGSize {
             CGSize(width: baseObjectSize * 2, height: baseObjectSize * 4)
         }
@@ -239,6 +248,47 @@ enum WorldLoader {
         /// Sign below the bar, between dining room and kitchen.
         static var cramerSignTile: TileCoordinate {
             TileCoordinate(column: diningKitchenWallColumn, row: minRow - 3)
+        }
+
+        static let shedWidth = 6
+        static let shedHeight = 6
+
+        static var shedMinColumn: Int {
+            SchoolLayout.maxColumnExclusive + 3
+        }
+
+        static var shedMaxColumnExclusive: Int {
+            shedMinColumn + shedWidth
+        }
+
+        static var shedMinRow: Int {
+            SchoolLayout.minRow + 2
+        }
+
+        static var shedMaxRowExclusive: Int {
+            shedMinRow + shedHeight
+        }
+
+        static var shedDoorRow: Int {
+            shedMinRow + (shedHeight / 2)
+        }
+
+        static var shedDoorRows: Set<Int> {
+            // Two-tile-tall shed door: original door row and the wall tile directly below it.
+            let lowerDoorRow = max(shedMinRow, shedDoorRow - 1)
+            return [lowerDoorRow, shedDoorRow]
+        }
+
+        static var shedLabelTile: TileCoordinate {
+            TileCoordinate(column: shedMinColumn + (shedWidth / 2), row: shedMinRow + (shedHeight / 2))
+        }
+
+        static var shedPadlockTile: TileCoordinate {
+            TileCoordinate(column: shedMaxColumnExclusive - 1, row: shedDoorRow)
+        }
+
+        static var shedRadioTile: TileCoordinate {
+            TileCoordinate(column: shedMinColumn + 2, row: shedMinRow + 2)
         }
 
         static var snowmobileTiles: [TileCoordinate] {
@@ -520,6 +570,19 @@ enum WorldLoader {
             wallTiles.insert(TileCoordinate(column: SchoolLayout.gymDividerColumn, row: row))
         }
 
+        // --- Shed shell ---
+        for column in BarLayout.shedMinColumn..<BarLayout.shedMaxColumnExclusive {
+            wallTiles.insert(TileCoordinate(column: column, row: BarLayout.shedMinRow))
+            wallTiles.insert(TileCoordinate(column: column, row: BarLayout.shedMaxRowExclusive - 1))
+        }
+
+        for row in BarLayout.shedMinRow..<BarLayout.shedMaxRowExclusive {
+            wallTiles.insert(TileCoordinate(column: BarLayout.shedMinColumn, row: row))
+            if !BarLayout.shedDoorRows.contains(row) {
+                wallTiles.insert(TileCoordinate(column: BarLayout.shedMaxColumnExclusive - 1, row: row))
+            }
+        }
+
         let roomLabels: [(name: String, tile: TileCoordinate)] = [
             ("Bedroom", BarLayout.bedroomLabelTile),
             ("Dining", BarLayout.diningLabelTile),
@@ -530,7 +593,8 @@ enum WorldLoader {
             ("History", SchoolLayout.classroomTopRightLabelTile),
             ("Mathematics", SchoolLayout.classroomBottomLeftLabelTile),
             ("Science", SchoolLayout.classroomBottomRightLabelTile),
-            ("Gym", SchoolLayout.gymLabelTile)
+            ("Gym", SchoolLayout.gymLabelTile),
+            ("Shed", BarLayout.shedLabelTile)
         ]
 
         let interiorMinRow = BarLayout.minRow + 1
@@ -669,6 +733,15 @@ enum WorldLoader {
                     minRow: SchoolLayout.hallToGymDoorRows.min() ?? SchoolLayout.hallMinRow,
                     maxRowExclusive: (SchoolLayout.hallToGymDoorRows.max() ?? (SchoolLayout.hallMinRow + 1)) + 1
                 )
+            ),
+            FloorRegion(
+                tileName: "floor_concrete",
+                region: TileRegion(
+                    minColumn: BarLayout.shedMinColumn + 1,
+                    maxColumnExclusive: BarLayout.shedMaxColumnExclusive - 1,
+                    minRow: BarLayout.shedMinRow + 1,
+                    maxRowExclusive: BarLayout.shedMaxRowExclusive - 1
+                )
             )
         ]
 
@@ -711,6 +784,16 @@ enum WorldLoader {
                     maxColumnExclusive: (BarLayout.kitchenCellarDoorColumns.max() ?? BarLayout.cellarMinColumn) + 1,
                     minRow: BarLayout.cellarMinRow,
                     maxRowExclusive: BarLayout.cellarMinRow + 1
+                )
+            ),
+            // Shed doorway threshold.
+            FloorRegion(
+                tileName: "floor_concrete",
+                region: TileRegion(
+                    minColumn: BarLayout.shedMaxColumnExclusive - 1,
+                    maxColumnExclusive: BarLayout.shedMaxColumnExclusive,
+                    minRow: BarLayout.shedDoorRows.min() ?? BarLayout.shedDoorRow,
+                    maxRowExclusive: BarLayout.shedDoorRow + 1
                 )
             )
         ]
@@ -966,6 +1049,26 @@ enum WorldLoader {
             interactionRange: 95
         )
 
+        let shedPadlock = InteractableConfig(
+            id: "shedPadlock",
+            kind: .padlock,
+            spriteName: "padlock",
+            tile: BarLayout.shedPadlockTile,
+            size: BarLayout.padlockSize,
+            rewardCoins: 0,
+            interactionRange: 95
+        )
+
+        let shedRadio = InteractableConfig(
+            id: "shedRadio",
+            kind: .radio,
+            spriteName: "radio",
+            tile: BarLayout.shedRadioTile,
+            size: BarLayout.radioSize,
+            rewardCoins: 0,
+            interactionRange: 100
+        )
+
         let snowmobiles: [InteractableConfig] = BarLayout.snowmobileTiles.enumerated().map { index, tile in
             InteractableConfig(
                 id: "snowmobile\(index + 1)",
@@ -1143,7 +1246,7 @@ enum WorldLoader {
             )
         ]
 
-        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, studyGuide, searsCatalog, mailbox, envelope, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, crescentWrench, goatChaseSpot, barCustomer, propaneTank] + snowmobiles
+        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, studyGuide, searsCatalog, mailbox, envelope, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, crescentWrench, shedPadlock, shedRadio, goatChaseSpot, barCustomer, propaneTank] + snowmobiles
 
         let staticDecorations = [
             carrollSign,

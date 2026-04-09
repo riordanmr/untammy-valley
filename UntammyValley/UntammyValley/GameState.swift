@@ -108,6 +108,10 @@ final class GameState {
         quizStatsBySubject = [:]
     }
 
+    func setQuizStatsBySubject(_ values: [String: QuizSubjectStats]) {
+        quizStatsBySubject = values
+    }
+
     func hasOpenedStudyGuide(for subject: String) -> Bool {
         guard Self.trackedQuizSubjects.contains(subject) else {
             return false

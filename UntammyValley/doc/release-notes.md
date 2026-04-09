@@ -1,5 +1,13 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.72 (69) 2026-04-08 19:56:57
+
+Add raft task indicator; tweak status text
+
+## Version 0.7.71 (0) 2026-04-03 20:09:53
+
+Count only moves in bar for certain task deadlines
+
 ## Version 0.7.70 (67) 2026-03-29 20:08:56
 
 Study guide task is done when all guides read

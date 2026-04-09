@@ -110,6 +110,7 @@ func makeBasicTileSet() -> SKTileSet {
         "floor_wood",
         "floor_linoleum",
         "floor_carpet",
+        "floor_concrete",
         "floor_outdoor",
         "floor_carroll_sales",
         "vehicle_assembly_area",
@@ -455,7 +456,7 @@ class GameScene: SKScene {
     private let mountedSnowmobileVerticalOffset: CGFloat = -12
     private let mountedRaftSpeedMultiplier: CGFloat = 1.15
     private let carriedRaftVerticalOffset: CGFloat = -28
-    private let indoorSnowmobileBlockedFloorTiles: Set<String> = ["floor_wood", "floor_linoleum", "floor_carpet"]
+    private let indoorSnowmobileBlockedFloorTiles: Set<String> = ["floor_wood", "floor_linoleum", "floor_carpet", "floor_concrete"]
     private var bearProximityColumns: Int { UTSettings.shared.counts.bearProximityColumns }
     private var bearProximityRows: Int { UTSettings.shared.counts.bearProximityRows }
     private let walkingBobAmplitude: CGFloat = 2.5
@@ -1447,7 +1448,7 @@ class GameScene: SKScene {
 
             let body = SKPhysicsBody(rectangleOf: node.size)
             body.isDynamic = false
-            if config.kind == .mailbox || config.kind == .barCustomer {
+            if config.kind == .mailbox || config.kind == .barCustomer || config.kind == .padlock {
                 body.categoryBitMask = PhysicsCategory.wall
                 body.collisionBitMask = PhysicsCategory.player
                 body.contactTestBitMask = PhysicsCategory.none
@@ -1602,12 +1603,16 @@ class GameScene: SKScene {
 
     private func interactablePlacementOffset(for config: InteractableConfig) -> CGPoint {
         let deskItemOffsetX = tileSize.width * 0.28
+        let halfTileHeight = tileSize.height * 0.5
 
         switch config.id {
         case "studyGuide":
             return CGPoint(x: -deskItemOffsetX, y: 0)
         case "searsCatalog":
             return CGPoint(x: deskItemOffsetX, y: 0)
+        case "shedPadlock":
+            // The shed doorway is two tiles tall; offset by half a tile to center the padlock vertically.
+            return CGPoint(x: 0, y: -halfTileHeight)
         default:
             return .zero
         }
@@ -3459,6 +3464,12 @@ class GameScene: SKScene {
         case .crescentWrench:
             handleSnowTankerPartInteraction(partID: crescentWrenchID, node: node)
             return
+        case .padlock:
+            handlePadlockInteraction()
+            return
+        case .radio:
+            handleRadioInteraction()
+            return
         case .raft:
             handleRaftInteraction(interactableID: interactableID, node: node)
             return
@@ -3479,6 +3490,14 @@ class GameScene: SKScene {
         setQuizDialogVisible(false)
         scrollTextDialogNode?.setVisible(false)
         setStudySubjectPromptVisible(true)
+    }
+
+    private func handlePadlockInteraction() {
+        showMessage("The shed door is locked.")
+    }
+
+    private func handleRadioInteraction() {
+        showMessage("The radio crackles with static.")
     }
 
     func isEnvelopeOutstanding() -> Bool {
@@ -3862,8 +3881,10 @@ class GameScene: SKScene {
             if placeCarriedRaftIntoRiverIfPossible(raftID: interactableID, node: node) {
                 showMessage("Placed raft in the river.")
             } else {
+                carriedRaftID = nil
                 dropCarriedObject(node, interactableID: interactableID)
                 showMessage("Dropped raft.")
+                markSaveDirty()
             }
             return
         }
@@ -4193,6 +4214,7 @@ class GameScene: SKScene {
             toiletCleanDeadlineMove: toiletCleanDeadlineMove,
             nextToiletDirtyMove: nextToiletDirtyMove,
             hasShownToiletPenaltyStartMessage: hasShownToiletPenaltyStartMessage,
+            quizStatsBySubject: GameState.shared.quizStatsBySubject,
             studyGuideOpenedBySubject: GameState.shared.studyGuideOpenedBySubject,
             nextBatSpawnMove: nextBatSpawnMove,
             batDefeatDeadlineMove: batDefeatDeadlineMove,
@@ -4208,6 +4230,7 @@ class GameScene: SKScene {
 
     private func applySaveSnapshot(_ snapshot: GameSaveSnapshot) {
         GameState.shared.setCoins(snapshot.coins)
+        GameState.shared.setQuizStatsBySubject(snapshot.quizStatsBySubject ?? [:])
         completedMoveCount = max(0, snapshot.completedMoveCount)
         barCompletedMoveCount = max(0, snapshot.barCompletedMoveCount ?? snapshot.completedMoveCount)
         player.position = point(from: snapshot.playerPosition)
@@ -4328,7 +4351,7 @@ class GameScene: SKScene {
     }
 
     private func shouldPersistInteractablePosition(for id: String) -> Bool {
-        if id == "studyGuide" || id == "searsCatalog" || id == mailboxID || id == barCustomerID {
+        if id == "studyGuide" || id == "searsCatalog" || id == mailboxID || id == barCustomerID || id == "shedPadlock" || id == "shedRadio" {
             return false
         }
 
