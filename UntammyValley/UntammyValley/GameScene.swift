@@ -1871,6 +1871,9 @@ class GameScene: SKScene {
                 } else {
                     messages.append("Your raft has been delivered. Use it to fetch the propane tank. Bring the tank to the vehicle assembly area.")
                     hasShownFirstRaftDeliveryHint = true
+                    // Repair stale state from older/inconsistent saves: propane cannot be delivered
+                    // before the first raft delivery task has actually started.
+                    hasPropaneTankBeenDelivered = false
                     updateWarningIcons()
                     updatePendingTasksWindowBody()
                 }
@@ -2923,27 +2926,9 @@ class GameScene: SKScene {
     }
 
     private func isPropaneTankTaskActive() -> Bool {
-        guard hasShownFirstRaftDeliveryHint, !hasPropaneTankBeenDelivered else {
-            return false
-        }
-
-        if let carriedRaftID,
-           interactableNodesByID[carriedRaftID] != nil {
-            return true
-        }
-
-        if let riddenRaftID,
-           interactableNodesByID[riddenRaftID] != nil {
-            return true
-        }
-
-        return interactableConfigsByID.contains { id, config in
-            guard config.kind == .raft,
-                  let raftNode = interactableNodesByID[id] else {
-                return false
-            }
-            return !raftNode.isHidden
-        }
+        // Once the first raft has been delivered, this objective should stay visible
+        // until the propane tank is delivered, regardless of transient raft visibility/state.
+        hasShownFirstRaftDeliveryHint && !hasPropaneTankBeenDelivered
     }
 
     private func warningIconStackContains(_ hudLocation: CGPoint) -> Bool {
@@ -3287,12 +3272,18 @@ class GameScene: SKScene {
             ? Int(playerMoveSpeed)
             : Int(playerMoveSpeed * mountedSnowmobileSpeedMultiplier)
         let movementModeText = mountedSnowmobileID == nil ? "On foot" : "Mounted"
+        let raftOrderStatusText: String
+        if let nextDeliveryMove = pendingRaftDeliveryMoves.min() {
+            raftOrderStatusText = "\(max(0, nextDeliveryMove - completedMoveCount)) moves until delivery"
+        } else if hasShownFirstRaftDeliveryHint {
+            raftOrderStatusText = "Already delivered"
+        } else {
+            raftOrderStatusText = "Not ordered"
+        }
 
         var statusLines = [
             "Coins: \(GameState.shared.coins)",
             "Moves: \(completedMoveCount)",
-            "Snowmobiles owned: \(ownedSnowmobileIDs.count)/\(Self.requiredSnowmobileCount)",
-            "Mounted snowmobile: \(mountedSnowmobileID == nil ? "No" : "Yes")",
             "Move speed: \(currentMoveSpeed) (\(movementModeText))",
             "Bucket carried: \(isBucketCarried ? "Yes" : "No")",
             "Bucket potatoes: \(bucketPotatoCount)/\(bucketCapacity)",
@@ -3315,7 +3306,10 @@ class GameScene: SKScene {
             "Snowtanker parts carried: \(snowTankerPartsCarried.isEmpty ? "None" : snowTankerParts.filter { snowTankerPartsCarried.contains($0.interactableID) }.map(\.displayName).joined(separator: ", "))",
             "Septic trenches: \(trenchedSepticTiles.count)/\(worldConfig.septicDigTiles.count)",
             "Bat event: \(batStatusText)",
-            "Goat respawn: \(goatRespawnText)"
+            "Goat respawn: \(goatRespawnText)",
+            "Raft order: \(raftOrderStatusText)",
+            "Snowmobiles owned: \(ownedSnowmobileIDs.count)/\(Self.requiredSnowmobileCount)",
+            "Mounted snowmobile: \(mountedSnowmobileID == nil ? "No" : "Yes")"
         ]
 
         statusLines.append(contentsOf: QuizStatusFormatter.makeStatusLines { subject in
@@ -4330,7 +4324,8 @@ class GameScene: SKScene {
 
         trenchedSepticTiles = Set(snapshot.trenchedSepticTiles.filter { worldConfig.septicDigTiles.contains($0) })
         hasAwardedSepticCompletionBonus = snapshot.hasAwardedSepticCompletionBonus
-        hasPropaneTankBeenDelivered = snapshot.hasPropaneTankBeenDelivered ?? false
+        let snapshotPropaneDelivered = snapshot.hasPropaneTankBeenDelivered ?? false
+        hasPropaneTankBeenDelivered = hasShownFirstRaftDeliveryHint && snapshotPropaneDelivered
 
         resetSepticDigTiles()
         for tile in trenchedSepticTiles {
@@ -4369,6 +4364,16 @@ class GameScene: SKScene {
         let positionedRaftIDs = snapshot.interactablePositionsByID.keys.filter { $0.hasPrefix("raft_") }
         let hiddenRaftIDs = snapshot.hiddenInteractableIDs.filter { $0.hasPrefix("raft_") }
         let allRaftIDs = Set(positionedRaftIDs).union(hiddenRaftIDs)
+
+        // Remove any dynamic raft currently in-scene that is not present in the snapshot.
+        let existingDynamicRaftIDs = interactableNodesByID.keys.filter { $0.hasPrefix("raft_") }
+        for raftID in existingDynamicRaftIDs where !allRaftIDs.contains(raftID) {
+            interactableNodesByID[raftID]?.removeFromParent()
+            interactableNodesByID.removeValue(forKey: raftID)
+            interactableConfigsByID.removeValue(forKey: raftID)
+            interactableHomePositionByID.removeValue(forKey: raftID)
+        }
+
         let maxExistingSequence = allRaftIDs.compactMap { id -> Int? in
             guard let suffix = id.split(separator: "_").last else { return nil }
             return Int(suffix)

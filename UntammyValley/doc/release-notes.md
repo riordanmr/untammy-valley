@@ -1,5 +1,9 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.73 (70) 2026-04-09 09:59:50
+
+Add shed, padlock & radio; fix bugs
+
 ## Version 0.7.72 (69) 2026-04-08 19:56:57
 
 Add raft task indicator; tweak status text

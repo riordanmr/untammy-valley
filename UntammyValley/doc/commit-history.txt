@@ -1,4 +1,15 @@
 
+2026-04-09 09:59:50 -0500
+Add shed, padlock & radio; fix bugs
+Expand world and add shed. Note: Expansion of world causes restore of objects to different places if restoring from old save; need to address this type of issue eventually.
+
+Save Quiz progress between runs.
+Fix bug which prevents player from leaving the raft.
+
+Add new assets (padlock, radio, floor_concrete) and register them in asset catalogs. Introduce a new shed area in WorldLoader (layout, walls, floor regions) and add two interactables: shedPadlock and shedRadio (sizes, tiles, configs). Extend WorldConfig with new InteractableKind values (.padlock, .radio). Update GameScene to include the concrete floor tile, block indoor snowmobile on concrete, treat padlock as a wall physics body, center the padlock placement, and handle interactions for padlock and radio (show dummy messages). Wire persistence: add quizStatsBySubject to GameSaveSnapshot, persist/load it via GameScene and expose a setter in GameState. Also skip persisting positions for shedPadlock/shedRadio, tweak raft drop save behavior. Version 0.7.73; build 70.
+
+---
+
 2026-04-08 19:56:57 -0500
 Add raft task indicator; tweak status text
 Modify the way that the study guide task works so that once the player has studied a subject, it remains studied - it does NOT reset once a quiz has been taken. This will probably result in a net deletion of code.
