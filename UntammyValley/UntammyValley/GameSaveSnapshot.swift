@@ -48,6 +48,7 @@ struct GameSaveSnapshot: Codable {
     let pendingRaftDeliveryMoves: [Int]?
     let nextRaftSequenceID: Int?
     let hasShownFirstRaftDeliveryHint: Bool?
+    let hasActivatedRaftCatalogTask: Bool?
 
     let ownedSnowmobileIDs: [String]
     let selectedOwnedSnowmobileID: String?

@@ -289,6 +289,7 @@ class GameScene: SKScene {
     private var warningPropaneIconNode: SKSpriteNode!
     private var warningStudyGuideIconNode: SKSpriteNode!
     private var warningQuizIconNode: SKSpriteNode!
+    private var warningRaftCatalogIconNode: SKSpriteNode!
     private var makerLoadedIndicatorNode: SKShapeNode?
     private var bucketSelectedIndicatorNode: SKShapeNode?
     private var bucketPotatoIconNode: SKSpriteNode?
@@ -397,6 +398,7 @@ class GameScene: SKScene {
     private var foodOrderDeadlineMove: Int?
     private var hasShownFirstSuccessfulChipDeliveryMessage = false
     private var hasShownFirstRaftDeliveryHint = false
+    private var hasActivatedRaftCatalogTask = false
     private var hasPropaneTankBeenDelivered = false
     private var trenchedSepticTiles: Set<TileCoordinate> = []
     private var hasAwardedSepticCompletionBonus = false
@@ -1864,6 +1866,8 @@ class GameScene: SKScene {
                 } else {
                     messages.append("Your raft has been delivered. Use it to fetch the propane tank. Bring the tank to the vehicle assembly area.")
                     hasShownFirstRaftDeliveryHint = true
+                    updateWarningIcons()
+                    updatePendingTasksWindowBody()
                 }
             }
             markSaveDirty()
@@ -2557,11 +2561,23 @@ class GameScene: SKScene {
                 answered: session.questions.count,
                 correct: correctCount
             )
-            GameState.shared.clearStudyGuideOpened(for: session.subject)
+            self?.activateRaftCatalogTaskIfNeeded()
             self?.markSaveDirty()
             return updatedStats
         }
         cameraNode.addChild(quizDialogNode)
+    }
+
+    private func activateRaftCatalogTaskIfNeeded() {
+        guard !hasActivatedRaftCatalogTask,
+              GameState.shared.hasReachedQuizMastery(minimumPercent: 80) else {
+            return
+        }
+
+        hasActivatedRaftCatalogTask = true
+        showMessage("Congrats for passing quizzes in all subjects! Next task: Get a raft from the catalog")
+        updateWarningIcons()
+        updatePendingTasksWindowBody()
     }
 
     func setQuizDialogVisible(_ visible: Bool) {
@@ -2813,6 +2829,16 @@ class GameScene: SKScene {
         warningQuizIconNode.isHidden = true
         warningIconContainerNode.addChild(warningQuizIconNode)
 
+        if let raftTexture = loadTexture(named: "raft") {
+            warningRaftCatalogIconNode = SKSpriteNode(texture: raftTexture, color: .clear, size: iconSize)
+        } else {
+            let fallbackTexture = makeLabeledMarkerTexture(size: iconSize, emoji: "R", color: .systemBrown)
+            warningRaftCatalogIconNode = SKSpriteNode(texture: fallbackTexture, color: .clear, size: iconSize)
+        }
+        warningRaftCatalogIconNode.name = "warningRaftCatalogIcon"
+        warningRaftCatalogIconNode.isHidden = true
+        warningIconContainerNode.addChild(warningRaftCatalogIconNode)
+
         updateWarningIcons()
     }
 
@@ -2864,6 +2890,10 @@ class GameScene: SKScene {
             icons.append(warningQuizIconNode)
         }
 
+        if isRaftCatalogTaskActive() {
+            icons.append(warningRaftCatalogIconNode)
+        }
+
         return icons
     }
 
@@ -2881,6 +2911,10 @@ class GameScene: SKScene {
         }
 
         return !GameState.shared.hasReachedQuizMastery(minimumPercent: 80)
+    }
+
+    private func isRaftCatalogTaskActive() -> Bool {
+        hasActivatedRaftCatalogTask && !hasShownFirstRaftDeliveryHint
     }
 
     private func isPropaneTankTaskActive() -> Bool {
@@ -2959,6 +2993,9 @@ class GameScene: SKScene {
         }
         if !activeIcons.contains(warningQuizIconNode) {
             warningQuizIconNode.isHidden = true
+        }
+        if !activeIcons.contains(warningRaftCatalogIconNode) {
+            warningRaftCatalogIconNode.isHidden = true
         }
     }
 
@@ -3176,13 +3213,23 @@ class GameScene: SKScene {
         }
 
         if isStudyGuideTaskActive() {
+            let completedGuides = GameState.shared.completedStudyGuides()
             let remainingGuides = GameState.shared.remainingStudyGuidesToOpen()
-            let remainingList = remainingGuides.isEmpty ? "none" : remainingGuides.joined(separator: ", ")
-            lines.append("Read the study guides before going to school. Remaining: \(remainingList)")
+            let completedList = completedGuides.isEmpty ? "None" : completedGuides.joined(separator: ", ")
+            let remainingList = remainingGuides.isEmpty ? "None" : remainingGuides.joined(separator: ", ")
+            lines.append("Read the study guides before going to school. Completed: \(completedList). Remaining: \(remainingList)")
         }
 
         if isQuizMasteryTaskActive() {
-            lines.append("Get 80% in quizzes for each of the 4 subjects")
+            let completedSubjects = GameState.shared.quizMasteryCompletedSubjects(minimumPercent: 80)
+            let remainingSubjects = GameState.shared.quizMasteryRemainingSubjects(minimumPercent: 80)
+            let completedList = completedSubjects.isEmpty ? "None" : completedSubjects.joined(separator: ", ")
+            let remainingList = remainingSubjects.isEmpty ? "None" : remainingSubjects.joined(separator: ", ")
+            lines.append("Get 80% in quizzes for each of the 4 subjects. Completed: \(completedList). Remaining: \(remainingList)")
+        }
+
+        if isRaftCatalogTaskActive() {
+            lines.append("Get a raft from the catalog")
         }
 
         return lines
@@ -4138,6 +4185,7 @@ class GameScene: SKScene {
             pendingRaftDeliveryMoves: pendingRaftDeliveryMoves,
             nextRaftSequenceID: nextRaftSequenceID,
             hasShownFirstRaftDeliveryHint: hasShownFirstRaftDeliveryHint,
+            hasActivatedRaftCatalogTask: hasActivatedRaftCatalogTask,
             ownedSnowmobileIDs: Array(ownedSnowmobileIDs),
             selectedOwnedSnowmobileID: selectedOwnedSnowmobileID,
             mountedSnowmobileID: mountedSnowmobileID,
@@ -4227,6 +4275,8 @@ class GameScene: SKScene {
         pendingRaftDeliveryMoves = snapshot.pendingRaftDeliveryMoves ?? []
         nextRaftSequenceID = max(1, snapshot.nextRaftSequenceID ?? nextRaftSequenceID)
         hasShownFirstRaftDeliveryHint = snapshot.hasShownFirstRaftDeliveryHint ?? false
+        hasActivatedRaftCatalogTask = snapshot.hasActivatedRaftCatalogTask
+            ?? GameState.shared.hasReachedQuizMastery(minimumPercent: 80)
 
         if isEnvelopeCarried {
             interactableNodesByID[envelopeID]?.isHidden = false
@@ -4692,6 +4742,7 @@ class GameScene: SKScene {
         pendingRaftDeliveryMoves.removeAll()
         nextRaftSequenceID = 1
         hasShownFirstRaftDeliveryHint = false
+        hasActivatedRaftCatalogTask = false
         ownedSnowmobileIDs.removeAll()
         selectedOwnedSnowmobileID = nil
         mountedSnowmobileID = nil

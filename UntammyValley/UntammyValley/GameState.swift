@@ -124,15 +124,6 @@ final class GameState {
         studyGuideOpenedBySubject[subject] = true
     }
 
-    func clearStudyGuideOpened(for subject: String) {
-        guard Self.trackedQuizSubjects.contains(subject) else {
-            return
-        }
-
-        guard studyGuideOpenedBySubject[subject] == true else { return }
-        studyGuideOpenedBySubject[subject] = false
-    }
-
     func setStudyGuideOpenedBySubject(_ values: [String: Bool]) {
         studyGuideOpenedBySubject = Self.normalizedStudyGuideOpenedBySubject(values)
     }
@@ -161,6 +152,10 @@ final class GameState {
         Self.trackedQuizSubjects.filter { !hasEverOpenedStudyGuide(for: $0) }
     }
 
+    func completedStudyGuides() -> [String] {
+        Self.trackedQuizSubjects.filter { hasEverOpenedStudyGuide(for: $0) }
+    }
+
     func hasReachedQuizMastery(minimumPercent: Int = 80) -> Bool {
         let requiredPercent = max(0, minimumPercent)
 
@@ -177,6 +172,34 @@ final class GameState {
         }
 
         return true
+    }
+
+    func quizMasteryCompletedSubjects(minimumPercent: Int = 80) -> [String] {
+        let requiredPercent = max(0, minimumPercent)
+
+        return Self.trackedQuizSubjects.filter { subject in
+            let totals = quizTotals(for: subject)
+            guard totals.answered > 0 else {
+                return false
+            }
+
+            let percent = (Double(totals.correct) / Double(totals.answered)) * 100.0
+            return percent >= Double(requiredPercent)
+        }
+    }
+
+    func quizMasteryRemainingSubjects(minimumPercent: Int = 80) -> [String] {
+        let requiredPercent = max(0, minimumPercent)
+
+        return Self.trackedQuizSubjects.filter { subject in
+            let totals = quizTotals(for: subject)
+            guard totals.answered > 0 else {
+                return true
+            }
+
+            let percent = (Double(totals.correct) / Double(totals.answered)) * 100.0
+            return percent < Double(requiredPercent)
+        }
     }
 
     func quizTotals(for subject: String) -> QuizSubjectStats {
