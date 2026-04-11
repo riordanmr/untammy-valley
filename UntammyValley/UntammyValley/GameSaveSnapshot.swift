@@ -5,11 +5,6 @@
 
 import Foundation
 
-struct SavedPoint: Codable {
-    let x: Double
-    let y: Double
-}
-
 struct GameSaveSnapshot: Codable {
     let schemaVersion: Int
     let appVersion: String
@@ -18,9 +13,9 @@ struct GameSaveSnapshot: Codable {
     let coins: Int
     let completedMoveCount: Int
     let barCompletedMoveCount: Int?
-    let playerPosition: SavedPoint
+    let playerTile: TileCoordinate
 
-    let interactablePositionsByID: [String: SavedPoint]
+    let interactableTilesByID: [String: TileCoordinate]
     let hiddenInteractableIDs: [String]
     let respawnAtMoveByInteractableID: [String: Int]
 

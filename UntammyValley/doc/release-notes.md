@@ -1,5 +1,9 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.74 (71) 2026-04-09 16:20:40
+
+Fix raft/propane task state
+
 ## Version 0.7.73 (70) 2026-04-09 09:59:50
 
 Add shed, padlock & radio; fix bugs

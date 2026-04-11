@@ -602,14 +602,6 @@ class GameScene: SKScene {
         player.setVisualVerticalOffset(walkingBobOffsetY)
     }
 
-    private func savedPoint(from point: CGPoint) -> SavedPoint {
-        SavedPoint(x: Double(point.x), y: Double(point.y))
-    }
-
-    private func point(from savedPoint: SavedPoint) -> CGPoint {
-        CGPoint(x: savedPoint.x, y: savedPoint.y)
-    }
-
     private func isWallBlocked(at scenePoint: CGPoint) -> Bool {
         guard let tile = tileCoordinate(for: scenePoint) else { return true }
         return worldConfig.wallTiles.contains(tile)
@@ -1871,9 +1863,6 @@ class GameScene: SKScene {
                 } else {
                     messages.append("Your raft has been delivered. Use it to fetch the propane tank. Bring the tank to the vehicle assembly area.")
                     hasShownFirstRaftDeliveryHint = true
-                    // Repair stale state from older/inconsistent saves: propane cannot be delivered
-                    // before the first raft delivery task has actually started.
-                    hasPropaneTankBeenDelivered = false
                     updateWarningIcons()
                     updatePendingTasksWindowBody()
                 }
@@ -4153,27 +4142,31 @@ class GameScene: SKScene {
     }
 
     private func makeSaveSnapshot() -> GameSaveSnapshot {
-        var interactablePositionsByID: [String: SavedPoint] = [:]
+        var interactableTilesByID: [String: TileCoordinate] = [:]
         var hiddenInteractableIDs: [String] = []
 
         for (id, node) in interactableNodesByID {
             if shouldPersistInteractablePosition(for: id) {
-                interactablePositionsByID[id] = savedPoint(from: node.position)
+                if let tile = tileCoordinate(for: node.position) {
+                    interactableTilesByID[id] = tile
+                }
             }
             if node.isHidden {
                 hiddenInteractableIDs.append(id)
             }
         }
 
+        let playerTileForSave = tileCoordinate(for: player.position) ?? worldConfig.spawnTile
+
         return GameSaveSnapshot(
-            schemaVersion: 1,
+            schemaVersion: 2,
             appVersion: (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "0",
             savedAt: Date(),
             coins: GameState.shared.coins,
             completedMoveCount: completedMoveCount,
             barCompletedMoveCount: barCompletedMoveCount,
-            playerPosition: savedPoint(from: player.position),
-            interactablePositionsByID: interactablePositionsByID,
+            playerTile: playerTileForSave,
+            interactableTilesByID: interactableTilesByID,
             hiddenInteractableIDs: hiddenInteractableIDs,
             respawnAtMoveByInteractableID: respawnAtMoveByInteractableID,
             isBucketCarried: isBucketCarried,
@@ -4227,15 +4220,17 @@ class GameScene: SKScene {
         GameState.shared.setQuizStatsBySubject(snapshot.quizStatsBySubject ?? [:])
         completedMoveCount = max(0, snapshot.completedMoveCount)
         barCompletedMoveCount = max(0, snapshot.barCompletedMoveCount ?? snapshot.completedMoveCount)
-        player.position = point(from: snapshot.playerPosition)
+        player.position = scenePointForTile(snapshot.playerTile) ?? playerSpawnPosition
 
         ensureDynamicRaftsExist(for: snapshot)
 
-        for (id, savedPosition) in snapshot.interactablePositionsByID {
+        for (id, savedTile) in snapshot.interactableTilesByID {
             if !shouldPersistInteractablePosition(for: id) {
                 continue
             }
-            interactableNodesByID[id]?.position = point(from: savedPosition)
+            if let savedPosition = scenePointForTile(savedTile) {
+                interactableNodesByID[id]?.position = savedPosition
+            }
         }
 
         let hiddenIDs = Set(snapshot.hiddenInteractableIDs)
@@ -4324,8 +4319,7 @@ class GameScene: SKScene {
 
         trenchedSepticTiles = Set(snapshot.trenchedSepticTiles.filter { worldConfig.septicDigTiles.contains($0) })
         hasAwardedSepticCompletionBonus = snapshot.hasAwardedSepticCompletionBonus
-        let snapshotPropaneDelivered = snapshot.hasPropaneTankBeenDelivered ?? false
-        hasPropaneTankBeenDelivered = hasShownFirstRaftDeliveryHint && snapshotPropaneDelivered
+        hasPropaneTankBeenDelivered = snapshot.hasPropaneTankBeenDelivered ?? false
 
         resetSepticDigTiles()
         for tile in trenchedSepticTiles {
@@ -4361,7 +4355,7 @@ class GameScene: SKScene {
     }
 
     private func ensureDynamicRaftsExist(for snapshot: GameSaveSnapshot) {
-        let positionedRaftIDs = snapshot.interactablePositionsByID.keys.filter { $0.hasPrefix("raft_") }
+        let positionedRaftIDs = snapshot.interactableTilesByID.keys.filter { $0.hasPrefix("raft_") }
         let hiddenRaftIDs = snapshot.hiddenInteractableIDs.filter { $0.hasPrefix("raft_") }
         let allRaftIDs = Set(positionedRaftIDs).union(hiddenRaftIDs)
 
@@ -4394,8 +4388,8 @@ class GameScene: SKScene {
         }
 
         for raftID in allRaftIDs {
-            if let savedPoint = snapshot.interactablePositionsByID[raftID] {
-                let point = point(from: savedPoint)
+            if let savedTile = snapshot.interactableTilesByID[raftID],
+               let point = scenePointForTile(savedTile) {
                 interactableNodesByID[raftID]?.position = point
                 interactableHomePositionByID[raftID] = point
             }

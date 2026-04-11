@@ -1,4 +1,17 @@
 
+2026-04-09 16:20:40 -0500
+Fix raft/propane task state
+Prevent stale/inconsistent save state around raft/propane tasks and tidy HUD/snapshot handling. Key changes:
+- GameScene: repair save-state bug so propane cannot be treated as delivered before the first raft delivery hint; explicitly reset hasPropaneTankBeenDelivered when the first raft delivery hint is shown.
+- Simplify isPropaneTankTaskActive to rely on hasShownFirstRaftDeliveryHint && !hasPropaneTankBeenDelivered.
+- HUD: add raft order status line and reorder snowmobile status lines for clarity.
+- Snapshot loading: only honor snapshot.hasPropaneTankBeenDelivered if the first raft hint has been shown; remove dynamic raft nodes that are not present in the loaded snapshot to avoid leftover in-scene rafts.
+- Xcode project: bump CURRENT_PROJECT_VERSION to 71 and MARKETING_VERSION to 0.7.74.
+- Docs: update commit history and release notes.
+These changes fix bugs caused by world/asset changes and improve consistency after loading older saves.
+
+---
+
 2026-04-09 09:59:50 -0500
 Add shed, padlock & radio; fix bugs
 Expand world and add shed. Note: Expansion of world causes restore of objects to different places if restoring from old save; need to address this type of issue eventually.

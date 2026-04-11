@@ -8,8 +8,8 @@ import Foundation
 final class SaveManager {
     static let shared = SaveManager()
 
-    private let autosaveFileName = "game-save-v1.json"
-    private let namedSavesFileName = "named-game-saves-v1.json"
+    private let autosaveFileName = "game-save-v2.json"
+    private let namedSavesFileName = "named-game-saves-v2.json"
     private let namedSavesSchemaVersion = 1
 
     private init() {}
