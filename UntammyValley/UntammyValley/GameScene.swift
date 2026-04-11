@@ -413,9 +413,12 @@ class GameScene: SKScene {
     private var isMapViewMode = false
     private var isDraggingMap = false
     private var lastMapDragPoint = CGPoint.zero
+    private var lastMapPinchDistance: CGFloat?
     private var mapModeSavedCameraPosition = CGPoint.zero
     private var mapModeSavedCameraScale: CGFloat = 1
-    private let mapViewZoomOutScale: CGFloat = 2.5
+    private let mapModeMinZoomScale: CGFloat = 0.4
+    private let mapModeMaxZoomScale: CGFloat = 8.0
+    private let mapModeDefaultZoomScale: CGFloat = 2.5
 
     private var moveTarget: CGPoint?
     private var moveTargetArrivalDistance: CGFloat = 12
@@ -879,6 +882,13 @@ class GameScene: SKScene {
         let hudNodes = cameraNode.nodes(at: hudLocation)
 
         if isMapViewMode {
+            if let pinchDistance = mapPinchDistance(from: event) {
+                lastMapPinchDistance = pinchDistance
+                isDraggingMap = false
+                return
+            }
+
+            lastMapPinchDistance = nil
             isDraggingMap = false
             if hudNodes.contains(where: { $0.name == "mapCloseItem" || $0.parent?.name == "mapCloseItem" }) {
                 setMapViewMode(false)
@@ -1065,8 +1075,14 @@ class GameScene: SKScene {
         }
 
         if isMapViewMode {
-            isDraggingMap = true
-            lastMapDragPoint = hudLocation
+            if let pinchDistance = mapPinchDistance(from: event) {
+                lastMapPinchDistance = pinchDistance
+                isDraggingMap = false
+            } else {
+                lastMapPinchDistance = nil
+                isDraggingMap = true
+                lastMapDragPoint = hudLocation
+            }
             return
         }
     }
@@ -1107,6 +1123,27 @@ class GameScene: SKScene {
             return
         }
 
+        if isMapViewMode {
+            if let pinchDistance = mapPinchDistance(from: event) {
+                if let previousDistance = lastMapPinchDistance,
+                   previousDistance > 0,
+                   pinchDistance > 0 {
+                    let scaleDelta = previousDistance / pinchDistance
+                    let clampedScale = min(
+                        max(cameraNode.xScale * scaleDelta, mapModeMinZoomScale),
+                        mapModeMaxZoomScale
+                    )
+                    cameraNode.setScale(clampedScale)
+                    clampCameraPositionToWorldBounds()
+                }
+                lastMapPinchDistance = pinchDistance
+                isDraggingMap = false
+                return
+            }
+
+            lastMapPinchDistance = nil
+        }
+
         if isMapViewMode, isDraggingMap {
             let deltaX = hudLocation.x - lastMapDragPoint.x
             let deltaY = hudLocation.y - lastMapDragPoint.y
@@ -1119,6 +1156,21 @@ class GameScene: SKScene {
             clampCameraPositionToWorldBounds()
             return
         }
+    }
+
+    private func mapPinchDistance(from event: UIEvent?) -> CGFloat? {
+        guard let activeTouches = event?.allTouches?.filter({ touch in
+            touch.phase != .ended && touch.phase != .cancelled
+        }),
+        activeTouches.count >= 2 else {
+            return nil
+        }
+
+        let first = activeTouches[activeTouches.startIndex]
+        let second = activeTouches[activeTouches.index(after: activeTouches.startIndex)]
+        let firstLocation = first.location(in: cameraNode)
+        let secondLocation = second.location(in: cameraNode)
+        return hypot(secondLocation.x - firstLocation.x, secondLocation.y - firstLocation.y)
     }
 
     override func update(_ currentTime: TimeInterval) {
@@ -3083,9 +3135,11 @@ class GameScene: SKScene {
             mapModeSavedCameraScale = cameraNode.xScale
             isMapViewMode = true
             isDraggingMap = false
+            lastMapPinchDistance = nil
             clearMoveTarget()
             player.physicsBody?.velocity = .zero
-            cameraNode.setScale(mapViewZoomOutScale)
+            let initialScale = min(max(mapModeDefaultZoomScale, mapModeMinZoomScale), mapModeMaxZoomScale)
+            cameraNode.setScale(initialScale)
             clampCameraPositionToWorldBounds()
             mapCloseButtonNode.isHidden = false
             showMessage("Map mode: drag to pan, then tap Close Map.")
@@ -3094,6 +3148,7 @@ class GameScene: SKScene {
 
         isMapViewMode = false
         isDraggingMap = false
+        lastMapPinchDistance = nil
         cameraNode.position = mapModeSavedCameraPosition
         cameraNode.setScale(mapModeSavedCameraScale)
         mapCloseButtonNode.isHidden = true
@@ -4727,6 +4782,7 @@ class GameScene: SKScene {
         player.physicsBody?.velocity = .zero
         isMapViewMode = false
         isDraggingMap = false
+        lastMapPinchDistance = nil
         cameraNode.setScale(1)
         mapCloseButtonNode?.isHidden = true
         setSnowmobileChoiceDialogVisible(false)
