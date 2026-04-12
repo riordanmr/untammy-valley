@@ -1,4 +1,18 @@
 
+2026-04-11 11:11:36 -0500
+Add pinch and spread to map view
+Implement pinch-to-zoom in map view: track last pinch distance, compute scale delta, and clamp camera scale between min and max. Add mapPinchDistance helper and adjust touch handling to avoid conflicts between pinch and drag (set/clear lastMapPinchDistance and isDraggingMap accordingly). Replace previous fixed map zoom with a configurable default/min/max and apply initial clamped scale when entering map mode. Also bump project CURRENT_PROJECT_VERSION and MARKETING_VERSION to 81 / 0.7.81.
+
+---
+
+2026-04-11 10:24:35 -0500
+Change save format to ease world enlargement
+Convert save snapshots from point-based positions to tile-based TileCoordinate values and bump schema to v2.
+This is to prevent problems with the old format, in which enlarging the world caused problems with interactable object position when an old save was restored.
+GameSaveSnapshot removes SavedPoint and now stores playerTile and interactableTilesByID; GameScene serialization/deserialization updated to save/load tiles (with spawn fallback) and to update raft/interactable positioning accordingly. Fixes raft/propane task state handling to avoid stale/inconsistent flags during load. SaveManager autosave/named filenames updated to v2. Also bump Xcode CURRENT_PROJECT_VERSION to 80 and MARKETING_VERSION to 0.70.80 and update docs (commit history and release notes).
+
+---
+
 2026-04-09 16:20:40 -0500
 Fix raft/propane task state
 Prevent stale/inconsistent save state around raft/propane tasks and tidy HUD/snapshot handling. Key changes:

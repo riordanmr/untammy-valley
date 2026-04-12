@@ -288,6 +288,7 @@ class GameScene: SKScene {
     private var warningFoodOrderIconNode: SKSpriteNode!
     private var warningTrenchIconNode: SKSpriteNode!
     private var warningPropaneIconNode: SKSpriteNode!
+    private var warningWrenchIconNode: SKSpriteNode!
     private var warningStudyGuideIconNode: SKSpriteNode!
     private var warningQuizIconNode: SKSpriteNode!
     private var warningRaftCatalogIconNode: SKSpriteNode!
@@ -401,6 +402,7 @@ class GameScene: SKScene {
     private var hasShownFirstRaftDeliveryHint = false
     private var hasActivatedRaftCatalogTask = false
     private var hasPropaneTankBeenDelivered = false
+    private var hasCrescentWrenchBeenDelivered = false
     private var trenchedSepticTiles: Set<TileCoordinate> = []
     private var hasAwardedSepticCompletionBonus = false
     private var toiletCleanTexture: SKTexture?
@@ -566,24 +568,26 @@ class GameScene: SKScene {
         }
     }
 
-    private func dropCarriedObject(_ node: SKSpriteNode, interactableID: String) {
+    @discardableResult
+    private func dropCarriedObject(_ node: SKSpriteNode, interactableID: String) -> TileCoordinate? {
         let startPosition = player.position
         node.removeAllActions()
         node.position = startPosition
 
         guard let playerTile = tileCoordinate(for: player.position) else {
-            return
+            return nil
         }
 
         let targetTile = candidateDropTiles(from: playerTile).first(where: { tileCanContainDroppedObject($0, droppingInteractableID: interactableID) })
         guard let targetTile,
               let targetPosition = scenePointForTile(targetTile) else {
-            return
+            return nil
         }
 
         let slide = SKAction.move(to: targetPosition, duration: 0.16)
         slide.timingMode = .easeOut
         node.run(slide)
+        return targetTile
     }
 
     private func updateWalkingAnimation(deltaTime: CGFloat, movementDelta: CGVector, isWalkingOnFoot: Bool) {
@@ -2858,6 +2862,16 @@ class GameScene: SKScene {
         warningPropaneIconNode.isHidden = true
         warningIconContainerNode.addChild(warningPropaneIconNode)
 
+        if let wrenchTexture = loadTexture(named: "crescent_wrench") {
+            warningWrenchIconNode = SKSpriteNode(texture: wrenchTexture, color: .clear, size: iconSize)
+        } else {
+            let fallbackTexture = makeLabeledMarkerTexture(size: iconSize, emoji: "W", color: .systemBlue)
+            warningWrenchIconNode = SKSpriteNode(texture: fallbackTexture, color: .clear, size: iconSize)
+        }
+        warningWrenchIconNode.name = "warningWrenchIcon"
+        warningWrenchIconNode.isHidden = true
+        warningIconContainerNode.addChild(warningWrenchIconNode)
+
         if let studyGuideTexture = loadTexture(named: "studyguide") {
             warningStudyGuideIconNode = SKSpriteNode(texture: studyGuideTexture, color: .clear, size: iconSize)
         } else {
@@ -2931,6 +2945,10 @@ class GameScene: SKScene {
             icons.append(warningPropaneIconNode)
         }
 
+        if isCrescentWrenchTaskActive() {
+            icons.append(warningWrenchIconNode)
+        }
+
         if isStudyGuideTaskActive() {
             icons.append(warningStudyGuideIconNode)
         }
@@ -2970,6 +2988,29 @@ class GameScene: SKScene {
         // Once the first raft has been delivered, this objective should stay visible
         // until the propane tank is delivered, regardless of transient raft visibility/state.
         hasShownFirstRaftDeliveryHint && !hasPropaneTankBeenDelivered
+    }
+
+    private func isCrescentWrenchTaskActive() -> Bool {
+        if hasCrescentWrenchBeenDelivered {
+            return false
+        }
+
+        // Primary activation: the wrench has been revealed by digging the leftmost septic tile.
+        let leftmostColumn = worldConfig.septicDigTiles.min(by: { $0.column < $1.column })?.column
+        let hasRevealedByDigging = leftmostColumn.map { column in
+            trenchedSepticTiles.contains(where: { $0.column == column })
+        } ?? false
+
+        if hasRevealedByDigging {
+            return true
+        }
+
+        // Fallbacks keep behavior stable across restores and transitions.
+        if snowTankerPartsCarried.contains(crescentWrenchID) {
+            return true
+        }
+
+        return interactableNodesByID[crescentWrenchID]?.isHidden == false
     }
 
     private func warningIconStackContains(_ hudLocation: CGPoint) -> Bool {
@@ -3018,6 +3059,9 @@ class GameScene: SKScene {
         }
         if !activeIcons.contains(warningPropaneIconNode) {
             warningPropaneIconNode.isHidden = true
+        }
+        if !activeIcons.contains(warningWrenchIconNode) {
+            warningWrenchIconNode.isHidden = true
         }
         if !activeIcons.contains(warningStudyGuideIconNode) {
             warningStudyGuideIconNode.isHidden = true
@@ -3244,6 +3288,10 @@ class GameScene: SKScene {
 
         if isPropaneTankTaskActive() {
             lines.append("Use the raft to fetch the propane tank; bring the propane tank to the vehicle assembly area.")
+        }
+
+        if isCrescentWrenchTaskActive() {
+            lines.append("Deliver the wrench to the vehicle assembly area")
         }
 
         if isStudyGuideTaskActive() {
@@ -4060,16 +4108,24 @@ class GameScene: SKScene {
         guard let part = snowTankerParts.first(where: { $0.interactableID == partID }) else { return }
         if snowTankerPartsCarried.contains(partID) {
             snowTankerPartsCarried.remove(partID)
-            dropCarriedObject(node, interactableID: partID)
+            let droppedTile = dropCarriedObject(node, interactableID: partID)
             if partID == propaneTankID,
                !hasPropaneTankBeenDelivered,
-               let playerTile = tileCoordinate(for: player.position),
-               tileRegionContains(worldConfig.vehicleAssemblyRegion, tile: playerTile) {
+               let droppedTile,
+               tileRegionContains(worldConfig.vehicleAssemblyRegion, tile: droppedTile) {
                 hasPropaneTankBeenDelivered = true
                 showMessage("Propane tank delivered to the vehicle assembly area!")
+            } else if partID == crescentWrenchID,
+                      !hasCrescentWrenchBeenDelivered,
+                      let droppedTile,
+                      tileRegionContains(worldConfig.vehicleAssemblyRegion, tile: droppedTile) {
+                hasCrescentWrenchBeenDelivered = true
+                showMessage("Crescent wrench delivered to the vehicle assembly area!")
             } else {
                 showMessage("Dropped \(part.displayName).")
             }
+            updateWarningIcons()
+            updatePendingTasksWindowBody()
             markSaveDirty()
             return
         }
@@ -4128,7 +4184,8 @@ class GameScene: SKScene {
             if let wrenchNode = interactableNodesByID[crescentWrenchID] {
                 wrenchNode.isHidden = false
             }
-            showMessage("The crescent wrench you found will be helpful in assembling the snowtanker.")
+            updateWarningIcons()
+            updatePendingTasksWindowBody()
         }
 
         if trenchedSepticTiles.count == worldConfig.septicDigTiles.count && !hasAwardedSepticCompletionBonus {
@@ -4136,6 +4193,8 @@ class GameScene: SKScene {
             GameState.shared.addCoins(septicCompletionBonusCoins)
             updateCoinLabel()
             showMessage("Septic trench complete. +\(coinsPerTrenchTile + septicCompletionBonusCoins) coins. Now you can afford a snowmobile!")
+        } else if isLeftmostTile {
+            showMessage("Dug trench tile! +\(coinsPerTrenchTile) coin\nThe crescent wrench you found will be helpful in assembling the snowtanker.\nYou have new task: deliver the wrench to the vehicle assembly area")
         } else if !isLeftmostTile {
             showMessage("Dug trench tile! +\(coinsPerTrenchTile) coin")
         }
@@ -4266,6 +4325,7 @@ class GameScene: SKScene {
             trenchedSepticTiles: Array(trenchedSepticTiles),
             hasAwardedSepticCompletionBonus: hasAwardedSepticCompletionBonus,
             hasPropaneTankBeenDelivered: hasPropaneTankBeenDelivered,
+            hasCrescentWrenchBeenDelivered: hasCrescentWrenchBeenDelivered,
             snowTankerPartsCarriedIDs: Array(snowTankerPartsCarried)
         )
     }
@@ -4375,6 +4435,7 @@ class GameScene: SKScene {
         trenchedSepticTiles = Set(snapshot.trenchedSepticTiles.filter { worldConfig.septicDigTiles.contains($0) })
         hasAwardedSepticCompletionBonus = snapshot.hasAwardedSepticCompletionBonus
         hasPropaneTankBeenDelivered = snapshot.hasPropaneTankBeenDelivered ?? false
+        hasCrescentWrenchBeenDelivered = snapshot.hasCrescentWrenchBeenDelivered ?? false
 
         resetSepticDigTiles()
         for tile in trenchedSepticTiles {
@@ -4837,6 +4898,7 @@ class GameScene: SKScene {
         hasShownFirstSuccessfulChipDeliveryMessage = false
         trenchedSepticTiles.removeAll()
         hasAwardedSepticCompletionBonus = false
+        hasCrescentWrenchBeenDelivered = false
         resetSepticDigTiles()
         updateMakerLoadedIndicator()
         updateBucketPotatoIcon()
@@ -4889,7 +4951,11 @@ class GameScene: SKScene {
     }
 
     func showMessage(_ text: String) {
-        MessageLog.shared.append(text)
+        let logText = text
+            .replacingOccurrences(of: "\r\n", with: " ")
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+        MessageLog.shared.append(logText)
         messageLabel.removeAllActions()
         messageLabel.text = text
         messageLabel.alpha = 1

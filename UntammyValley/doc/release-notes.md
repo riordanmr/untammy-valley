@@ -1,5 +1,13 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.81 (81) 2026-04-11 11:11:36
+
+Add pinch and spread to map view
+
+## Version 0.70.80 (80) 2026-04-11 10:24:35
+
+Change save format to ease world enlargement
+
 ## Version 0.7.74 (71) 2026-04-09 16:20:40
 
 Fix raft/propane task state
