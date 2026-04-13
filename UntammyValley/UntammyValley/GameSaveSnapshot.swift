@@ -67,6 +67,9 @@ struct GameSaveSnapshot: Codable {
     let trenchedSepticTiles: [TileCoordinate]
     let hasAwardedSepticCompletionBonus: Bool
     let hasPropaneTankBeenDelivered: Bool?
+    let hasRadioBeenDelivered: Bool?
+    let hasUnlockedShed: Bool?
     let hasCrescentWrenchBeenDelivered: Bool?
     let snowTankerPartsCarriedIDs: [String]?
+    let shedLockCombination: String?
 }

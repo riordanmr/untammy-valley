@@ -1,5 +1,9 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.82 (82) 2026-04-12 12:26:15
+
+Add crescent wrench delivery task
+
 ## Version 0.7.81 (81) 2026-04-11 11:11:36
 
 Add pinch and spread to map view

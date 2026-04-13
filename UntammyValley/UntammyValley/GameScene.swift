@@ -288,6 +288,7 @@ class GameScene: SKScene {
     private var warningFoodOrderIconNode: SKSpriteNode!
     private var warningTrenchIconNode: SKSpriteNode!
     private var warningPropaneIconNode: SKSpriteNode!
+    private var warningRadioIconNode: SKSpriteNode!
     private var warningWrenchIconNode: SKSpriteNode!
     private var warningStudyGuideIconNode: SKSpriteNode!
     private var warningQuizIconNode: SKSpriteNode!
@@ -324,9 +325,11 @@ class GameScene: SKScene {
     private let bedroomBatID = "bedroomBat"
     private let shovelID = "shovel"
     private let propaneTankID = "propaneTank"
+    private let radioID = "shedRadio"
     private let crescentWrenchID = "crescentWrench"
     private let snowTankerParts: [SnowTankerPart] = [
         SnowTankerPart(interactableID: "propaneTank", displayName: "propane tank", carryOffset: CGPoint(x: 24, y: -12)),
+        SnowTankerPart(interactableID: "shedRadio", displayName: "radio", carryOffset: CGPoint(x: 0, y: -24)),
         SnowTankerPart(interactableID: "crescentWrench", displayName: "crescent wrench", carryOffset: CGPoint(x: -24, y: -12)),
     ]
     private let mailboxID = "mailbox"
@@ -402,7 +405,10 @@ class GameScene: SKScene {
     private var hasShownFirstRaftDeliveryHint = false
     private var hasActivatedRaftCatalogTask = false
     private var hasPropaneTankBeenDelivered = false
+    private var hasRadioBeenDelivered = false
+    private var hasUnlockedShed = false
     private var hasCrescentWrenchBeenDelivered = false
+    private var shedLockCombination = ""
     private var trenchedSepticTiles: Set<TileCoordinate> = []
     private var hasAwardedSepticCompletionBonus = false
     private var toiletCleanTexture: SKTexture?
@@ -470,6 +476,8 @@ class GameScene: SKScene {
     private var walkingBobOffsetY: CGFloat = 0
     private var previousPlayerPositionForWalkAnimation: CGPoint?
     private var walkingAnimationDeltaTime: CGFloat = 1.0 / 60.0
+
+    private let radioAssemblyTaskText = "Fetch the radio from the school shed and deliver it to the vehicle assembly area."
 
     private var raftSize: CGSize {
         CGSize(width: tileSize.width * 2, height: tileSize.height * 2)
@@ -2862,6 +2870,16 @@ class GameScene: SKScene {
         warningPropaneIconNode.isHidden = true
         warningIconContainerNode.addChild(warningPropaneIconNode)
 
+        if let radioTexture = loadTexture(named: "radio") {
+            warningRadioIconNode = SKSpriteNode(texture: radioTexture, color: .clear, size: iconSize)
+        } else {
+            let fallbackTexture = makeLabeledMarkerTexture(size: iconSize, emoji: "R", color: .systemTeal)
+            warningRadioIconNode = SKSpriteNode(texture: fallbackTexture, color: .clear, size: iconSize)
+        }
+        warningRadioIconNode.name = "warningRadioIcon"
+        warningRadioIconNode.isHidden = true
+        warningIconContainerNode.addChild(warningRadioIconNode)
+
         if let wrenchTexture = loadTexture(named: "crescent_wrench") {
             warningWrenchIconNode = SKSpriteNode(texture: wrenchTexture, color: .clear, size: iconSize)
         } else {
@@ -2945,6 +2963,10 @@ class GameScene: SKScene {
             icons.append(warningPropaneIconNode)
         }
 
+        if isRadioTaskActive() {
+            icons.append(warningRadioIconNode)
+        }
+
         if isCrescentWrenchTaskActive() {
             icons.append(warningWrenchIconNode)
         }
@@ -2988,6 +3010,10 @@ class GameScene: SKScene {
         // Once the first raft has been delivered, this objective should stay visible
         // until the propane tank is delivered, regardless of transient raft visibility/state.
         hasShownFirstRaftDeliveryHint && !hasPropaneTankBeenDelivered
+    }
+
+    private func isRadioTaskActive() -> Bool {
+        hasPropaneTankBeenDelivered && !hasRadioBeenDelivered
     }
 
     private func isCrescentWrenchTaskActive() -> Bool {
@@ -3059,6 +3085,9 @@ class GameScene: SKScene {
         }
         if !activeIcons.contains(warningPropaneIconNode) {
             warningPropaneIconNode.isHidden = true
+        }
+        if !activeIcons.contains(warningRadioIconNode) {
+            warningRadioIconNode.isHidden = true
         }
         if !activeIcons.contains(warningWrenchIconNode) {
             warningWrenchIconNode.isHidden = true
@@ -3288,6 +3317,10 @@ class GameScene: SKScene {
 
         if isPropaneTankTaskActive() {
             lines.append("Use the raft to fetch the propane tank; bring the propane tank to the vehicle assembly area.")
+        }
+
+        if isRadioTaskActive() {
+            lines.append(radioAssemblyTaskText)
         }
 
         if isCrescentWrenchTaskActive() {
@@ -3554,7 +3587,14 @@ class GameScene: SKScene {
             handlePadlockInteraction()
             return
         case .radio:
-            handleRadioInteraction()
+            if !hasUnlockedShed {
+                showMessage("The shed door is locked.")
+                return
+            }
+            handleSnowTankerPartInteraction(partID: radioID, node: node)
+            return
+        case .paper:
+            handlePaperWithComboInteraction()
             return
         case .raft:
             handleRaftInteraction(interactableID: interactableID, node: node)
@@ -3579,11 +3619,102 @@ class GameScene: SKScene {
     }
 
     private func handlePadlockInteraction() {
-        showMessage("The shed door is locked.")
+        if hasUnlockedShed {
+            showMessage("The shed door is already unlocked.")
+            return
+        }
+
+        presentPadlockCombinationPrompt()
     }
 
-    private func handleRadioInteraction() {
-        showMessage("The radio crackles with static.")
+    private func presentPadlockCombinationPrompt() {
+        guard let presenter = topmostPresenter() else {
+            showMessage("Could not open lock prompt.")
+            return
+        }
+
+        let alert = UIAlertController(
+            title: "Unlock Shed",
+            message: "Enter combination (a-b-c)",
+            preferredStyle: .alert
+        )
+
+        alert.addTextField { textField in
+            textField.placeholder = "12-5-31"
+            textField.keyboardType = .numbersAndPunctuation
+            textField.autocapitalizationType = .none
+            textField.autocorrectionType = .no
+            textField.clearButtonMode = .whileEditing
+            textField.returnKeyType = .done
+        }
+
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+        let unlockAction = UIAlertAction(title: "Unlock", style: .default) { [weak self, weak alert] _ in
+            guard let self else { return }
+            let entered = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            self.tryUnlockShed(with: entered)
+        }
+
+        alert.addAction(cancelAction)
+        alert.addAction(unlockAction)
+        alert.preferredAction = unlockAction
+
+        presenter.present(alert, animated: true) {
+            alert.textFields?.first?.becomeFirstResponder()
+        }
+    }
+
+    private func parseCombination(_ value: String) -> [Int]? {
+        let parts = value.split(separator: "-", omittingEmptySubsequences: false)
+        guard parts.count == 3 else { return nil }
+
+        var numbers: [Int] = []
+        numbers.reserveCapacity(3)
+
+        for part in parts {
+            let trimmed = part.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.isEmpty,
+                  let number = Int(trimmed),
+                  (0...39).contains(number) else {
+                return nil
+            }
+            numbers.append(number)
+        }
+
+        return numbers
+    }
+
+    private func tryUnlockShed(with entered: String) {
+        guard let enteredParts = parseCombination(entered) else {
+            showMessage("Invalid format. Use a-b-c with values from 0 to 39.")
+            return
+        }
+
+        guard let expectedParts = parseCombination(shedLockCombination) else {
+            showMessage("Lock error: missing combination.")
+            return
+        }
+
+        guard enteredParts == expectedParts else {
+            showMessage("Wrong combination.")
+            return
+        }
+
+        unlockShed()
+    }
+
+    private func unlockShed() {
+        hasUnlockedShed = true
+        if let padlockNode = interactableNodesByID["shedPadlock"] {
+            padlockNode.isHidden = true
+            padlockNode.physicsBody = nil
+        }
+        showMessage("You unlocked the shed.")
+        markSaveDirty()
+    }
+
+    private func handlePaperWithComboInteraction() {
+        showMessage("It says \(shedLockCombination)")
     }
 
     func isEnvelopeOutstanding() -> Bool {
@@ -3914,7 +4045,7 @@ class GameScene: SKScene {
         updateWarningIcons()
         updatePendingTasksWindowBody()
         if isFirstSnowmobilePurchase {
-            showMessage("Now you can get to school. But study before you go.")
+            showMessage("You bought a snowmobile; now you can get to school. But study before you go.")
         } else {
             showMessage("Bought snowmobile for \(snowmobilePriceCoins) coins.")
         }
@@ -4114,7 +4245,13 @@ class GameScene: SKScene {
                let droppedTile,
                tileRegionContains(worldConfig.vehicleAssemblyRegion, tile: droppedTile) {
                 hasPropaneTankBeenDelivered = true
-                showMessage("Propane tank delivered to the vehicle assembly area!")
+                showMessage("Propane tank delivered to the vehicle assembly area!\n\(radioAssemblyTaskText)")
+            } else if partID == radioID,
+                      !hasRadioBeenDelivered,
+                      let droppedTile,
+                      tileRegionContains(worldConfig.vehicleAssemblyRegion, tile: droppedTile) {
+                hasRadioBeenDelivered = true
+                showMessage("Radio delivered to the vehicle assembly area!")
             } else if partID == crescentWrenchID,
                       !hasCrescentWrenchBeenDelivered,
                       let droppedTile,
@@ -4325,8 +4462,11 @@ class GameScene: SKScene {
             trenchedSepticTiles: Array(trenchedSepticTiles),
             hasAwardedSepticCompletionBonus: hasAwardedSepticCompletionBonus,
             hasPropaneTankBeenDelivered: hasPropaneTankBeenDelivered,
+            hasRadioBeenDelivered: hasRadioBeenDelivered,
+            hasUnlockedShed: hasUnlockedShed,
             hasCrescentWrenchBeenDelivered: hasCrescentWrenchBeenDelivered,
-            snowTankerPartsCarriedIDs: Array(snowTankerPartsCarried)
+            snowTankerPartsCarriedIDs: Array(snowTankerPartsCarried),
+            shedLockCombination: shedLockCombination
         )
     }
 
@@ -4435,7 +4575,16 @@ class GameScene: SKScene {
         trenchedSepticTiles = Set(snapshot.trenchedSepticTiles.filter { worldConfig.septicDigTiles.contains($0) })
         hasAwardedSepticCompletionBonus = snapshot.hasAwardedSepticCompletionBonus
         hasPropaneTankBeenDelivered = snapshot.hasPropaneTankBeenDelivered ?? false
+        hasRadioBeenDelivered = snapshot.hasRadioBeenDelivered ?? false
+        hasUnlockedShed = snapshot.hasUnlockedShed ?? false
         hasCrescentWrenchBeenDelivered = snapshot.hasCrescentWrenchBeenDelivered ?? false
+        shedLockCombination = snapshot.shedLockCombination ?? generateShedLockCombination()
+
+        if hasUnlockedShed,
+           let padlockNode = interactableNodesByID["shedPadlock"] {
+            padlockNode.isHidden = true
+            padlockNode.physicsBody = nil
+        }
 
         resetSepticDigTiles()
         for tile in trenchedSepticTiles {
@@ -4456,7 +4605,7 @@ class GameScene: SKScene {
     }
 
     private func shouldPersistInteractablePosition(for id: String) -> Bool {
-        if id == "studyGuide" || id == "searsCatalog" || id == mailboxID || id == barCustomerID || id == "shedPadlock" || id == "shedRadio" {
+        if id == "studyGuide" || id == "searsCatalog" || id == "paperWithCombo" || id == mailboxID || id == barCustomerID || id == "shedPadlock" {
             return false
         }
 
@@ -4898,7 +5047,11 @@ class GameScene: SKScene {
         hasShownFirstSuccessfulChipDeliveryMessage = false
         trenchedSepticTiles.removeAll()
         hasAwardedSepticCompletionBonus = false
+        hasPropaneTankBeenDelivered = false
+        hasRadioBeenDelivered = false
+        hasUnlockedShed = false
         hasCrescentWrenchBeenDelivered = false
+        shedLockCombination = generateShedLockCombination()
         resetSepticDigTiles()
         updateMakerLoadedIndicator()
         updateBucketPotatoIcon()
@@ -4929,6 +5082,13 @@ class GameScene: SKScene {
         GameState.shared.resetStudyGuideOpenedBySubject()
         updateCoinLabel()
         updateStatusWindowBody()
+    }
+
+    private func generateShedLockCombination() -> String {
+        let a = Int.random(in: 0...39)
+        let b = Int.random(in: 0...39)
+        let c = Int.random(in: 0...39)
+        return "\(a)-\(b)-\(c)"
     }
 
     private func resetGameToInitialState() {

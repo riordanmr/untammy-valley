@@ -108,6 +108,10 @@ enum WorldLoader {
             scaledSize(width: baseObjectSize * 0.6, height: baseObjectSize * 0.6)
         }
 
+        static var paperSize: CGSize {
+            standardObjectSize
+        }
+
         static var mailboxSize: CGSize {
             // Mailbox proportions match a 1x2 object footprint.
             scaledSize(width: baseObjectSize, height: baseObjectSize * 2)
@@ -384,6 +388,11 @@ enum WorldLoader {
 
         static var searsCatalogTile: TileCoordinate {
             TileCoordinate(column: deskTile.column, row: deskTile.row)
+        }
+
+        static var paperWithComboTile: TileCoordinate {
+            // Upper-left corner of bedroom interior.
+            TileCoordinate(column: minColumn + 1, row: maxRowExclusive - 2)
         }
 
         static var mailboxTile: TileCoordinate {
@@ -952,6 +961,16 @@ enum WorldLoader {
             interactionRange: 100
         )
 
+        let paperWithCombo = InteractableConfig(
+            id: "paperWithCombo",
+            kind: .paper,
+            spriteName: "paper_with_combo",
+            tile: BarLayout.paperWithComboTile,
+            size: BarLayout.paperSize,
+            rewardCoins: 0,
+            interactionRange: 100
+        )
+
         let mailbox = InteractableConfig(
             id: "mailbox",
             kind: .mailbox,
@@ -1246,7 +1265,7 @@ enum WorldLoader {
             )
         ]
 
-        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, studyGuide, searsCatalog, mailbox, envelope, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, crescentWrench, shedPadlock, shedRadio, goatChaseSpot, barCustomer, propaneTank] + snowmobiles
+        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, studyGuide, searsCatalog, paperWithCombo, mailbox, envelope, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, crescentWrench, shedPadlock, shedRadio, goatChaseSpot, barCustomer, propaneTank] + snowmobiles
 
         let staticDecorations = [
             carrollSign,

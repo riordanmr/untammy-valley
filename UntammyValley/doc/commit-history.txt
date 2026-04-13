@@ -1,4 +1,21 @@
 
+2026-04-12 12:26:15 -0500
+Add crescent wrench delivery task
+Introduce a new crescent-wrench task: add warning icon, task activation logic, delivery detection and persistence. Key changes:
+
+- Track hasCrescentWrenchBeenDelivered in GameScene and GameSaveSnapshot (serialize/load flag).
+- Add warningWrenchIconNode and include it in the HUD/active icon stack when the wrench task is active.
+- Implement isCrescentWrenchTaskActive() to determine task activation (revealed trench, carried parts, or interactable visibility).
+- Make dropCarriedObject return an optional TileCoordinate so delivered parts can be detected by drop location; use it to mark propane tank and wrench deliveries and update warnings/tasks UI.
+- Sanitize message text in showMessage to remove line breaks before logging.
+- Update reset/load logic to initialize the wrench delivery flag and update related UI when the wrench is revealed.
+- Bump project CURRENT_PROJECT_VERSION to 82 and MARKETING_VERSION to 0.7.82.
+- update commit-history/release-notes.
+
+These changes add the wrench delivery gameplay, ensure its state is persisted across saves/restores, and adjust UI/notifications accordingly.
+
+---
+
 2026-04-11 11:11:36 -0500
 Add pinch and spread to map view
 Implement pinch-to-zoom in map view: track last pinch distance, compute scale delta, and clamp camera scale between min and max. Add mapPinchDistance helper and adjust touch handling to avoid conflicts between pinch and drag (set/clear lastMapPinchDistance and isDraggingMap accordingly). Replace previous fixed map zoom with a configurable default/min/max and apply initial clamped scale when entering map mode. Also bump project CURRENT_PROJECT_VERSION and MARKETING_VERSION to 81 / 0.7.81.
