@@ -1,4 +1,12 @@
 
+2026-04-13 09:04:42 -0500
+Add radio task & unlocking shed with combo
+Introduce a shed padlock/paper combo flow and radio delivery task. Adds new paper_with_combo asset set and a paper interactable placed in the world (giving the combo). Persist new save fields (hasRadioBeenDelivered, hasUnlockedShed, shedLockCombination) and wire load/save/reset logic. GameScene: add radio warning icon, radio/shed state, radio delivery detection, padlock UI (combination entry, parsing, unlock logic), paper interaction to reveal the combination, and helper to generate random combinations.
+(A future version might redo the UI for entering the combination, which currently requires typing the combo.)
+WorldLoader/WorldConfig: add .paper kind, paperWithCombo interactable and sizes/tiles; avoid persisting the paper item position. Bump project version/marketing version to 83 / 0.7.83 and update docs.
+
+---
+
 2026-04-12 12:26:15 -0500
 Add crescent wrench delivery task
 Introduce a new crescent-wrench task: add warning icon, task activation logic, delivery detection and persistence. Key changes:

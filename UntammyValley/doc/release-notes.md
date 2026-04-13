@@ -1,5 +1,9 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.83 (83) 2026-04-13 09:04:42
+
+Add radio task & unlocking shed with combo
+
 ## Version 0.7.82 (82) 2026-04-12 12:26:15
 
 Add crescent wrench delivery task

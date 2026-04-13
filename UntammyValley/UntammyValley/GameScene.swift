@@ -127,7 +127,7 @@ func makeBasicTileSet() -> SKTileSet {
     return tileSet
 }
 
-class GameScene: SKScene {
+class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
     private static let requiredSnowmobileCount = 6
 
     private enum FacingDirection {
@@ -409,6 +409,7 @@ class GameScene: SKScene {
     private var hasUnlockedShed = false
     private var hasCrescentWrenchBeenDelivered = false
     private var shedLockCombination = ""
+    private var padlockPickerValues = [0, 0, 0]
     private var trenchedSepticTiles: Set<TileCoordinate> = []
     private var hasAwardedSepticCompletionBonus = false
     private var toiletCleanTexture: SKTexture?
@@ -3633,35 +3634,37 @@ class GameScene: SKScene {
             return
         }
 
+        padlockPickerValues = [0, 0, 0]
+
         let alert = UIAlertController(
             title: "Unlock Shed",
-            message: "Enter combination (a-b-c)",
+            message: "Select combination (a-b-c)",
             preferredStyle: .alert
         )
 
-        alert.addTextField { textField in
-            textField.placeholder = "12-5-31"
-            textField.keyboardType = .numbersAndPunctuation
-            textField.autocapitalizationType = .none
-            textField.autocorrectionType = .no
-            textField.clearButtonMode = .whileEditing
-            textField.returnKeyType = .done
+        let pickerHost = UIViewController()
+        pickerHost.preferredContentSize = CGSize(width: 250, height: 150)
+
+        let pickerView = UIPickerView(frame: CGRect(x: 0, y: 0, width: 250, height: 150))
+        pickerView.dataSource = self
+        pickerView.delegate = self
+        for component in 0..<3 {
+            pickerView.selectRow(0, inComponent: component, animated: false)
         }
+        pickerHost.view.addSubview(pickerView)
+        alert.setValue(pickerHost, forKey: "contentViewController")
 
         let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
-        let unlockAction = UIAlertAction(title: "Unlock", style: .default) { [weak self, weak alert] _ in
+        let unlockAction = UIAlertAction(title: "Unlock", style: .default) { [weak self] _ in
             guard let self else { return }
-            let entered = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            self.tryUnlockShed(with: entered)
+            self.tryUnlockShed(with: self.padlockPickerValues)
         }
 
         alert.addAction(cancelAction)
         alert.addAction(unlockAction)
         alert.preferredAction = unlockAction
 
-        presenter.present(alert, animated: true) {
-            alert.textFields?.first?.becomeFirstResponder()
-        }
+        presenter.present(alert, animated: true)
     }
 
     private func parseCombination(_ value: String) -> [Int]? {
@@ -3684,12 +3687,7 @@ class GameScene: SKScene {
         return numbers
     }
 
-    private func tryUnlockShed(with entered: String) {
-        guard let enteredParts = parseCombination(entered) else {
-            showMessage("Invalid format. Use a-b-c with values from 0 to 39.")
-            return
-        }
-
+    private func tryUnlockShed(with enteredParts: [Int]) {
         guard let expectedParts = parseCombination(shedLockCombination) else {
             showMessage("Lock error: missing combination.")
             return
@@ -3715,6 +3713,23 @@ class GameScene: SKScene {
 
     private func handlePaperWithComboInteraction() {
         showMessage("It says \(shedLockCombination)")
+    }
+
+    func numberOfComponents(in pickerView: UIPickerView) -> Int {
+        3
+    }
+
+    func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
+        40
+    }
+
+    func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
+        "\(row)"
+    }
+
+    func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
+        guard component >= 0, component < padlockPickerValues.count else { return }
+        padlockPickerValues[component] = row
     }
 
     func isEnvelopeOutstanding() -> Bool {
