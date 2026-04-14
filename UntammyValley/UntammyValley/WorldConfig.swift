@@ -75,6 +75,7 @@ enum InteractableKind {
     case padlock
     case radio
     case paper
+    case buildButton
 }
 
 struct InteractableConfig {

@@ -84,6 +84,11 @@ enum WorldLoader {
             scaledSize(width: baseObjectSize * (11.0 / 6.0), height: baseObjectSize)
         }
 
+        static var buildButtonSize: CGSize {
+            // A 2x1 tile footprint.
+            scaledSize(width: baseObjectSize * 2, height: baseObjectSize)
+        }
+
         static var padlockSize: CGSize {
             scaledSize(width: baseObjectSize, height: baseObjectSize)
         }
@@ -323,6 +328,13 @@ enum WorldLoader {
             TileCoordinate(
                 column: vehicleAssemblyRegion.minColumn + 1,
                 row: vehicleAssemblyRegion.minRow + 1
+            )
+        }
+
+        static var vehicleAssemblyBuildButtonTile: TileCoordinate {
+            TileCoordinate(
+                column: vehicleAssemblySignTile.column,
+                row: vehicleAssemblySignTile.row + 2
             )
         }
 
@@ -1252,6 +1264,18 @@ enum WorldLoader {
             interactionRange: 100
         )
 
+        let buildButton = InteractableConfig(
+            id: "buildButton",
+            kind: .buildButton,
+            spriteName: "build_button",
+            tile: BarLayout.vehicleAssemblyBuildButtonTile,
+            size: BarLayout.buildButtonSize,
+            rewardCoins: 0,
+            interactionRange: 110,
+            blocksMovement: true,
+            persistsPosition: false
+        )
+
         let parkingCars: [DecorationConfig] = [
             DecorationConfig(
                 id: "parkingCarSedan",
@@ -1282,7 +1306,7 @@ enum WorldLoader {
             )
         ]
 
-        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, studyGuide, searsCatalog, paperWithCombo, mailbox, envelope, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, crescentWrench, shedPadlock, shedRadio, goatChaseSpot, barCustomer, propaneTank] + snowmobiles
+        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, studyGuide, searsCatalog, paperWithCombo, mailbox, envelope, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, crescentWrench, shedPadlock, shedRadio, goatChaseSpot, barCustomer, propaneTank, buildButton] + snowmobiles
 
         let staticDecorations = [
             carrollSign,

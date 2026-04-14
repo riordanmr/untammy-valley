@@ -3597,6 +3597,9 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         case .paper:
             handlePaperWithComboInteraction()
             return
+        case .buildButton:
+            handleBuildButtonInteraction()
+            return
         case .raft:
             handleRaftInteraction(interactableID: interactableID, node: node)
             return
@@ -3713,6 +3716,44 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
 
     private func handlePaperWithComboInteraction() {
         showMessage("It says \(shedLockCombination)")
+    }
+
+    private func handleBuildButtonInteraction() {
+        var met: [String] = []
+        var unmet: [String] = []
+
+        let requirements: [(String, Bool)] = [
+            ("Propane tank delivered to vehicle assembly area", hasPropaneTankBeenDelivered),
+            ("Radio delivered to vehicle assembly area", hasRadioBeenDelivered),
+            ("Crescent wrench delivered to vehicle assembly area", hasCrescentWrenchBeenDelivered),
+            ("All \(Self.requiredSnowmobileCount) snowmobiles purchased (\(ownedSnowmobileIDs.count)/\(Self.requiredSnowmobileCount))", ownedSnowmobileIDs.count >= Self.requiredSnowmobileCount)
+        ]
+
+        for (description, isMet) in requirements {
+            if isMet {
+                met.append("[x] \(description)")
+            } else {
+                unmet.append("[ ] \(description)")
+            }
+        }
+
+        var lines: [String] = []
+        lines.append("Met requirements:")
+        lines.append(contentsOf: met.isEmpty ? ["None"] : met)
+        lines.append("")
+        lines.append("Unmet requirements:")
+        lines.append(contentsOf: unmet.isEmpty ? ["None"] : unmet)
+
+        if unmet.isEmpty {
+            lines.append("")
+            lines.append("All requirements met. Ready to build.")
+        }
+
+        isLogWindowVisible = false
+        isStatusWindowVisible = false
+        isPendingTasksWindowVisible = false
+        scrollTextDialogNode.configure(title: "Snowtanker progress", lines: lines, paragraphSpacing: 0.0, closeButtonTitle: "Close")
+        scrollTextDialogNode.setVisible(true)
     }
 
     func numberOfComponents(in pickerView: UIPickerView) -> Int {
