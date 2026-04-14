@@ -1505,7 +1505,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
 
             let body = SKPhysicsBody(rectangleOf: node.size)
             body.isDynamic = false
-            if config.kind == .mailbox || config.kind == .barCustomer || config.kind == .padlock {
+            if config.blocksMovement {
                 body.categoryBitMask = PhysicsCategory.wall
                 body.collisionBitMask = PhysicsCategory.player
                 body.contactTestBitMask = PhysicsCategory.none
@@ -4620,18 +4620,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
     }
 
     private func shouldPersistInteractablePosition(for id: String) -> Bool {
-        if id == "studyGuide" || id == "searsCatalog" || id == "paperWithCombo" || id == mailboxID || id == barCustomerID || id == "shedPadlock" {
-            return false
-        }
-
-        if interactableConfigsByID[id]?.kind == .teachersDesk {
-            return false
-        }
-
-        return id != potatoPeelerID &&
-            id != deepFryerID &&
-            id != potatoBinID &&
-            id != toiletID
+        interactableConfigsByID[id]?.persistsPosition ?? true
     }
 
     private func ensureDynamicRaftsExist(for snapshot: GameSaveSnapshot) {

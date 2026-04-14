@@ -838,7 +838,8 @@ enum WorldLoader {
             tile: BarLayout.potatoPeelerTile,
             size: BarLayout.chipMakerSize,
             rewardCoins: 5,
-            interactionRange: 90
+            interactionRange: 90,
+            persistsPosition: false
         )
 
         let deepFryer = InteractableConfig(
@@ -848,7 +849,8 @@ enum WorldLoader {
             tile: BarLayout.deepFryerTile,
             size: BarLayout.deepFryerSize,
             rewardCoins: 0,
-            interactionRange: 95
+            interactionRange: 95,
+            persistsPosition: false
         )
 
         let chipsBasket = InteractableConfig(
@@ -878,7 +880,8 @@ enum WorldLoader {
             tile: BarLayout.toiletTile,
             size: BarLayout.standardObjectSize,
             rewardCoins: 0,
-            interactionRange: 95
+            interactionRange: 95,
+            persistsPosition: false
         )
 
         let toiletBowlBrush = InteractableConfig(
@@ -908,7 +911,8 @@ enum WorldLoader {
             tile: BarLayout.potatoBinTile,
             size: BarLayout.potatoBinSize,
             rewardCoins: 0,
-            interactionRange: 95
+            interactionRange: 95,
+            persistsPosition: false
         )
 
         let bucket = InteractableConfig(
@@ -948,7 +952,8 @@ enum WorldLoader {
             tile: BarLayout.studyGuideTile,
             size: BarLayout.studyGuideSize,
             rewardCoins: 0,
-            interactionRange: 100
+            interactionRange: 100,
+            persistsPosition: false
         )
 
         let searsCatalog = InteractableConfig(
@@ -958,7 +963,8 @@ enum WorldLoader {
             tile: BarLayout.searsCatalogTile,
             size: BarLayout.studyGuideSize,
             rewardCoins: 0,
-            interactionRange: 100
+            interactionRange: 100,
+            persistsPosition: false
         )
 
         let paperWithCombo = InteractableConfig(
@@ -968,7 +974,8 @@ enum WorldLoader {
             tile: BarLayout.paperWithComboTile,
             size: BarLayout.paperSize,
             rewardCoins: 0,
-            interactionRange: 100
+            interactionRange: 100,
+            persistsPosition: false
         )
 
         let mailbox = InteractableConfig(
@@ -978,7 +985,9 @@ enum WorldLoader {
             tile: BarLayout.mailboxTile,
             size: BarLayout.mailboxSize,
             rewardCoins: 0,
-            interactionRange: 120
+            interactionRange: 120,
+            blocksMovement: true,
+            persistsPosition: false
         )
 
         let envelope = InteractableConfig(
@@ -998,7 +1007,8 @@ enum WorldLoader {
             tile: SchoolLayout.classroomTopLeftDeskTile,
             size: BarLayout.teachersDeskSize,
             rewardCoins: 0,
-            interactionRange: 110
+            interactionRange: 110,
+            persistsPosition: false
         )
 
         let teacherDeskHistory = InteractableConfig(
@@ -1008,7 +1018,8 @@ enum WorldLoader {
             tile: SchoolLayout.classroomTopRightDeskTile,
             size: BarLayout.teachersDeskSize,
             rewardCoins: 0,
-            interactionRange: 110
+            interactionRange: 110,
+            persistsPosition: false
         )
 
         let teacherDeskMathematics = InteractableConfig(
@@ -1018,7 +1029,8 @@ enum WorldLoader {
             tile: SchoolLayout.classroomBottomLeftDeskTile,
             size: BarLayout.teachersDeskSize,
             rewardCoins: 0,
-            interactionRange: 110
+            interactionRange: 110,
+            persistsPosition: false
         )
 
         let teacherDeskScience = InteractableConfig(
@@ -1028,7 +1040,8 @@ enum WorldLoader {
             tile: SchoolLayout.classroomBottomRightDeskTile,
             size: BarLayout.teachersDeskSize,
             rewardCoins: 0,
-            interactionRange: 110
+            interactionRange: 110,
+            persistsPosition: false
         )
 
         let teachersDesks: [TeachersDeskConfig] = [
@@ -1075,7 +1088,9 @@ enum WorldLoader {
             tile: BarLayout.shedPadlockTile,
             size: BarLayout.padlockSize,
             rewardCoins: 0,
-            interactionRange: 95
+            interactionRange: 95,
+            blocksMovement: true,
+            persistsPosition: false
         )
 
         let shedRadio = InteractableConfig(
@@ -1219,7 +1234,9 @@ enum WorldLoader {
             tile: BarLayout.patronBarStoolTile,
             size: BarLayout.patronStoolTileSize,
             rewardCoins: 0,
-            interactionRange: 100
+            interactionRange: 100,
+            blocksMovement: true,
+            persistsPosition: false
         )
 
         let propaneTank = InteractableConfig(

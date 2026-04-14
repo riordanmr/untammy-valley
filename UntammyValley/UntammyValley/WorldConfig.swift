@@ -85,6 +85,30 @@ struct InteractableConfig {
     let size: CGSize
     let rewardCoins: Int
     let interactionRange: CGFloat
+    let blocksMovement: Bool
+    let persistsPosition: Bool
+
+    init(
+        id: String,
+        kind: InteractableKind,
+        spriteName: String,
+        tile: TileCoordinate,
+        size: CGSize,
+        rewardCoins: Int,
+        interactionRange: CGFloat,
+        blocksMovement: Bool = false,
+        persistsPosition: Bool = true
+    ) {
+        self.id = id
+        self.kind = kind
+        self.spriteName = spriteName
+        self.tile = tile
+        self.size = size
+        self.rewardCoins = rewardCoins
+        self.interactionRange = interactionRange
+        self.blocksMovement = blocksMovement
+        self.persistsPosition = persistsPosition
+    }
 }
 
 enum ClassroomSubject {
