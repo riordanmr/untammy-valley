@@ -1,4 +1,23 @@
 
+2026-04-13 20:54:50 -0500
+Add build button and build progress dialog
+Add a new "buildButton" interactable: include asset images (1x/2x/3x) and Contents.json for build_button. Introduce InteractableKind.buildButton and wire up a GameScene handler (handleBuildButtonInteraction) that shows a progress dialog listing met/unmet requirements (propane tank, radio, crescent wrench, and required snowmobile count). Update WorldLoader with build button sizing, tile coordinate, and an InteractableConfig for the vehicle assembly build button, and include it in allInteractables. Also bump project CURRENT_PROJECT_VERSION and MARKETING_VERSION to 86 / 0.7.86.
+
+---
+
+2026-04-13 20:17:30 -0500
+Refactor object properties
+The code was getting a bit unwieldy, so I did some refactoring.
+Introduce two new InteractableConfig properties (blocksMovement, persistsPosition) with defaults and initializer updates to centralize behavior for interactable objects. Update GameScene to use blocksMovement for physics/body setup and simplify persistence logic to use persistsPosition. Adjust WorldLoader to set these flags for specific interactables (e.g. mailbox, padlock, stools, various temporary objects) so movement blocking and position persistence are handled per-config. Also bump project CURRENT_PROJECT_VERSION  to 85 and MARKETING_VERSION to 0.7.85.
+
+---
+
+2026-04-13 10:01:52 -0500
+Change shed unlock UI, and improve concrete image
+Replace text-field combo entry with a 3-component UIPickerView for the shed padlock in GameScene: conform to UIPickerViewDataSource/Delegate, add padlockPickerValues, embed picker in alert via a contentViewController, update tryUnlockShed to accept [Int], and add picker callbacks. Also reset picker values when presenting. Bump project CURRENT_PROJECT_VERSION to 82 and MARKETING_VERSION to 0.7.84. Update floor_concrete image assets (PNG files) in the Tiles asset catalog.
+
+---
+
 2026-04-13 09:04:42 -0500
 Add radio task & unlocking shed with combo
 Introduce a shed padlock/paper combo flow and radio delivery task. Adds new paper_with_combo asset set and a paper interactable placed in the world (giving the combo). Persist new save fields (hasRadioBeenDelivered, hasUnlockedShed, shedLockCombination) and wire load/save/reset logic. GameScene: add radio warning icon, radio/shed state, radio delivery detection, padlock UI (combination entry, parsing, unlock logic), paper interaction to reveal the combination, and helper to generate random combinations.

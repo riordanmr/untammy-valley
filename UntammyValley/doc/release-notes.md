@@ -1,5 +1,17 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.86 (86) 2026-04-13 20:54:50
+
+Add build button and build progress dialog
+
+## Version 0.7.85 (85) 2026-04-13 20:17:30
+
+Refactor object properties
+
+## Version 0.7.84 (82) 2026-04-13 10:01:52
+
+Change shed unlock UI, and improve concrete image
+
 ## Version 0.7.83 (83) 2026-04-13 09:04:42
 
 Add radio task & unlocking shed with combo
@@ -28,7 +40,7 @@ Add shed, padlock & radio; fix bugs
 
 Add raft task indicator; tweak status text
 
-## Version 0.7.71 (0) 2026-04-03 20:09:53
+## Version 0.7.71 (68) 2026-04-03 20:09:53
 
 Count only moves in bar for certain task deadlines
 
@@ -80,7 +92,7 @@ Add propane tank and task to deliver it
 
 Update GameScene.swift
 
-## Version 0.7.62 (58) 2026-03-18 15:36:57
+## Version 0.7.62 (59) 2026-03-18 15:36:57
 
 Refactor initialization code to call Reset code
 
@@ -260,7 +272,7 @@ Enable String Catalog Symbol Generation
 
 Resize fryer, grinder, and bin assets and tweak positions
 
-## Version 0.7.26 (20) 2026-03-01 14:29:32
+## Version 0.7.26 (21) 2026-03-01 14:29:32
 
 auto-move player if click on an object too far to interact
 
@@ -296,7 +308,7 @@ Add teachers desks
 
 Merge branch 'main' of https://github.com/riordanmr/untammy-valley
 
-## Version 0.7.18 (12) 2026-02-23 11:05:36
+## Version 0.7.18 (13) 2026-02-23 11:05:36
 
 Use different goat image
 

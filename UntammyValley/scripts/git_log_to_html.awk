@@ -291,7 +291,7 @@ function parse_line_for_version_build(line,    lower_line, candidate, combo) {
         }
     }
 
-    if (match(lower_line, /build[^0-9]*[0-9]+/)) {
+    if (parsed_build == "" && match(lower_line, /(^|[^[:alnum:]_])build[[:space:]]*(#|=|:|to)?[[:space:]]*[0-9]+/)) {
         candidate = substr(line, RSTART, RLENGTH)
         candidate = last_integer(candidate)
         if (candidate != "") {
