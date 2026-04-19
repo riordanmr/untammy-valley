@@ -127,7 +127,7 @@ func makeBasicTileSet() -> SKTileSet {
     return tileSet
 }
 
-class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
+class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFieldDelegate {
     private static let requiredSnowmobileCount = 6
 
     private enum FacingDirection {
@@ -253,6 +253,11 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         case firstDeliveryCompleted = 2
     }
 
+    private enum QAToolsSettings {
+        static let passcode = "1130"
+        static let addCoinsAmount = 600
+    }
+
     var player: PlayerNode!
     var cameraNode: SKCameraNode!
 
@@ -268,6 +273,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
     private var mapCloseLabel: SKLabelNode!
     private var savesDialogNode: SavesDialogNode!
     private var settingsDialogNode: SettingsDialogNode!
+    private var qaToolsDialogNode: QAToolsDialogNode!
     private var scrollTextDialogNode: ScrollTextDialogNode!
     private var studySubjectBackdropNode: SKShapeNode!
     private var studySubjectPanelNode: SKShapeNode!
@@ -467,9 +473,14 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
     private var lastAutosaveTimestamp: TimeInterval = 0
     private let autosaveIntervalSeconds: TimeInterval = 2.0
     private var hasAttemptedSaveRestore = false
+    private weak var qaPasscodeAlertController: UIAlertController?
     private var playerSpawnPosition: CGPoint = .zero
     private var completedMoveCount = 0
     private var barCompletedMoveCount = 0
+    private var coinLabelPressStartTime: TimeInterval?
+    private var coinLabelPressStartLocation: CGPoint?
+    private let qaToolsLongPressMinimumDuration: TimeInterval = 0.8
+    private let qaToolsLongPressMoveTolerance: CGFloat = 18
     private var isBearAttackInProgress = false
     private let worldConfig = WorldConfig.current
     private lazy var namedSaveDefaultNameFormatter: DateFormatter = {
@@ -905,6 +916,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         updateMapCloseButtonPosition()
         savesDialogNode?.updateLayout(sceneSize: size)
         settingsDialogNode?.updateLayout(sceneSize: size)
+        qaToolsDialogNode?.updateLayout(sceneSize: size)
         scrollTextDialogNode?.updateLayout(sceneSize: size)
         quizDialogNode?.updateLayout(sceneSize: size)
         configureSearsCatalogDialog()
@@ -920,6 +932,14 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         let hudLocation = touch.location(in: cameraNode)
 
         let hudNodes = cameraNode.nodes(at: hudLocation)
+
+        if shouldTriggerQAToolsLongPress(at: hudLocation, touchTimestamp: touch.timestamp) {
+            resetCoinLabelLongPressTracking()
+            presentQAToolsPasscodePrompt()
+            setMenuVisible(false)
+            return
+        }
+        resetCoinLabelLongPressTracking()
 
         if isMapViewMode {
             if let pinchDistance = mapPinchDistance(from: event) {
@@ -949,6 +969,14 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
                 return
             }
             _ = settingsDialogNode.handleTap(hudNodes: hudNodes)
+            return
+        }
+
+        if qaToolsDialogNode?.isVisible == true {
+            if qaToolsDialogNode.endDrag() {
+                return
+            }
+            _ = qaToolsDialogNode.handleTap(hudNodes: hudNodes)
             return
         }
 
@@ -1083,6 +1111,13 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         guard let touch = touches.first else { return }
         let hudLocation = touch.location(in: cameraNode)
 
+        if coinLabel.contains(hudLocation) {
+            coinLabelPressStartTime = touch.timestamp
+            coinLabelPressStartLocation = hudLocation
+        } else {
+            resetCoinLabelLongPressTracking()
+        }
+
         if savesDialogNode?.isVisible == true {
             savesDialogNode.beginDrag(at: hudLocation)
             return
@@ -1090,6 +1125,11 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
 
         if settingsDialogNode?.isVisible == true {
             settingsDialogNode.beginDrag(at: hudLocation)
+            return
+        }
+
+        if qaToolsDialogNode?.isVisible == true {
+            qaToolsDialogNode.beginDrag(at: hudLocation)
             return
         }
 
@@ -1132,6 +1172,13 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         guard let touch = touches.first else { return }
         let hudLocation = touch.location(in: cameraNode)
 
+        if let pressStart = coinLabelPressStartLocation {
+            let distance = hypot(hudLocation.x - pressStart.x, hudLocation.y - pressStart.y)
+            if distance > qaToolsLongPressMoveTolerance {
+                resetCoinLabelLongPressTracking()
+            }
+        }
+
         if savesDialogNode?.isVisible == true {
             _ = savesDialogNode.drag(to: hudLocation)
             return
@@ -1139,6 +1186,11 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
 
         if settingsDialogNode?.isVisible == true {
             _ = settingsDialogNode.drag(to: hudLocation)
+            return
+        }
+
+        if qaToolsDialogNode?.isVisible == true {
+            _ = qaToolsDialogNode.drag(to: hudLocation)
             return
         }
 
@@ -1211,6 +1263,31 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         let firstLocation = first.location(in: cameraNode)
         let secondLocation = second.location(in: cameraNode)
         return hypot(secondLocation.x - firstLocation.x, secondLocation.y - firstLocation.y)
+    }
+
+    private func resetCoinLabelLongPressTracking() {
+        coinLabelPressStartTime = nil
+        coinLabelPressStartLocation = nil
+    }
+
+    private func shouldTriggerQAToolsLongPress(at hudLocation: CGPoint, touchTimestamp: TimeInterval) -> Bool {
+        guard !isMapViewMode,
+              savesDialogNode?.isVisible != true,
+              settingsDialogNode?.isVisible != true,
+              qaToolsDialogNode?.isVisible != true,
+              scrollTextDialogNode?.isVisible != true,
+              quizDialogNode?.isVisible != true,
+              !isStudySubjectPromptVisible,
+              resetConfirmPanelNode?.isHidden != false,
+              snowmobileChoicePanelNode?.isHidden != false,
+              !shouldBlockWorldInputForSearsModal(),
+              let pressStartTime = coinLabelPressStartTime,
+              coinLabel.contains(hudLocation) else {
+            return false
+        }
+
+            let heldDuration = touchTimestamp - pressStartTime
+        return heldDuration >= qaToolsLongPressMinimumDuration
     }
 
     override func update(_ currentTime: TimeInterval) {
@@ -2119,6 +2196,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         configureSearsCatalogDialog()
         configureSavesDialog()
         configureSettingsDialog()
+        configureQAToolsDialog()
     }
 
     private func updateMessageLabelLayout() {
@@ -2157,6 +2235,79 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
             self?.refreshSettingsDependentUI()
         }
         cameraNode.addChild(settingsDialogNode)
+    }
+
+    private func configureQAToolsDialog() {
+        qaToolsDialogNode = QAToolsDialogNode(sceneSize: size)
+        qaToolsDialogNode.zPosition = ZLayer.settingsDialog
+        qaToolsDialogNode.onClose = { [weak self] in
+            self?.setMenuVisible(false)
+        }
+        qaToolsDialogNode.onAddCoinsTapped = { [weak self] in
+            self?.runQAAddCoinsAction()
+        }
+        qaToolsDialogNode.onMoveSnowtankerObjectsTapped = { [weak self] in
+            self?.runQAMoveSnowtankerObjectsAction()
+        }
+        cameraNode.addChild(qaToolsDialogNode)
+    }
+
+    private func presentQAToolsPasscodePrompt() {
+        guard let presenter = topmostPresenter() else {
+            showMessage("Could not open QA Tools prompt.")
+            return
+        }
+
+        let alert = UIAlertController(
+            title: "QA Tools",
+            message: "Enter passcode",
+            preferredStyle: .alert
+        )
+
+        alert.addTextField { textField in
+            textField.placeholder = "Passcode"
+            textField.isSecureTextEntry = true
+            textField.keyboardType = .numbersAndPunctuation
+            textField.clearButtonMode = .whileEditing
+            textField.returnKeyType = .done
+            textField.delegate = self
+        }
+
+        let cancelAction = UIAlertAction(title: "Cancel", style: .cancel)
+        let unlockAction = UIAlertAction(title: "Unlock", style: .default) { [weak self, weak alert] _ in
+            guard let self else { return }
+            let enteredCode = alert?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            self.handleQAToolsPasscodeSubmission(enteredCode)
+        }
+
+        alert.addAction(cancelAction)
+        alert.addAction(unlockAction)
+        alert.preferredAction = unlockAction
+        qaPasscodeAlertController = alert
+        presenter.present(alert, animated: true)
+    }
+
+    private func handleQAToolsPasscodeSubmission(_ enteredCode: String) {
+        guard enteredCode == QAToolsSettings.passcode else {
+            showMessage("Incorrect QA Tools passcode.")
+            return
+        }
+
+        qaToolsDialogNode.setVisible(true)
+    }
+
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        guard let alert = qaPasscodeAlertController,
+              alert.textFields?.first === textField else {
+            return true
+        }
+
+        let enteredCode = textField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        qaPasscodeAlertController = nil
+        alert.dismiss(animated: true) { [weak self] in
+            self?.handleQAToolsPasscodeSubmission(enteredCode)
+        }
+        return false
     }
 
     private func configureSavesDialog() {
@@ -3274,6 +3425,91 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
 
         let mapButton = makeMenuButton(name: "menuMapItem", labelText: "Map", y: -154)
         menuPanelNode.addChild(mapButton)
+    }
+
+    private func runQAAddCoinsAction() {
+        GameState.shared.addCoins(QAToolsSettings.addCoinsAmount)
+        updateCoinLabel()
+        updateStatusWindowBody()
+        markSaveDirty()
+        let feedback = "QA action: added \(QAToolsSettings.addCoinsAmount) coins."
+        qaToolsDialogNode.setFeedback(feedback)
+        showMessage(feedback)
+    }
+
+    private func runQAMoveSnowtankerObjectsAction() {
+        let snowTankerPartIDs = snowTankerParts.map(\.interactableID)
+        let snowmobileIDs = interactableConfigsByID.compactMap { id, config in
+            config.kind == .snowmobile ? id : nil
+        }.sorted()
+
+        snowTankerPartsCarried.subtract(snowTankerPartIDs)
+        ownedSnowmobileIDs = Set(snowmobileIDs)
+        selectedOwnedSnowmobileID = nil
+        mountedSnowmobileID = nil
+        updateMountedSnowmobileUI()
+
+        let movedCount = moveInteractablesToVehicleAssemblyArea(ids: snowTankerPartIDs + snowmobileIDs)
+
+        updateSnowmobileOwnershipVisuals()
+        updateGymBinVisualState()
+        updateWarningIcons()
+        updatePendingTasksWindowBody()
+        updateStatusWindowBody()
+        markSaveDirty()
+
+        let feedback = "QA action: moved \(movedCount) snowtanker objects to the vehicle assembly area."
+        qaToolsDialogNode.setFeedback(feedback)
+        showMessage(feedback)
+    }
+
+    private func moveInteractablesToVehicleAssemblyArea(ids: [String]) -> Int {
+        let region = worldConfig.vehicleAssemblyRegion
+        let idSet = Set(ids)
+
+        var blockedTiles = Set(worldConfig.wallTiles)
+        for decoration in worldConfig.decorations where decoration.blocksMovement {
+            blockedTiles.insert(decoration.tile)
+        }
+
+        var occupiedTiles: Set<TileCoordinate> = []
+        for (id, node) in interactableNodesByID where !idSet.contains(id) {
+            guard !node.isHidden,
+                  let tile = tileCoordinate(for: node.position) else {
+                continue
+            }
+            occupiedTiles.insert(tile)
+        }
+
+        var candidateTiles: [TileCoordinate] = []
+        for row in region.minRow..<region.maxRowExclusive {
+            for column in region.minColumn..<region.maxColumnExclusive {
+                let tile = TileCoordinate(column: column, row: row)
+                if blockedTiles.contains(tile) {
+                    continue
+                }
+                candidateTiles.append(tile)
+            }
+        }
+
+        var movedCount = 0
+        for id in ids {
+            guard let node = interactableNodesByID[id] else { continue }
+            guard let targetTileIndex = candidateTiles.firstIndex(where: { !occupiedTiles.contains($0) }) else {
+                continue
+            }
+
+            let tile = candidateTiles.remove(at: targetTileIndex)
+            occupiedTiles.insert(tile)
+
+            guard let targetPosition = scenePointForTile(tile) else { continue }
+            node.removeAllActions()
+            node.position = targetPosition
+            node.isHidden = false
+            movedCount += 1
+        }
+
+        return movedCount
     }
 
     private func setMapViewMode(_ enabled: Bool) {
