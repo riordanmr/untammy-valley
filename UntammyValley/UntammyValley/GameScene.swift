@@ -247,6 +247,12 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         static let topPadding: CGFloat = 56
     }
 
+    private enum RaftTaskStage: Int {
+        case inactive = 0
+        case catalogUnlocked = 1
+        case firstDeliveryCompleted = 2
+    }
+
     var player: PlayerNode!
     var cameraNode: SKCameraNode!
 
@@ -367,8 +373,24 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         UTSettings.shared.counts.goatChaseRewardCoins
     }
 
+    private var snowmobilesInVehicleAssemblyAreaCount: Int {
+        ownedSnowmobileIDs.reduce(into: 0) { count, snowmobileID in
+            guard let node = interactableNodesByID[snowmobileID],
+                  !node.isHidden,
+                  let tile = tileCoordinate(for: node.position),
+                  tileRegionContains(worldConfig.vehicleAssemblyRegion, tile: tile) else {
+                return
+            }
+            count += 1
+        }
+    }
+
+    private var hasCompletedSnowmobileSnowtankerTask: Bool {
+        snowmobilesInVehicleAssemblyAreaCount >= Self.requiredSnowmobileCount
+    }
+
     private var hasPendingSnowmobileTask: Bool {
-        ownedSnowmobileIDs.count < Self.requiredSnowmobileCount
+        !hasCompletedSnowmobileSnowtankerTask
     }
 
     private var batEscapePenaltyMaxCoins: Int {
@@ -409,13 +431,8 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
     private var nextFoodOrderMove = FoodOrderEventSettings.randomSpawnIntervalMoves()
     private var foodOrderDeadlineMove: Int?
     private var hasShownFirstSuccessfulChipDeliveryMessage = false
-    private var hasShownFirstRaftDeliveryHint = false
-    private var hasActivatedRaftCatalogTask = false
-    private var hasPropaneTankBeenDelivered = false
-    private var hasRadioBeenDelivered = false
+    private var raftTaskStage: RaftTaskStage = .inactive
     private var hasUnlockedShed = false
-    private var hasCrescentWrenchBeenDelivered = false
-    private var hasRivetGunBeenDelivered = false
     private var isGymBinOpen = false
     private var shedLockCombination = ""
     private var padlockPickerValues = [0, 0, 0]
@@ -1933,11 +1950,11 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
 
         if deliveredCount > 0 {
             for _ in 0..<deliveredCount {
-                if hasShownFirstRaftDeliveryHint {
+                if raftTaskStage == .firstDeliveryCompleted {
                     messages.append("Your raft has been delivered")
                 } else {
                     messages.append("Your raft has been delivered. Use it to fetch the propane tank. Bring the tank to the vehicle assembly area.")
-                    hasShownFirstRaftDeliveryHint = true
+                    raftTaskStage = .firstDeliveryCompleted
                     updateWarningIcons()
                     updatePendingTasksWindowBody()
                 }
@@ -2641,12 +2658,12 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
     }
 
     private func activateRaftCatalogTaskIfNeeded() {
-        guard !hasActivatedRaftCatalogTask,
+        guard raftTaskStage == .inactive,
               GameState.shared.hasReachedQuizMastery(minimumPercent: 80) else {
             return
         }
 
-        hasActivatedRaftCatalogTask = true
+        raftTaskStage = .catalogUnlocked
         showMessage("Congrats for passing quizzes in all subjects! Next task: Get a raft from the catalog")
         updateWarningIcons()
         updatePendingTasksWindowBody()
@@ -3028,21 +3045,48 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
     }
 
     private func isRaftCatalogTaskActive() -> Bool {
-        hasActivatedRaftCatalogTask && !hasShownFirstRaftDeliveryHint
+        raftTaskStage == .catalogUnlocked
+    }
+
+    private func isSnowTankerPartInVehicleAssemblyArea(_ partID: String) -> Bool {
+        guard !snowTankerPartsCarried.contains(partID),
+              let node = interactableNodesByID[partID],
+              !node.isHidden,
+              let tile = tileCoordinate(for: node.position) else {
+            return false
+        }
+
+        return tileRegionContains(worldConfig.vehicleAssemblyRegion, tile: tile)
+    }
+
+    private var isPropaneTankInVehicleAssemblyArea: Bool {
+        isSnowTankerPartInVehicleAssemblyArea(propaneTankID)
+    }
+
+    private var isRadioInVehicleAssemblyArea: Bool {
+        isSnowTankerPartInVehicleAssemblyArea(radioID)
+    }
+
+    private var isCrescentWrenchInVehicleAssemblyArea: Bool {
+        isSnowTankerPartInVehicleAssemblyArea(crescentWrenchID)
+    }
+
+    private var isRivetGunInVehicleAssemblyArea: Bool {
+        isSnowTankerPartInVehicleAssemblyArea(rivetGunID)
     }
 
     private func isPropaneTankTaskActive() -> Bool {
         // Once the first raft has been delivered, this objective should stay visible
         // until the propane tank is delivered, regardless of transient raft visibility/state.
-        hasShownFirstRaftDeliveryHint && !hasPropaneTankBeenDelivered
+        (raftTaskStage == .firstDeliveryCompleted) && !isPropaneTankInVehicleAssemblyArea
     }
 
     private func isRadioTaskActive() -> Bool {
-        hasPropaneTankBeenDelivered && !hasRadioBeenDelivered
+        isPropaneTankInVehicleAssemblyArea && !isRadioInVehicleAssemblyArea
     }
 
     private func isCrescentWrenchTaskActive() -> Bool {
-        if hasCrescentWrenchBeenDelivered {
+        if isCrescentWrenchInVehicleAssemblyArea {
             return false
         }
 
@@ -3065,7 +3109,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
     }
 
     private func isRivetGunTaskActive() -> Bool {
-        hasRadioBeenDelivered && !hasRivetGunBeenDelivered
+        isRadioInVehicleAssemblyArea && !isRivetGunInVehicleAssemblyArea
     }
 
     private func warningIconStackContains(_ hudLocation: CGPoint) -> Bool {
@@ -3340,7 +3384,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         }
 
         if hasPendingSnowmobileTask && trenchedSepticTiles.count == worldConfig.septicDigTiles.count {
-            lines.append("Buy snowmobiles (\(ownedSnowmobileIDs.count) of \(Self.requiredSnowmobileCount) bought)")
+            lines.append("Get all snowmobiles into the vehicle assembly area (\(snowmobilesInVehicleAssemblyAreaCount)/\(Self.requiredSnowmobileCount) in area; \(ownedSnowmobileIDs.count)/\(Self.requiredSnowmobileCount) owned)")
         }
 
         if hasShownFirstSuccessfulChipDeliveryMessage && trenchedSepticTiles.count < worldConfig.septicDigTiles.count {
@@ -3436,8 +3480,10 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         let raftOrderStatusText: String
         if let nextDeliveryMove = pendingRaftDeliveryMoves.min() {
             raftOrderStatusText = "\(max(0, nextDeliveryMove - completedMoveCount)) moves until delivery"
-        } else if hasShownFirstRaftDeliveryHint {
+        } else if raftTaskStage == .firstDeliveryCompleted {
             raftOrderStatusText = "Already delivered"
+        } else if raftTaskStage == .catalogUnlocked {
+            raftOrderStatusText = "Catalog task active"
         } else {
             raftOrderStatusText = "Not ordered"
         }
@@ -3470,6 +3516,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
             "Goat respawn: \(goatRespawnText)",
             "Raft order: \(raftOrderStatusText)",
             "Snowmobiles owned: \(ownedSnowmobileIDs.count)/\(Self.requiredSnowmobileCount)",
+            "Snowmobiles in assembly area: \(snowmobilesInVehicleAssemblyAreaCount)/\(Self.requiredSnowmobileCount)",
             "Mounted snowmobile: \(mountedSnowmobileID == nil ? "No" : "Yes")"
         ]
 
@@ -3762,8 +3809,8 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
     private func handleGymBinInteraction() {
         if !isGymBinOpen {
             isGymBinOpen = true
-            if !hasRivetGunBeenDelivered,
-               !snowTankerPartsCarried.contains(rivetGunID) {
+            if !snowTankerPartsCarried.contains(rivetGunID),
+               interactableNodesByID[rivetGunID]?.isHidden ?? true {
                 showMessage("You open the bin and discover a rivet gun.")
             } else {
                 showMessage("You open the bin.")
@@ -3773,7 +3820,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
             return
         }
 
-        if hasRivetGunBeenDelivered || snowTankerPartsCarried.contains(rivetGunID) {
+        if snowTankerPartsCarried.contains(rivetGunID) {
             showMessage("The bin is empty.")
         } else if let rivetNode = interactableNodesByID[rivetGunID] {
             let isAtHomePosition: Bool
@@ -3802,8 +3849,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
     private func updateGymBinVisualState() {
         guard let binNode = interactableNodesByID[gymBinID] else { return }
 
-        let rivetIsStillInBin = !hasRivetGunBeenDelivered
-            && !snowTankerPartsCarried.contains(rivetGunID)
+        let rivetIsStillInBin = !snowTankerPartsCarried.contains(rivetGunID)
             && (interactableNodesByID[rivetGunID]?.isHidden ?? true)
 
         let spriteName: String
@@ -3826,11 +3872,11 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         var unmet: [String] = []
 
         let requirements: [(String, Bool)] = [
-            ("Propane tank delivered to vehicle assembly area", hasPropaneTankBeenDelivered),
-            ("Radio delivered to vehicle assembly area", hasRadioBeenDelivered),
-            ("Crescent wrench delivered to vehicle assembly area", hasCrescentWrenchBeenDelivered),
-            ("Rivet gun delivered to vehicle assembly area", hasRivetGunBeenDelivered),
-            ("All \(Self.requiredSnowmobileCount) snowmobiles purchased (\(ownedSnowmobileIDs.count)/\(Self.requiredSnowmobileCount))", ownedSnowmobileIDs.count >= Self.requiredSnowmobileCount)
+            ("Propane tank is in vehicle assembly area", isPropaneTankInVehicleAssemblyArea),
+            ("Radio is in vehicle assembly area", isRadioInVehicleAssemblyArea),
+            ("Crescent wrench is in vehicle assembly area", isCrescentWrenchInVehicleAssemblyArea),
+            ("Rivet gun is in vehicle assembly area", isRivetGunInVehicleAssemblyArea),
+            ("All \(Self.requiredSnowmobileCount) snowmobiles are in vehicle assembly area (\(snowmobilesInVehicleAssemblyAreaCount)/\(Self.requiredSnowmobileCount))", hasCompletedSnowmobileSnowtankerTask)
         ]
 
         for (description, isMet) in requirements {
@@ -4399,34 +4445,22 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         guard let part = snowTankerParts.first(where: { $0.interactableID == partID }) else { return }
         if snowTankerPartsCarried.contains(partID) {
             snowTankerPartsCarried.remove(partID)
-            let droppedTile = dropCarriedObject(node, interactableID: partID)
+            _ = dropCarriedObject(node, interactableID: partID)
             if partID == propaneTankID,
-               !hasPropaneTankBeenDelivered,
-               let droppedTile,
-               tileRegionContains(worldConfig.vehicleAssemblyRegion, tile: droppedTile) {
-                hasPropaneTankBeenDelivered = true
+               isPropaneTankInVehicleAssemblyArea {
                 showMessage("Propane tank delivered to the vehicle assembly area!\n\(radioAssemblyTaskText)")
             } else if partID == radioID,
-                      !hasRadioBeenDelivered,
-                      let droppedTile,
-                      tileRegionContains(worldConfig.vehicleAssemblyRegion, tile: droppedTile) {
-                hasRadioBeenDelivered = true
-                if hasRivetGunBeenDelivered {
+                      isRadioInVehicleAssemblyArea {
+                if isRivetGunInVehicleAssemblyArea {
                     showMessage("Radio delivered to the vehicle assembly area!")
                 } else {
                     showMessage("Radio delivered to the vehicle assembly area!\n\(rivetGunTaskAnnouncementText)")
                 }
             } else if partID == crescentWrenchID,
-                      !hasCrescentWrenchBeenDelivered,
-                      let droppedTile,
-                      tileRegionContains(worldConfig.vehicleAssemblyRegion, tile: droppedTile) {
-                hasCrescentWrenchBeenDelivered = true
+                      isCrescentWrenchInVehicleAssemblyArea {
                 showMessage("Crescent wrench delivered to the vehicle assembly area!")
             } else if partID == rivetGunID,
-                      !hasRivetGunBeenDelivered,
-                      let droppedTile,
-                      tileRegionContains(worldConfig.vehicleAssemblyRegion, tile: droppedTile) {
-                hasRivetGunBeenDelivered = true
+                      isRivetGunInVehicleAssemblyArea {
                 showMessage("Rivet gun delivered to the vehicle assembly area!")
                 updateGymBinVisualState()
             } else {
@@ -4587,7 +4621,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         let playerTileForSave = tileCoordinate(for: player.position) ?? worldConfig.spawnTile
 
         return GameSaveSnapshot(
-            schemaVersion: 2,
+            schemaVersion: 3,
             appVersion: (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "0",
             savedAt: Date(),
             coins: GameState.shared.coins,
@@ -4620,8 +4654,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
             riddenRaftID: riddenRaftID,
             pendingRaftDeliveryMoves: pendingRaftDeliveryMoves,
             nextRaftSequenceID: nextRaftSequenceID,
-            hasShownFirstRaftDeliveryHint: hasShownFirstRaftDeliveryHint,
-            hasActivatedRaftCatalogTask: hasActivatedRaftCatalogTask,
+            raftTaskStageRawValue: raftTaskStage.rawValue,
             ownedSnowmobileIDs: Array(ownedSnowmobileIDs),
             selectedOwnedSnowmobileID: selectedOwnedSnowmobileID,
             mountedSnowmobileID: mountedSnowmobileID,
@@ -4638,11 +4671,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
             hasShownFirstSuccessfulChipDeliveryMessage: hasShownFirstSuccessfulChipDeliveryMessage,
             trenchedSepticTiles: Array(trenchedSepticTiles),
             hasAwardedSepticCompletionBonus: hasAwardedSepticCompletionBonus,
-            hasPropaneTankBeenDelivered: hasPropaneTankBeenDelivered,
-            hasRadioBeenDelivered: hasRadioBeenDelivered,
             hasUnlockedShed: hasUnlockedShed,
-            hasCrescentWrenchBeenDelivered: hasCrescentWrenchBeenDelivered,
-            hasRivetGunBeenDelivered: hasRivetGunBeenDelivered,
             snowTankerPartsCarriedIDs: Array(snowTankerPartsCarried),
             shedLockCombination: shedLockCombination,
             isGymBinOpen: isGymBinOpen
@@ -4688,7 +4717,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
             }
             if id == rivetGunID {
                 // Pre-rivet save: keep hidden until discovered in the gym bin.
-                if snapshot.hasRivetGunBeenDelivered == nil && snapshot.isGymBinOpen == nil {
+                if snapshot.isGymBinOpen == nil {
                     node.isHidden = true
                 } else {
                     node.isHidden = hiddenIDs.contains(id)
@@ -4729,9 +4758,11 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         riddenRaftID = snapshot.riddenRaftID
         pendingRaftDeliveryMoves = snapshot.pendingRaftDeliveryMoves ?? []
         nextRaftSequenceID = max(1, snapshot.nextRaftSequenceID ?? nextRaftSequenceID)
-        hasShownFirstRaftDeliveryHint = snapshot.hasShownFirstRaftDeliveryHint ?? false
-        hasActivatedRaftCatalogTask = snapshot.hasActivatedRaftCatalogTask
-            ?? GameState.shared.hasReachedQuizMastery(minimumPercent: 80)
+        if let stage = RaftTaskStage(rawValue: snapshot.raftTaskStageRawValue) {
+            raftTaskStage = stage
+        } else {
+            raftTaskStage = .inactive
+        }
 
         if isEnvelopeCarried {
             interactableNodesByID[envelopeID]?.isHidden = false
@@ -4762,11 +4793,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
 
         trenchedSepticTiles = Set(snapshot.trenchedSepticTiles.filter { worldConfig.septicDigTiles.contains($0) })
         hasAwardedSepticCompletionBonus = snapshot.hasAwardedSepticCompletionBonus
-        hasPropaneTankBeenDelivered = snapshot.hasPropaneTankBeenDelivered ?? false
-        hasRadioBeenDelivered = snapshot.hasRadioBeenDelivered ?? false
         hasUnlockedShed = snapshot.hasUnlockedShed ?? false
-        hasCrescentWrenchBeenDelivered = snapshot.hasCrescentWrenchBeenDelivered ?? false
-        hasRivetGunBeenDelivered = snapshot.hasRivetGunBeenDelivered ?? false
         shedLockCombination = snapshot.shedLockCombination ?? generateShedLockCombination()
         isGymBinOpen = snapshot.isGymBinOpen ?? false
 
@@ -4774,11 +4801,6 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
            let padlockNode = interactableNodesByID["shedPadlock"] {
             padlockNode.isHidden = true
             padlockNode.physicsBody = nil
-        }
-
-        if hasRivetGunBeenDelivered,
-           let rivetNode = interactableNodesByID[rivetGunID] {
-            rivetNode.isHidden = true
         }
 
         updateGymBinVisualState()
@@ -5215,8 +5237,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         riddenRaftID = nil
         pendingRaftDeliveryMoves.removeAll()
         nextRaftSequenceID = 1
-        hasShownFirstRaftDeliveryHint = false
-        hasActivatedRaftCatalogTask = false
+        raftTaskStage = .inactive
         ownedSnowmobileIDs.removeAll()
         selectedOwnedSnowmobileID = nil
         mountedSnowmobileID = nil
@@ -5228,16 +5249,12 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         // to spawn since the player starts with no coins and needs to earn some 
         // before they can fulfill an order. After that, use the normal random 
         // interval for subsequent orders.
-        nextFoodOrderMove = scheduleTaskMove(after: FoodOrderEventSettings.randomSpawnIntervalMoves() / 3)
+        nextFoodOrderMove = scheduleTaskMove(after: FoodOrderEventSettings.randomSpawnIntervalMoves() / 4)
         foodOrderDeadlineMove = nil
         hasShownFirstSuccessfulChipDeliveryMessage = false
         trenchedSepticTiles.removeAll()
         hasAwardedSepticCompletionBonus = false
-        hasPropaneTankBeenDelivered = false
-        hasRadioBeenDelivered = false
         hasUnlockedShed = false
-        hasCrescentWrenchBeenDelivered = false
-        hasRivetGunBeenDelivered = false
         isGymBinOpen = false
         shedLockCombination = generateShedLockCombination()
         resetSepticDigTiles()

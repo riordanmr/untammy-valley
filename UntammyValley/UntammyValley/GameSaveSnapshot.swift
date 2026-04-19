@@ -42,8 +42,7 @@ struct GameSaveSnapshot: Codable {
     let riddenRaftID: String?
     let pendingRaftDeliveryMoves: [Int]?
     let nextRaftSequenceID: Int?
-    let hasShownFirstRaftDeliveryHint: Bool?
-    let hasActivatedRaftCatalogTask: Bool?
+    let raftTaskStageRawValue: Int
 
     let ownedSnowmobileIDs: [String]
     let selectedOwnedSnowmobileID: String?
@@ -66,11 +65,7 @@ struct GameSaveSnapshot: Codable {
 
     let trenchedSepticTiles: [TileCoordinate]
     let hasAwardedSepticCompletionBonus: Bool
-    let hasPropaneTankBeenDelivered: Bool?
-    let hasRadioBeenDelivered: Bool?
     let hasUnlockedShed: Bool?
-    let hasCrescentWrenchBeenDelivered: Bool?
-    let hasRivetGunBeenDelivered: Bool?
     let snowTankerPartsCarriedIDs: [String]?
     let shedLockCombination: String?
     let isGymBinOpen: Bool?

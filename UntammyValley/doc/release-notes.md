@@ -1,5 +1,13 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.87 (87) 2026-04-19 11:40:59
+
+Add rivet gun task (with gym bin)
+
+## Version ? (?) 2026-04-14 08:45:46
+
+Fix got_log_to_html.awk to handle build numbers better
+
 ## Version 0.7.86 (86) 2026-04-13 20:54:50
 
 Add build button and build progress dialog

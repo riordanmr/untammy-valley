@@ -1,4 +1,16 @@
 
+2026-04-19 11:40:59 -0500
+Add rivet gun task (with gym bin)
+Add assets for gym bin and rivet gun (bin_closed/bin_open/bin_open_with_rivet_gun and rivet_gun image sets) and bump project version/marketing version. Implement rivet gun gameplay: new interactable IDs, warning icon, task announcement, pickup/delivery handling, gym bin open/visual state logic, and UI updates. Persist rivet gun and gym bin state via GameSaveSnapshot and restore/reset behavior. Add WorldConfig/WorldLoader entries (sizes, tiles, interactable configs) to spawn the gym bin and rivet gun in the world.
+Version 0.7.87; build 87.
+
+---
+
+2026-04-14 08:45:46 -0500
+Fix got_log_to_html.awk to handle build numbers better
+
+---
+
 2026-04-13 20:54:50 -0500
 Add build button and build progress dialog
 Add a new "buildButton" interactable: include asset images (1x/2x/3x) and Contents.json for build_button. Introduce InteractableKind.buildButton and wire up a GameScene handler (handleBuildButtonInteraction) that shows a progress dialog listing met/unmet requirements (propane tank, radio, crescent wrench, and required snowmobile count). Update WorldLoader with build button sizing, tile coordinate, and an InteractableConfig for the vehicle assembly build button, and include it in allInteractables. Also bump project CURRENT_PROJECT_VERSION and MARKETING_VERSION to 86 / 0.7.86.
