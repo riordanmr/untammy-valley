@@ -290,6 +290,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
     private var warningPropaneIconNode: SKSpriteNode!
     private var warningRadioIconNode: SKSpriteNode!
     private var warningWrenchIconNode: SKSpriteNode!
+    private var warningRivetGunIconNode: SKSpriteNode!
     private var warningStudyGuideIconNode: SKSpriteNode!
     private var warningQuizIconNode: SKSpriteNode!
     private var warningRaftCatalogIconNode: SKSpriteNode!
@@ -327,10 +328,16 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
     private let propaneTankID = "propaneTank"
     private let radioID = "shedRadio"
     private let crescentWrenchID = "crescentWrench"
+    private let rivetGunID = "rivetGun"
+    private let gymBinID = "gymBin"
+    private let gymBinClosedSpriteName = "bin_closed"
+    private let gymBinOpenWithRivetGunSpriteName = "bin_open_with_rivet_gun"
+    private let gymBinOpenSpriteName = "bin_open"
     private let snowTankerParts: [SnowTankerPart] = [
         SnowTankerPart(interactableID: "propaneTank", displayName: "propane tank", carryOffset: CGPoint(x: 24, y: -12)),
         SnowTankerPart(interactableID: "shedRadio", displayName: "radio", carryOffset: CGPoint(x: 0, y: -24)),
         SnowTankerPart(interactableID: "crescentWrench", displayName: "crescent wrench", carryOffset: CGPoint(x: -24, y: -12)),
+        SnowTankerPart(interactableID: "rivetGun", displayName: "rivet gun", carryOffset: CGPoint(x: 20, y: -24)),
     ]
     private let mailboxID = "mailbox"
     private let barCustomerID = "barCustomer"
@@ -408,6 +415,8 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
     private var hasRadioBeenDelivered = false
     private var hasUnlockedShed = false
     private var hasCrescentWrenchBeenDelivered = false
+    private var hasRivetGunBeenDelivered = false
+    private var isGymBinOpen = false
     private var shedLockCombination = ""
     private var padlockPickerValues = [0, 0, 0]
     private var trenchedSepticTiles: Set<TileCoordinate> = []
@@ -479,6 +488,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
     private var walkingAnimationDeltaTime: CGFloat = 1.0 / 60.0
 
     private let radioAssemblyTaskText = "Fetch the radio from the school shed and deliver it to the vehicle assembly area."
+    private let rivetGunTaskAnnouncementText = "Now find the rivet gun and deliver it to the vehicle assembly area. You might get quite a workout!"
 
     private var raftSize: CGSize {
         CGSize(width: tileSize.width * 2, height: tileSize.height * 2)
@@ -2891,6 +2901,16 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         warningWrenchIconNode.isHidden = true
         warningIconContainerNode.addChild(warningWrenchIconNode)
 
+        if let rivetGunTexture = loadTexture(named: "rivet_gun") {
+            warningRivetGunIconNode = SKSpriteNode(texture: rivetGunTexture, color: .clear, size: iconSize)
+        } else {
+            let fallbackTexture = makeLabeledMarkerTexture(size: iconSize, emoji: "R", color: .systemGray)
+            warningRivetGunIconNode = SKSpriteNode(texture: fallbackTexture, color: .clear, size: iconSize)
+        }
+        warningRivetGunIconNode.name = "warningRivetGunIcon"
+        warningRivetGunIconNode.isHidden = true
+        warningIconContainerNode.addChild(warningRivetGunIconNode)
+
         if let studyGuideTexture = loadTexture(named: "studyguide") {
             warningStudyGuideIconNode = SKSpriteNode(texture: studyGuideTexture, color: .clear, size: iconSize)
         } else {
@@ -2972,6 +2992,10 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
             icons.append(warningWrenchIconNode)
         }
 
+        if isRivetGunTaskActive() {
+            icons.append(warningRivetGunIconNode)
+        }
+
         if isStudyGuideTaskActive() {
             icons.append(warningStudyGuideIconNode)
         }
@@ -3040,6 +3064,10 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         return interactableNodesByID[crescentWrenchID]?.isHidden == false
     }
 
+    private func isRivetGunTaskActive() -> Bool {
+        hasRadioBeenDelivered && !hasRivetGunBeenDelivered
+    }
+
     private func warningIconStackContains(_ hudLocation: CGPoint) -> Bool {
         let activeIcons = activeWarningIcons()
         guard !activeIcons.isEmpty else { return false }
@@ -3092,6 +3120,9 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         }
         if !activeIcons.contains(warningWrenchIconNode) {
             warningWrenchIconNode.isHidden = true
+        }
+        if !activeIcons.contains(warningRivetGunIconNode) {
+            warningRivetGunIconNode.isHidden = true
         }
         if !activeIcons.contains(warningStudyGuideIconNode) {
             warningStudyGuideIconNode.isHidden = true
@@ -3326,6 +3357,10 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
 
         if isCrescentWrenchTaskActive() {
             lines.append("Deliver the wrench to the vehicle assembly area")
+        }
+
+        if isRivetGunTaskActive() {
+            lines.append("Deliver the rivet gun to the vehicle assembly area")
         }
 
         if isStudyGuideTaskActive() {
@@ -3594,6 +3629,12 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
             }
             handleSnowTankerPartInteraction(partID: radioID, node: node)
             return
+        case .gymBin:
+            handleGymBinInteraction()
+            return
+        case .rivetGun:
+            handleSnowTankerPartInteraction(partID: rivetGunID, node: node)
+            return
         case .paper:
             handlePaperWithComboInteraction()
             return
@@ -3718,6 +3759,68 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         showMessage("It says \(shedLockCombination)")
     }
 
+    private func handleGymBinInteraction() {
+        if !isGymBinOpen {
+            isGymBinOpen = true
+            if !hasRivetGunBeenDelivered,
+               !snowTankerPartsCarried.contains(rivetGunID) {
+                showMessage("You open the bin and discover a rivet gun.")
+            } else {
+                showMessage("You open the bin.")
+            }
+            updateGymBinVisualState()
+            markSaveDirty()
+            return
+        }
+
+        if hasRivetGunBeenDelivered || snowTankerPartsCarried.contains(rivetGunID) {
+            showMessage("The bin is empty.")
+        } else if let rivetNode = interactableNodesByID[rivetGunID] {
+            let isAtHomePosition: Bool
+            if let homePosition = interactableHomePositionByID[rivetGunID] {
+                isAtHomePosition = hypot(rivetNode.position.x - homePosition.x, rivetNode.position.y - homePosition.y) < 1
+            } else {
+                isAtHomePosition = false
+            }
+
+            if rivetNode.isHidden || isAtHomePosition {
+                snowTankerPartsCarried.insert(rivetGunID)
+                rivetNode.isHidden = false
+                showMessage("Picked up rivet gun.")
+                updateGymBinVisualState()
+                updateWarningIcons()
+                updatePendingTasksWindowBody()
+                markSaveDirty()
+            } else {
+                showMessage("The rivet gun is not in the bin.")
+            }
+        } else {
+            showMessage("The bin is open.")
+        }
+    }
+
+    private func updateGymBinVisualState() {
+        guard let binNode = interactableNodesByID[gymBinID] else { return }
+
+        let rivetIsStillInBin = !hasRivetGunBeenDelivered
+            && !snowTankerPartsCarried.contains(rivetGunID)
+            && (interactableNodesByID[rivetGunID]?.isHidden ?? true)
+
+        let spriteName: String
+        if !isGymBinOpen {
+            spriteName = gymBinClosedSpriteName
+        } else if !rivetIsStillInBin {
+            spriteName = gymBinOpenSpriteName
+        } else {
+            spriteName = gymBinOpenWithRivetGunSpriteName
+        }
+
+        if let texture = loadTexture(named: spriteName) {
+            binNode.texture = texture
+            binNode.colorBlendFactor = 0
+        }
+    }
+
     private func handleBuildButtonInteraction() {
         var met: [String] = []
         var unmet: [String] = []
@@ -3726,6 +3829,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
             ("Propane tank delivered to vehicle assembly area", hasPropaneTankBeenDelivered),
             ("Radio delivered to vehicle assembly area", hasRadioBeenDelivered),
             ("Crescent wrench delivered to vehicle assembly area", hasCrescentWrenchBeenDelivered),
+            ("Rivet gun delivered to vehicle assembly area", hasRivetGunBeenDelivered),
             ("All \(Self.requiredSnowmobileCount) snowmobiles purchased (\(ownedSnowmobileIDs.count)/\(Self.requiredSnowmobileCount))", ownedSnowmobileIDs.count >= Self.requiredSnowmobileCount)
         ]
 
@@ -4307,15 +4411,29 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
                       let droppedTile,
                       tileRegionContains(worldConfig.vehicleAssemblyRegion, tile: droppedTile) {
                 hasRadioBeenDelivered = true
-                showMessage("Radio delivered to the vehicle assembly area!")
+                if hasRivetGunBeenDelivered {
+                    showMessage("Radio delivered to the vehicle assembly area!")
+                } else {
+                    showMessage("Radio delivered to the vehicle assembly area!\n\(rivetGunTaskAnnouncementText)")
+                }
             } else if partID == crescentWrenchID,
                       !hasCrescentWrenchBeenDelivered,
                       let droppedTile,
                       tileRegionContains(worldConfig.vehicleAssemblyRegion, tile: droppedTile) {
                 hasCrescentWrenchBeenDelivered = true
                 showMessage("Crescent wrench delivered to the vehicle assembly area!")
+            } else if partID == rivetGunID,
+                      !hasRivetGunBeenDelivered,
+                      let droppedTile,
+                      tileRegionContains(worldConfig.vehicleAssemblyRegion, tile: droppedTile) {
+                hasRivetGunBeenDelivered = true
+                showMessage("Rivet gun delivered to the vehicle assembly area!")
+                updateGymBinVisualState()
             } else {
                 showMessage("Dropped \(part.displayName).")
+            }
+            if partID == rivetGunID {
+                updateGymBinVisualState()
             }
             updateWarningIcons()
             updatePendingTasksWindowBody()
@@ -4325,6 +4443,9 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
 
         snowTankerPartsCarried.insert(partID)
         showMessage("Picked up \(part.displayName).")
+        if partID == rivetGunID {
+            updateGymBinVisualState()
+        }
     }
 
     private func handleSepticDigTap(at scenePoint: CGPoint) -> Bool {
@@ -4521,8 +4642,10 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
             hasRadioBeenDelivered: hasRadioBeenDelivered,
             hasUnlockedShed: hasUnlockedShed,
             hasCrescentWrenchBeenDelivered: hasCrescentWrenchBeenDelivered,
+            hasRivetGunBeenDelivered: hasRivetGunBeenDelivered,
             snowTankerPartsCarriedIDs: Array(snowTankerPartsCarried),
-            shedLockCombination: shedLockCombination
+            shedLockCombination: shedLockCombination,
+            isGymBinOpen: isGymBinOpen
         )
     }
 
@@ -4557,6 +4680,15 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
             if id == crescentWrenchID {
                 // Pre-wrench save (neither new nor legacy carried field present): keep hidden
                 if snapshot.snowTankerPartsCarriedIDs == nil && snapshot.isCrescentWrenchCarried == nil {
+                    node.isHidden = true
+                } else {
+                    node.isHidden = hiddenIDs.contains(id)
+                }
+                continue
+            }
+            if id == rivetGunID {
+                // Pre-rivet save: keep hidden until discovered in the gym bin.
+                if snapshot.hasRivetGunBeenDelivered == nil && snapshot.isGymBinOpen == nil {
                     node.isHidden = true
                 } else {
                     node.isHidden = hiddenIDs.contains(id)
@@ -4634,13 +4766,22 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         hasRadioBeenDelivered = snapshot.hasRadioBeenDelivered ?? false
         hasUnlockedShed = snapshot.hasUnlockedShed ?? false
         hasCrescentWrenchBeenDelivered = snapshot.hasCrescentWrenchBeenDelivered ?? false
+        hasRivetGunBeenDelivered = snapshot.hasRivetGunBeenDelivered ?? false
         shedLockCombination = snapshot.shedLockCombination ?? generateShedLockCombination()
+        isGymBinOpen = snapshot.isGymBinOpen ?? false
 
         if hasUnlockedShed,
            let padlockNode = interactableNodesByID["shedPadlock"] {
             padlockNode.isHidden = true
             padlockNode.physicsBody = nil
         }
+
+        if hasRivetGunBeenDelivered,
+           let rivetNode = interactableNodesByID[rivetGunID] {
+            rivetNode.isHidden = true
+        }
+
+        updateGymBinVisualState()
 
         resetSepticDigTiles()
         for tile in trenchedSepticTiles {
@@ -5096,6 +5237,8 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         hasRadioBeenDelivered = false
         hasUnlockedShed = false
         hasCrescentWrenchBeenDelivered = false
+        hasRivetGunBeenDelivered = false
+        isGymBinOpen = false
         shedLockCombination = generateShedLockCombination()
         resetSepticDigTiles()
         updateMakerLoadedIndicator()
@@ -5117,6 +5260,8 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate {
         interactableNodesByID[bedroomBatID]?.isHidden = true
         interactableNodesByID[envelopeID]?.isHidden = true
         interactableNodesByID[crescentWrenchID]?.isHidden = true
+        interactableNodesByID[rivetGunID]?.isHidden = true
+        updateGymBinVisualState()
 
         GameState.shared.resetCoins()
         GameState.shared.resetQuizStats()

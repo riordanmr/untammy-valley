@@ -76,6 +76,8 @@ enum InteractableKind {
     case radio
     case paper
     case buildButton
+    case gymBin
+    case rivetGun
 }
 
 struct InteractableConfig {

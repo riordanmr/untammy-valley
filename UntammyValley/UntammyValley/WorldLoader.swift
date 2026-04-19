@@ -89,6 +89,14 @@ enum WorldLoader {
             scaledSize(width: baseObjectSize * 2, height: baseObjectSize)
         }
 
+        static var gymBinSize: CGSize {
+            scaledSize(width: baseObjectSize * (7.0 / 4.0), height: baseObjectSize)
+        }
+
+        static var rivetGunSize: CGSize {
+            standardObjectSize
+        }
+
         static var padlockSize: CGSize {
             scaledSize(width: baseObjectSize, height: baseObjectSize)
         }
@@ -405,6 +413,19 @@ enum WorldLoader {
         static var paperWithComboTile: TileCoordinate {
             // Upper-left corner of bedroom interior.
             TileCoordinate(column: minColumn + 1, row: maxRowExclusive - 2)
+        }
+
+        static var gymBinTile: TileCoordinate {
+            // Place against the gym top wall.
+            TileCoordinate(
+                column: SchoolLayout.gymDividerColumn + (SchoolLayout.gymWidth / 2),
+                row: SchoolLayout.maxRowExclusive - 2
+            )
+        }
+
+        static var rivetGunTile: TileCoordinate {
+            // Starts hidden and is revealed by opening the bin.
+            TileCoordinate(column: gymBinTile.column, row: gymBinTile.row - 1)
         }
 
         static var mailboxTile: TileCoordinate {
@@ -1276,6 +1297,28 @@ enum WorldLoader {
             persistsPosition: false
         )
 
+        let gymBin = InteractableConfig(
+            id: "gymBin",
+            kind: .gymBin,
+            spriteName: "bin_closed",
+            tile: BarLayout.gymBinTile,
+            size: BarLayout.gymBinSize,
+            rewardCoins: 0,
+            interactionRange: 105,
+            blocksMovement: true,
+            persistsPosition: false
+        )
+
+        let rivetGun = InteractableConfig(
+            id: "rivetGun",
+            kind: .rivetGun,
+            spriteName: "rivet_gun",
+            tile: BarLayout.rivetGunTile,
+            size: BarLayout.rivetGunSize,
+            rewardCoins: 0,
+            interactionRange: 100
+        )
+
         let parkingCars: [DecorationConfig] = [
             DecorationConfig(
                 id: "parkingCarSedan",
@@ -1306,7 +1349,7 @@ enum WorldLoader {
             )
         ]
 
-        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, studyGuide, searsCatalog, paperWithCombo, mailbox, envelope, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, crescentWrench, shedPadlock, shedRadio, goatChaseSpot, barCustomer, propaneTank, buildButton] + snowmobiles
+        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, studyGuide, searsCatalog, paperWithCombo, mailbox, envelope, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, crescentWrench, shedPadlock, shedRadio, goatChaseSpot, barCustomer, propaneTank, buildButton, gymBin, rivetGun] + snowmobiles
 
         let staticDecorations = [
             carrollSign,

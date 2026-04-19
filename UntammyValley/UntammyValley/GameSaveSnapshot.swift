@@ -70,6 +70,8 @@ struct GameSaveSnapshot: Codable {
     let hasRadioBeenDelivered: Bool?
     let hasUnlockedShed: Bool?
     let hasCrescentWrenchBeenDelivered: Bool?
+    let hasRivetGunBeenDelivered: Bool?
     let snowTankerPartsCarriedIDs: [String]?
     let shedLockCombination: String?
+    let isGymBinOpen: Bool?
 }
