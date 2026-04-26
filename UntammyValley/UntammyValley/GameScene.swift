@@ -55,6 +55,10 @@ enum ZLayer {
     static let resetPanel: CGFloat = 751
     static let resetPanelControl: CGFloat = 752
     static let resetPanelLabel: CGFloat = 753
+    static let constructionBackdrop: CGFloat = 754
+    static let constructionPanel: CGFloat = 755
+    static let constructionPanelControl: CGFloat = 756
+    static let constructionPanelLabel: CGFloat = 757
 
     static let savesDialog: CGFloat = 759
     static let settingsDialog: CGFloat = 760
@@ -289,6 +293,8 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
     var isSearsCatalogAlertVisible = false
     private var resetConfirmBackdropNode: SKShapeNode!
     private var resetConfirmPanelNode: SKShapeNode!
+    private var constructionReadyBackdropNode: SKShapeNode!
+    private var constructionReadyPanelNode: SKShapeNode!
     private var snowmobileChoiceBackdropNode: SKShapeNode!
     private var snowmobileChoicePanelNode: SKShapeNode!
     private var snowmobileChoiceSubtitleLabel: SKLabelNode!
@@ -341,6 +347,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
     private let radioID = "shedRadio"
     private let crescentWrenchID = "crescentWrench"
     private let rivetGunID = "rivetGun"
+    private let snowtankerID = "snowtanker"
     private let gymBinID = "gymBin"
     private let gymBinClosedSpriteName = "bin_closed"
     private let gymBinOpenWithRivetGunSpriteName = "bin_open_with_rivet_gun"
@@ -432,6 +439,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
     private var ownedSnowmobileIDs: Set<String> = []
     private var selectedOwnedSnowmobileID: String?
     private var mountedSnowmobileID: String?
+    private var hasConstructedSnowtanker = false
     private var nextBatSpawnMove = BatEventSettings.randomSpawnIntervalMoves()
     private var batDefeatDeadlineMove: Int?
     private var nextFoodOrderMove = FoodOrderEventSettings.randomSpawnIntervalMoves()
@@ -1023,6 +1031,16 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
             return
         }
 
+        if !constructionReadyPanelNode.isHidden {
+            if hudNodes.contains(where: { $0.name == "constructionReadyBeginItem" || $0.parent?.name == "constructionReadyBeginItem" }) {
+                setConstructionReadyDialogVisible(false)
+                beginSnowtankerConstruction()
+            } else {
+                setConstructionReadyDialogVisible(false)
+            }
+            return
+        }
+
         if !snowmobileChoicePanelNode.isHidden {
             if hudNodes.contains(where: { $0.name == "snowmobileChoiceMountItem" || $0.parent?.name == "snowmobileChoiceMountItem" }) {
                 handleLotOwnedSnowmobileMountChoice()
@@ -1154,6 +1172,10 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
             return
         }
 
+        if !constructionReadyPanelNode.isHidden {
+            return
+        }
+
         if isMapViewMode {
             if let pinchDistance = mapPinchDistance(from: event) {
                 lastMapPinchDistance = pinchDistance
@@ -1212,6 +1234,10 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
         }
 
         if !resetConfirmPanelNode.isHidden {
+            return
+        }
+
+        if !constructionReadyPanelNode.isHidden {
             return
         }
 
@@ -1279,6 +1305,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
               quizDialogNode?.isVisible != true,
               !isStudySubjectPromptVisible,
               resetConfirmPanelNode?.isHidden != false,
+              constructionReadyPanelNode?.isHidden != false,
               snowmobileChoicePanelNode?.isHidden != false,
               !shouldBlockWorldInputForSearsModal(),
               let pressStartTime = coinLabelPressStartTime,
@@ -1598,6 +1625,9 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
                 } else if config.kind == .raft {
                     let raftTexture = makeLabeledMarkerTexture(size: config.size, emoji: "R", color: .systemBrown)
                     node = SKSpriteNode(texture: raftTexture, color: .clear, size: config.size)
+                } else if config.kind == .snowtanker {
+                    let snowtankerTexture = makeLabeledMarkerTexture(size: config.size, emoji: "T", color: .systemBlue)
+                    node = SKSpriteNode(texture: snowtankerTexture, color: .clear, size: config.size)
                 } else {
                     node = SKSpriteNode(color: .systemYellow, size: config.size)
                 }
@@ -1632,6 +1662,9 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
                 node.isHidden = true
             }
             if config.id == crescentWrenchID {
+                node.isHidden = true
+            }
+            if config.id == snowtankerID {
                 node.isHidden = true
             }
 
@@ -2187,6 +2220,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
 
         configureMenu()
         configureResetConfirmationDialog()
+        configureConstructionReadyDialog()
         configureWarningIcons()
         configureMapCloseButton()
         configureSnowmobileChoiceDialog()
@@ -2587,6 +2621,94 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
     private func setResetConfirmationVisible(_ visible: Bool) {
         resetConfirmBackdropNode.isHidden = !visible
         resetConfirmPanelNode.isHidden = !visible
+    }
+
+    private func configureConstructionReadyDialog() {
+        constructionReadyBackdropNode = SKShapeNode(rectOf: CGSize(width: size.width, height: size.height))
+        constructionReadyBackdropNode.name = "constructionReadyBackdrop"
+        constructionReadyBackdropNode.fillColor = UIColor.black.withAlphaComponent(0.45)
+        constructionReadyBackdropNode.strokeColor = .clear
+        constructionReadyBackdropNode.position = .zero
+        constructionReadyBackdropNode.zPosition = ZLayer.constructionBackdrop
+        constructionReadyBackdropNode.isHidden = true
+        cameraNode.addChild(constructionReadyBackdropNode)
+
+        constructionReadyPanelNode = SKShapeNode(rectOf: CGSize(width: min(size.width - 90, 520), height: 280), cornerRadius: 14)
+        constructionReadyPanelNode.name = "constructionReadyPanel"
+        constructionReadyPanelNode.fillColor = UIColor(white: 0.14, alpha: 0.97)
+        constructionReadyPanelNode.strokeColor = .white
+        constructionReadyPanelNode.lineWidth = 2
+        constructionReadyPanelNode.position = .zero
+        constructionReadyPanelNode.zPosition = ZLayer.constructionPanel
+        constructionReadyPanelNode.isHidden = true
+        cameraNode.addChild(constructionReadyPanelNode)
+
+        let titleLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        titleLabel.text = "Construction Ready"
+        titleLabel.fontSize = 30
+        titleLabel.fontColor = .white
+        titleLabel.horizontalAlignmentMode = .center
+        titleLabel.verticalAlignmentMode = .center
+        titleLabel.position = CGPoint(x: 0, y: 86)
+        titleLabel.zPosition = ZLayer.constructionPanelControl
+        constructionReadyPanelNode.addChild(titleLabel)
+
+        let messageLabel = SKLabelNode(fontNamed: "AvenirNext-Medium")
+        messageLabel.text = "All requirements for snowtanker construction have been met."
+        messageLabel.fontSize = 20
+        messageLabel.fontColor = UIColor.white.withAlphaComponent(0.9)
+        messageLabel.horizontalAlignmentMode = .center
+        messageLabel.verticalAlignmentMode = .center
+        messageLabel.position = CGPoint(x: 0, y: 42)
+        messageLabel.zPosition = ZLayer.constructionPanelControl
+        messageLabel.preferredMaxLayoutWidth = min(size.width - 140, 460)
+        messageLabel.numberOfLines = 2
+        constructionReadyPanelNode.addChild(messageLabel)
+
+        let beginButton = SKShapeNode(rectOf: CGSize(width: 230, height: 52), cornerRadius: 8)
+        beginButton.name = "constructionReadyBeginItem"
+        beginButton.fillColor = UIColor.systemGreen.withAlphaComponent(0.9)
+        beginButton.strokeColor = .white
+        beginButton.lineWidth = 1.5
+        beginButton.position = CGPoint(x: 0, y: -18)
+        beginButton.zPosition = ZLayer.constructionPanelControl
+        constructionReadyPanelNode.addChild(beginButton)
+
+        let beginLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        beginLabel.name = "constructionReadyBeginItem"
+        beginLabel.text = "Begin Construction"
+        beginLabel.fontSize = 21
+        beginLabel.fontColor = .white
+        beginLabel.horizontalAlignmentMode = .center
+        beginLabel.verticalAlignmentMode = .center
+        beginLabel.position = .zero
+        beginLabel.zPosition = ZLayer.constructionPanelLabel
+        beginButton.addChild(beginLabel)
+
+        let closeButton = SKShapeNode(rectOf: CGSize(width: 190, height: 46), cornerRadius: 8)
+        closeButton.name = "constructionReadyCloseItem"
+        closeButton.fillColor = UIColor.darkGray.withAlphaComponent(0.9)
+        closeButton.strokeColor = .white
+        closeButton.lineWidth = 1.5
+        closeButton.position = CGPoint(x: 0, y: -84)
+        closeButton.zPosition = ZLayer.constructionPanelControl
+        constructionReadyPanelNode.addChild(closeButton)
+
+        let closeLabel = SKLabelNode(fontNamed: "AvenirNext-Bold")
+        closeLabel.name = "constructionReadyCloseItem"
+        closeLabel.text = "Close"
+        closeLabel.fontSize = 20
+        closeLabel.fontColor = .white
+        closeLabel.horizontalAlignmentMode = .center
+        closeLabel.verticalAlignmentMode = .center
+        closeLabel.position = .zero
+        closeLabel.zPosition = ZLayer.constructionPanelLabel
+        closeButton.addChild(closeLabel)
+    }
+
+    private func setConstructionReadyDialogVisible(_ visible: Bool) {
+        constructionReadyBackdropNode.isHidden = !visible
+        constructionReadyPanelNode.isHidden = !visible
     }
 
     // MARK: - Snowmobile Choice Dialog
@@ -3443,6 +3565,9 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
             config.kind == .snowmobile ? id : nil
         }.sorted()
 
+        hasConstructedSnowtanker = false
+        interactableNodesByID[snowtankerID]?.isHidden = true
+
         snowTankerPartsCarried.subtract(snowTankerPartIDs)
         ownedSnowmobileIDs = Set(snowmobileIDs)
         selectedOwnedSnowmobileID = nil
@@ -3818,7 +3943,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
         guard let config = interactableConfigsByID[interactableID],
               let node = interactableNodesByID[interactableID] else { return }
 
-        if mountedSnowmobileID != nil, config.kind != .snowmobile {
+        if mountedSnowmobileID != nil, config.kind != .snowmobile, config.kind != .snowtanker {
             showMessage("Dismount snowmobile first.")
             return
         }
@@ -3853,6 +3978,9 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
             return
         case .snowmobile:
             handleSnowmobileInteraction(interactableID: interactableID)
+            return
+        case .snowtanker:
+            handleSnowtankerInteraction(interactableID: interactableID)
             return
         case .toilet:
             handleToiletInteraction()
@@ -4104,6 +4232,11 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
     }
 
     private func handleBuildButtonInteraction() {
+        if hasConstructedSnowtanker {
+            showMessage("The snowtanker has already been constructed.")
+            return
+        }
+
         var met: [String] = []
         var unmet: [String] = []
 
@@ -4123,23 +4256,79 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
             }
         }
 
+        if unmet.isEmpty {
+            isLogWindowVisible = false
+            isStatusWindowVisible = false
+            isPendingTasksWindowVisible = false
+            scrollTextDialogNode.setVisible(false)
+            setConstructionReadyDialogVisible(true)
+            return
+        }
+
         var lines: [String] = []
         lines.append("Met requirements:")
         lines.append(contentsOf: met.isEmpty ? ["None"] : met)
         lines.append("")
         lines.append("Unmet requirements:")
-        lines.append(contentsOf: unmet.isEmpty ? ["None"] : unmet)
-
-        if unmet.isEmpty {
-            lines.append("")
-            lines.append("All requirements met. Ready to build.")
-        }
+        lines.append(contentsOf: unmet)
 
         isLogWindowVisible = false
         isStatusWindowVisible = false
         isPendingTasksWindowVisible = false
         scrollTextDialogNode.configure(title: "Snowtanker progress", lines: lines, paragraphSpacing: 0.0, closeButtonTitle: "Close")
         scrollTextDialogNode.setVisible(true)
+    }
+
+    private func beginSnowtankerConstruction() {
+        guard !hasConstructedSnowtanker,
+              let snowtankerNode = interactableNodesByID[snowtankerID] else {
+            return
+        }
+
+        hasConstructedSnowtanker = true
+        snowtankerNode.removeAllActions()
+        snowtankerNode.isHidden = false
+
+        let region = worldConfig.vehicleAssemblyRegion
+        let centerTile = TileCoordinate(
+            column: (region.minColumn + region.maxColumnExclusive - 1) / 2,
+            row: (region.minRow + region.maxRowExclusive - 1) / 2
+        )
+        if let centerPosition = scenePointForTile(centerTile) {
+            snowtankerNode.position = centerPosition
+        }
+
+        let snowmobileIDs = interactableConfigsByID.compactMap { id, config in
+            config.kind == .snowmobile ? id : nil
+        }
+        let consumedIDs = snowmobileIDs + [propaneTankID, radioID]
+
+        for id in consumedIDs {
+            guard let node = interactableNodesByID[id] else { continue }
+            node.removeAllActions()
+            node.isHidden = true
+        }
+
+        snowTankerPartsCarried.remove(propaneTankID)
+        snowTankerPartsCarried.remove(radioID)
+        ownedSnowmobileIDs.subtract(snowmobileIDs)
+        if let selectedOwnedSnowmobileID,
+           snowmobileIDs.contains(selectedOwnedSnowmobileID) {
+            self.selectedOwnedSnowmobileID = nil
+        }
+        if let mountedSnowmobileID,
+           snowmobileIDs.contains(mountedSnowmobileID) {
+            self.mountedSnowmobileID = nil
+        }
+        updateMountedSnowmobileUI()
+
+        updateSnowmobileOwnershipVisuals()
+        updateGymBinVisualState()
+        updateWarningIcons()
+        updatePendingTasksWindowBody()
+        updateStatusWindowBody()
+        markSaveDirty()
+        showMessage("Snowtanker construction complete.")
     }
 
     func numberOfComponents(in pickerView: UIPickerView) -> Int {
@@ -4491,6 +4680,38 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
         } else {
             showMessage("Bought snowmobile for \(snowmobilePriceCoins) coins.")
         }
+    }
+
+    private func handleSnowtankerInteraction(interactableID: String) {
+        guard hasConstructedSnowtanker,
+              let snowtankerNode = interactableNodesByID[interactableID],
+              !snowtankerNode.isHidden else {
+            showMessage("The snowtanker is not available yet.")
+            return
+        }
+
+        if riddenRaftID != nil {
+            showMessage("Exit raft before using the snowtanker.")
+            return
+        }
+
+        if let mountedID = mountedSnowmobileID {
+            guard mountedID == interactableID else {
+                showMessage("Already mounted on another vehicle.")
+                return
+            }
+            attemptDismountSnowmobile()
+            return
+        }
+
+        guard isSnowmobileDrivable(at: player.position) else {
+            showMessage("Snowtanker can only be mounted outdoors.")
+            return
+        }
+
+        mountedSnowmobileID = interactableID
+        updateMountedSnowmobileUI()
+        showMessage("Mounted snowtanker.")
     }
 
     private func attemptDismountSnowmobile() {
@@ -4909,6 +5130,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
             hasAwardedSepticCompletionBonus: hasAwardedSepticCompletionBonus,
             hasUnlockedShed: hasUnlockedShed,
             snowTankerPartsCarriedIDs: Array(snowTankerPartsCarried),
+            hasConstructedSnowtanker: hasConstructedSnowtanker,
             shedLockCombination: shedLockCombination,
             isGymBinOpen: isGymBinOpen
         )
@@ -4954,6 +5176,15 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
             if id == rivetGunID {
                 // Pre-rivet save: keep hidden until discovered in the gym bin.
                 if snapshot.isGymBinOpen == nil {
+                    node.isHidden = true
+                } else {
+                    node.isHidden = hiddenIDs.contains(id)
+                }
+                continue
+            }
+            if id == snowtankerID {
+                // Pre-snowtanker save: keep hidden until construction is completed.
+                if snapshot.hasConstructedSnowtanker == nil {
                     node.isHidden = true
                 } else {
                     node.isHidden = hiddenIDs.contains(id)
@@ -5030,8 +5261,13 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
         trenchedSepticTiles = Set(snapshot.trenchedSepticTiles.filter { worldConfig.septicDigTiles.contains($0) })
         hasAwardedSepticCompletionBonus = snapshot.hasAwardedSepticCompletionBonus
         hasUnlockedShed = snapshot.hasUnlockedShed ?? false
+        hasConstructedSnowtanker = snapshot.hasConstructedSnowtanker ?? false
         shedLockCombination = snapshot.shedLockCombination ?? generateShedLockCombination()
         isGymBinOpen = snapshot.isGymBinOpen ?? false
+
+        if let snowtankerNode = interactableNodesByID[snowtankerID] {
+            snowtankerNode.isHidden = !hasConstructedSnowtanker
+        }
 
         if hasUnlockedShed,
            let padlockNode = interactableNodesByID["shedPadlock"] {
@@ -5440,6 +5676,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
         cameraNode.setScale(1)
         mapCloseButtonNode?.isHidden = true
         setSnowmobileChoiceDialogVisible(false)
+        setConstructionReadyDialogVisible(false)
         setQuizDialogVisible(false)
         setSearsCatalogDialogVisible(false)
         player.position = playerSpawnPosition
@@ -5477,6 +5714,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
         ownedSnowmobileIDs.removeAll()
         selectedOwnedSnowmobileID = nil
         mountedSnowmobileID = nil
+        hasConstructedSnowtanker = false
         updateMountedSnowmobileUI()
         updateSnowmobileOwnershipVisuals()
         nextBatSpawnMove = scheduleTaskMove(after: BatEventSettings.randomSpawnIntervalMoves())
@@ -5513,6 +5751,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
         interactableNodesByID[bedroomBatID]?.isHidden = true
         interactableNodesByID[envelopeID]?.isHidden = true
         interactableNodesByID[crescentWrenchID]?.isHidden = true
+        interactableNodesByID[snowtankerID]?.isHidden = true
         interactableNodesByID[rivetGunID]?.isHidden = true
         updateGymBinVisualState()
 

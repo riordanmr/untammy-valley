@@ -1,5 +1,13 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.89 (89) 2026-04-19 14:13:26
+
+Add QA Tools dialog with passcode unlock
+
+## Version 0.7.88 (88) 2026-04-19 13:08:01
+
+Refactor snowtanker task tracking
+
 ## Version 0.7.87 (87) 2026-04-19 11:40:59
 
 Add rivet gun task (with gym bin)

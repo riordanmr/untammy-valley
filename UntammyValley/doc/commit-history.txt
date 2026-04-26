@@ -1,4 +1,18 @@
 
+2026-04-19 14:13:26 -0500
+Add QA Tools dialog with passcode unlock
+Introduce an in-game QA Tools panel and integrate it into GameScene for debugging actions. Adds a new QAToolsDialogNode (UI, scrolling list, feedback) and wires it into GameScene: long-press on the coin HUD triggers a passcode UIAlertController which unlocks the QA panel. Implements two QA actions (add 600 coins and move snowtanker-related interactables to the vehicle assembly area), helper routines to move interactables, long-press tracking, text field delegate handling, and dialog lifecycle/drag/tap handling. Also updates layout calls and UI handling to account for the new dialog. Finally bumps project CURRENT_PROJECT_VERSION and MARKETING_VERSION to 89 / 0.7.89.
+
+---
+
+2026-04-19 13:08:01 -0500
+Refactor snowtanker task tracking
+Refactor raft and snowtanker task state and save schema.
+This includes changing the definition of completion of a snowtanker task to having the related item present in the vehicle assembly area.
+Unify raft-related flags into a RaftTaskStage enum and persist its raw value (schemaVersion bumped 2→3). Replace multiple ad-hoc "hasXBeenDelivered" booleans with computed checks that detect parts and snowmobiles being in the vehicle assembly area; add snowmobilesInVehicleAssemblyAreaCount and related helpers. Update game logic, messages, pending-task text, gym bin handling, and save/load paths to use the new state representation. Also adjust initial food order timing and bump Xcode project CURRENT_PROJECT_VERSION to 88 and MARKETING_VERSION to 0.7.88.
+
+---
+
 2026-04-19 11:40:59 -0500
 Add rivet gun task (with gym bin)
 Add assets for gym bin and rivet gun (bin_closed/bin_open/bin_open_with_rivet_gun and rivet_gun image sets) and bump project version/marketing version. Implement rivet gun gameplay: new interactable IDs, warning icon, task announcement, pickup/delivery handling, gym bin open/visual state logic, and UI updates. Persist rivet gun and gym bin state via GameSaveSnapshot and restore/reset behavior. Add WorldConfig/WorldLoader entries (sizes, tiles, interactable configs) to spawn the gym bin and rivet gun in the world.

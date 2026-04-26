@@ -75,6 +75,11 @@ enum WorldLoader {
             scaledSize(width: baseObjectSize * 2, height: baseObjectSize * 2)
         }
 
+        static var snowtankerSize: CGSize {
+            // 4 tiles wide, 3 tiles tall.
+            scaledSize(width: baseObjectSize * 4, height: baseObjectSize * 3)
+        }
+
         static var raftSize: CGSize {
             scaledSize(width: baseObjectSize * 2, height: baseObjectSize * 2)
         }
@@ -343,6 +348,13 @@ enum WorldLoader {
             TileCoordinate(
                 column: vehicleAssemblySignTile.column,
                 row: vehicleAssemblySignTile.row + 2
+            )
+        }
+
+        static var snowtankerTile: TileCoordinate {
+            TileCoordinate(
+                column: vehicleAssemblyRegion.minColumn + (vehicleAssemblyWidthTiles / 2),
+                row: vehicleAssemblyRegion.minRow + (vehicleAssemblyHeightTiles / 2)
             )
         }
 
@@ -1319,6 +1331,18 @@ enum WorldLoader {
             interactionRange: 100
         )
 
+        let snowtanker = InteractableConfig(
+            id: "snowtanker",
+            kind: .snowtanker,
+            spriteName: "snowtanker",
+            tile: BarLayout.snowtankerTile,
+            size: BarLayout.snowtankerSize,
+            rewardCoins: 0,
+            interactionRange: 140,
+            blocksMovement: false,
+            persistsPosition: false
+        )
+
         let parkingCars: [DecorationConfig] = [
             DecorationConfig(
                 id: "parkingCarSedan",
@@ -1349,7 +1373,7 @@ enum WorldLoader {
             )
         ]
 
-        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, studyGuide, searsCatalog, paperWithCombo, mailbox, envelope, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, crescentWrench, shedPadlock, shedRadio, goatChaseSpot, barCustomer, propaneTank, buildButton, gymBin, rivetGun] + snowmobiles
+        let allInteractables = [potatoPeeler, deepFryer, tray, chipsBasket, toilet, toiletBowlBrush, potatoBin, bucket, spigot, tennisRacket, studyGuide, searsCatalog, paperWithCombo, mailbox, envelope, teacherDeskEnglish, teacherDeskHistory, teacherDeskMathematics, teacherDeskScience, bedroomBat, shovel, crescentWrench, shedPadlock, shedRadio, goatChaseSpot, barCustomer, propaneTank, buildButton, gymBin, rivetGun, snowtanker] + snowmobiles
 
         let staticDecorations = [
             carrollSign,
