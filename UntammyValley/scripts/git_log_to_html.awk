@@ -246,6 +246,44 @@ function extract_current_marketing_slash_pair(line,    lower_line, current_pos, 
     }
 }
 
+function extract_arrow_build_version_pair(line,    lower_line, segment, pair_text, slash_pos, build_segment, version_segment, build_candidate, version_candidate) {
+    lower_line = tolower(line)
+    if (index(lower_line, "current_project_version") == 0 &&
+        index(lower_line, "marketing_version") == 0 &&
+        index(lower_line, "marketing version") == 0 &&
+        index(lower_line, "project version") == 0) {
+        return
+    }
+
+    if (!match(line, /\([^)]*[->→][^)]*[0-9]+[[:space:]]*\/[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+[^)]*\)/)) {
+        return
+    }
+
+    segment = substr(line, RSTART + 1, RLENGTH - 2)
+    if (!match(segment, /[0-9]+[[:space:]]*\/[[:space:]]*[0-9]+\.[0-9]+\.[0-9]+/)) {
+        return
+    }
+
+    pair_text = substr(segment, RSTART, RLENGTH)
+    slash_pos = index(pair_text, "/")
+    if (!slash_pos) {
+        return
+    }
+
+    build_segment = trim(substr(pair_text, 1, slash_pos - 1))
+    version_segment = trim(substr(pair_text, slash_pos + 1))
+
+    build_candidate = last_integer(build_segment)
+    version_candidate = last_version(version_segment)
+
+    if (build_candidate != "") {
+        parsed_build = build_candidate
+    }
+    if (version_candidate != "") {
+        parsed_version = version_candidate
+    }
+}
+
 function parse_line_for_version_build(line,    lower_line, candidate, combo) {
     lower_line = tolower(line)
 
@@ -270,6 +308,7 @@ function parse_line_for_version_build(line,    lower_line, candidate, combo) {
     extract_project_marketing_slash_pair(line)
     extract_transition_pair(line)
     extract_current_marketing_slash_pair(line)
+    extract_arrow_build_version_pair(line)
 
     if (match(line, /[0-9]+\.[0-9]+\.[0-9]+[[:space:]]*\([0-9]+\)/)) {
         combo = substr(line, RSTART, RLENGTH)

@@ -4308,6 +4308,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
             crescentWrenchID: crescentWrenchID,
             rivetGunID: rivetGunID
         )
+        let scene2Plan = snowtankerBuildCoordinator.makeScene2Plan()
 
         isSnowtankerBuildAnimationActive = true
         clearMoveTarget()
@@ -4318,30 +4319,71 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
         snowtankerBuildCoordinator.setHidden(true, ids: toolIDs, nodesByID: interactableNodesByID)
         snowtankerBuildCoordinator.setHidden(true, nodes: snowmobileNodes)
 
-        let montageNode = snowtankerBuildCoordinator.makeScene1MontageNode(
+        let montage = snowtankerBuildCoordinator.makeScene1MontageNode(
             sceneSize: size,
             cameraPosition: cameraNode.position,
+            snowmobileIDs: snowmobileIDs,
             snowmobileNodes: snowmobileNodes,
+            toolIDs: toolIDs,
             toolNodesByID: toolNodesByID,
             plan: plan,
             baseZPosition: ZLayer.bearAttackOverlay - 10,
             overlayAlpha: 0.18
         )
-        addChild(montageNode)
+        addChild(montage.node)
 
-        let totalDuration = plan.moveDuration + plan.holdDuration
-        run(SKAction.sequence([SKAction.wait(forDuration: totalDuration)])) { [weak self] in
+        let scene1Duration = plan.moveDuration + plan.holdDuration
+        run(SKAction.wait(forDuration: scene1Duration)) { [weak self] in
             guard let self else { return }
-            montageNode.removeFromParent()
 
-            self.snowtankerBuildCoordinator.restoreNodes(
-                ids: [self.crescentWrenchID, self.rivetGunID],
-                states: toolRestoreStates,
-                nodesByID: self.interactableNodesByID
-            )
+            for snowmobileID in snowmobileIDs {
+                guard let temporarySnowmobileNode = montage.snowmobileNodesByID[snowmobileID],
+                      let config = self.interactableConfigsByID[snowmobileID],
+                      let disassembledTexture = self.loadTexture(
+                        named: self.snowtankerBuildCoordinator.disassembledSpriteName(for: config.spriteName)
+                      ) else {
+                    continue
+                }
 
-            self.finalizeSnowtankerConstruction(snowtankerNode: snowtankerNode, snowmobileIDs: snowmobileIDs)
-            self.isSnowtankerBuildAnimationActive = false
+                let delay = max(0.05, scene2Plan.toolSweepDuration * 0.72)
+                temporarySnowmobileNode.run(
+                    SKAction.sequence([
+                        SKAction.wait(forDuration: delay),
+                        SKAction.setTexture(disassembledTexture, resize: false)
+                    ])
+                )
+            }
+
+            for toolID in [self.crescentWrenchID, self.rivetGunID] {
+                guard let temporaryToolNode = montage.toolNodesByID[toolID] else { continue }
+                let sweepTargets = self.snowtankerBuildCoordinator.makeScene2SweepTargets(
+                    snowmobileTargets: plan.snowmobileTargets,
+                    toolID: toolID,
+                    leftToolID: self.crescentWrenchID,
+                    rightToolID: self.rivetGunID
+                )
+                guard let sweepAction = self.snowtankerBuildCoordinator.makeMoveSequence(
+                    points: sweepTargets,
+                    totalDuration: scene2Plan.toolSweepDuration
+                ) else {
+                    continue
+                }
+                temporaryToolNode.run(sweepAction)
+            }
+
+            let scene2Duration = scene2Plan.toolSweepDuration + scene2Plan.holdDuration
+            self.run(SKAction.wait(forDuration: scene2Duration)) {
+                montage.node.removeFromParent()
+
+                self.snowtankerBuildCoordinator.restoreNodes(
+                    ids: [self.crescentWrenchID, self.rivetGunID],
+                    states: toolRestoreStates,
+                    nodesByID: self.interactableNodesByID
+                )
+
+                self.finalizeSnowtankerConstruction(snowtankerNode: snowtankerNode, snowmobileIDs: snowmobileIDs)
+                self.isSnowtankerBuildAnimationActive = false
+            }
         }
     }
 

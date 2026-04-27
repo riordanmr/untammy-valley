@@ -1,5 +1,13 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.91 (91) 2026-04-27 12:52:18
+
+Add first phase of animation of snowtanker build
+
+## Version 0.7.90 (90) 2026-04-26 08:57:12
+
+Add building of snowtanker
+
 ## Version 0.7.89 (89) 2026-04-19 14:13:26
 
 Add QA Tools dialog with passcode unlock

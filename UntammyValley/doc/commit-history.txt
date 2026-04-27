@@ -1,4 +1,25 @@
 
+2026-04-27 12:52:18 -0500
+Add first phase of animation of snowtanker build
+Introduce SnowtankerBuildCoordinator to encapsulate snowtanker build logic (requirement checks, scene planning, temporary sprite handling, and node state restoration). Integrate the coordinator into GameScene: add isSnowtankerBuildAnimationActive to block input during the build montage, delegate requirement evaluation and montage planning to the coordinator, and refactor begin/finalize construction to use the new APIs. Also bump project CURRENT_PROJECT_VERSION and MARKETING_VERSION to 91 / 0.7.91 in the Xcode project file.
+
+---
+
+2026-04-26 08:57:12 -0500
+Add building of snowtanker
+Introduce a new constructible vehicle (snowtanker): add image assets, world config/loader entries, in-world interactable, and construction UI/flow. Key changes:
+
+- Add snowtanker image set (1x/2x/3x) and Contents.json.
+- Extend InteractableKind and WorldLoader with snowtanker size, tile, and interactable config; include snowtanker in spawn list.
+- Implement construction-ready dialog and begin-construction flow in GameScene: new ZLayers, dialog nodes, handlers, mounting logic, visuals/ownership updates, and consumption of parts/snowmobiles when built.
+- Persist construction state: add hasConstructedSnowtanker to GameSaveSnapshot and save/load logic; ensure pre-existing saves keep the snowtanker hidden until constructed.
+- Update various GameScene behaviors to account for the snowtanker (interaction routing, UI gating, initial hidden state, reset behavior, and mounting/dismounting rules).
+- Bump Xcode project CURRENT_PROJECT_VERSION and MARKETING_VERSION (-> 90 / 0.7.90) and update commit-history/release-notes documentation.
+
+This enables players to meet requirements, view a "Construction Ready" dialog, and begin building the snowtanker, with state saved and restored across sessions.
+
+---
+
 2026-04-19 14:13:26 -0500
 Add QA Tools dialog with passcode unlock
 Introduce an in-game QA Tools panel and integrate it into GameScene for debugging actions. Adds a new QAToolsDialogNode (UI, scrolling list, feedback) and wires it into GameScene: long-press on the coin HUD triggers a passcode UIAlertController which unlocks the QA panel. Implements two QA actions (add 600 coins and move snowtanker-related interactables to the vehicle assembly area), helper routines to move interactables, long-press tracking, text field delegate handling, and dialog lifecycle/drag/tap handling. Also updates layout calls and UI handling to account for the new dialog. Finally bumps project CURRENT_PROJECT_VERSION and MARKETING_VERSION to 89 / 0.7.89.

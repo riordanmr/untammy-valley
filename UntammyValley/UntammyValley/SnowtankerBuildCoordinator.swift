@@ -28,6 +28,17 @@ final class SnowtankerBuildCoordinator {
         let holdDuration: TimeInterval
     }
 
+    struct Scene2Plan {
+        let toolSweepDuration: TimeInterval
+        let holdDuration: TimeInterval
+    }
+
+    struct Scene1Montage {
+        let node: SKNode
+        let snowmobileNodesByID: [String: SKSpriteNode]
+        let toolNodesByID: [String: SKSpriteNode]
+    }
+
     func evaluateRequirements(
         requiredSnowmobileCount: Int,
         snowmobilesInAssemblyAreaCount: Int,
@@ -100,6 +111,10 @@ final class SnowtankerBuildCoordinator {
         )
     }
 
+    func makeScene2Plan() -> Scene2Plan {
+        Scene2Plan(toolSweepDuration: 1.1, holdDuration: 1.0)
+    }
+
     func makeTemporarySprite(from sourceNode: SKSpriteNode) -> SKSpriteNode {
         let temporaryNode = SKSpriteNode(texture: sourceNode.texture, color: sourceNode.color, size: sourceNode.size)
         temporaryNode.position = sourceNode.position
@@ -124,7 +139,7 @@ final class SnowtankerBuildCoordinator {
     func makeSnowmobileIDs(configsByID: [String: InteractableConfig]) -> [String] {
         configsByID.compactMap { id, config in
             config.kind == .snowmobile ? id : nil
-        }
+        }.sorted()
     }
 
     func makeNodes(ids: [String], nodesByID: [String: SKSpriteNode]) -> [SKSpriteNode] {
@@ -174,18 +189,60 @@ final class SnowtankerBuildCoordinator {
         snowmobileIDs + [propaneTankID, radioID]
     }
 
+    func disassembledSpriteName(for baseSpriteName: String) -> String {
+        "\(baseSpriteName)_disassembled"
+    }
+
+    func makeScene2SweepTargets(
+        snowmobileTargets: [CGPoint],
+        toolID: String,
+        leftToolID: String,
+        rightToolID: String
+    ) -> [CGPoint] {
+        let preferredIndices: [Int]
+        if toolID == leftToolID {
+            preferredIndices = [0, 3, 1, 4]
+        } else if toolID == rightToolID {
+            preferredIndices = [2, 5, 1, 4]
+        } else {
+            preferredIndices = [1, 4]
+        }
+
+        var targets: [CGPoint] = []
+        for index in preferredIndices where index < snowmobileTargets.count {
+            targets.append(snowmobileTargets[index])
+        }
+        return targets
+    }
+
+    func makeMoveSequence(points: [CGPoint], totalDuration: TimeInterval) -> SKAction? {
+        guard !points.isEmpty else { return nil }
+        let segmentDuration = max(0.08, totalDuration / Double(points.count))
+        let actions = points.map { point in
+            let action = SKAction.move(to: point, duration: segmentDuration)
+            action.timingMode = .easeInEaseOut
+            return action
+        }
+        return SKAction.sequence(actions)
+    }
+
     func makeScene1MontageNode(
         sceneSize: CGSize,
         cameraPosition: CGPoint,
+        snowmobileIDs: [String],
         snowmobileNodes: [SKSpriteNode],
+        toolIDs: [String],
         toolNodesByID: [String: SKSpriteNode],
         plan: Scene1Plan,
         baseZPosition: CGFloat,
         overlayAlpha: CGFloat
-    ) -> SKNode {
+    ) -> Scene1Montage {
         let montageNode = SKNode()
         montageNode.name = "snowtankerBuildScene1Node"
         montageNode.zPosition = baseZPosition
+
+        var temporarySnowmobileNodesByID: [String: SKSpriteNode] = [:]
+        var temporaryToolNodesByID: [String: SKSpriteNode] = [:]
 
         let overlayNode = SKSpriteNode(color: UIColor.black.withAlphaComponent(overlayAlpha), size: sceneSize)
         overlayNode.position = cameraPosition
@@ -196,6 +253,9 @@ final class SnowtankerBuildCoordinator {
             let temporaryNode = makeTemporarySprite(from: snowmobileNode)
             temporaryNode.zPosition = baseZPosition + 1
             montageNode.addChild(temporaryNode)
+            if index < snowmobileIDs.count {
+                temporarySnowmobileNodesByID[snowmobileIDs[index]] = temporaryNode
+            }
             if index < plan.snowmobileTargets.count {
                 let moveAction = SKAction.move(to: plan.snowmobileTargets[index], duration: plan.moveDuration)
                 moveAction.timingMode = .easeInEaseOut
@@ -203,16 +263,22 @@ final class SnowtankerBuildCoordinator {
             }
         }
 
-        for (toolID, targetPosition) in plan.toolTargetsByID {
+        for toolID in toolIDs {
             guard let toolNode = toolNodesByID[toolID] else { continue }
             let temporaryNode = makeTemporarySprite(from: toolNode)
             temporaryNode.zPosition = baseZPosition + 1
             montageNode.addChild(temporaryNode)
+            temporaryToolNodesByID[toolID] = temporaryNode
+            guard let targetPosition = plan.toolTargetsByID[toolID] else { continue }
             let moveAction = SKAction.move(to: targetPosition, duration: plan.moveDuration)
             moveAction.timingMode = .easeInEaseOut
             temporaryNode.run(moveAction)
         }
 
-        return montageNode
+        return Scene1Montage(
+            node: montageNode,
+            snowmobileNodesByID: temporarySnowmobileNodesByID,
+            toolNodesByID: temporaryToolNodesByID
+        )
     }
 }
