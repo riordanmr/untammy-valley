@@ -440,6 +440,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
     private var selectedOwnedSnowmobileID: String?
     private var mountedSnowmobileID: String?
     private var hasConstructedSnowtanker = false
+    private var isSnowtankerBuildAnimationActive = false
     private var nextBatSpawnMove = BatEventSettings.randomSpawnIntervalMoves()
     private var batDefeatDeadlineMove: Int?
     private var nextFoodOrderMove = FoodOrderEventSettings.randomSpawnIntervalMoves()
@@ -468,6 +469,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
     private let mapModeMinZoomScale: CGFloat = 0.4
     private let mapModeMaxZoomScale: CGFloat = 8.0
     private let mapModeDefaultZoomScale: CGFloat = 2.5
+    private let snowtankerBuildCoordinator = SnowtankerBuildCoordinator()
 
     private var moveTarget: CGPoint?
     private var moveTargetArrivalDistance: CGFloat = 12
@@ -935,6 +937,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
     
     override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard !isBearAttackInProgress else { return }
+        guard !isSnowtankerBuildAnimationActive else { return }
         guard let touch = touches.first else { return }
         let location = touch.location(in: self)
         let hudLocation = touch.location(in: cameraNode)
@@ -1126,6 +1129,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard !isBearAttackInProgress else { return }
+        guard !isSnowtankerBuildAnimationActive else { return }
         guard let touch = touches.first else { return }
         let hudLocation = touch.location(in: cameraNode)
 
@@ -1191,6 +1195,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard !isBearAttackInProgress else { return }
+        guard !isSnowtankerBuildAnimationActive else { return }
         guard let touch = touches.first else { return }
         let hudLocation = touch.location(in: cameraNode)
 
@@ -1297,7 +1302,8 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
     }
 
     private func shouldTriggerQAToolsLongPress(at hudLocation: CGPoint, touchTimestamp: TimeInterval) -> Bool {
-        guard !isMapViewMode,
+          guard !isSnowtankerBuildAnimationActive,
+              !isMapViewMode,
               savesDialogNode?.isVisible != true,
               settingsDialogNode?.isVisible != true,
               qaToolsDialogNode?.isVisible != true,
@@ -4237,26 +4243,16 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
             return
         }
 
-        var met: [String] = []
-        var unmet: [String] = []
+        let requirements = snowtankerBuildCoordinator.evaluateRequirements(
+            requiredSnowmobileCount: Self.requiredSnowmobileCount,
+            snowmobilesInAssemblyAreaCount: snowmobilesInVehicleAssemblyAreaCount,
+            isPropaneTankInAssemblyArea: isPropaneTankInVehicleAssemblyArea,
+            isRadioInAssemblyArea: isRadioInVehicleAssemblyArea,
+            isCrescentWrenchInAssemblyArea: isCrescentWrenchInVehicleAssemblyArea,
+            isRivetGunInAssemblyArea: isRivetGunInVehicleAssemblyArea
+        )
 
-        let requirements: [(String, Bool)] = [
-            ("Propane tank is in vehicle assembly area", isPropaneTankInVehicleAssemblyArea),
-            ("Radio is in vehicle assembly area", isRadioInVehicleAssemblyArea),
-            ("Crescent wrench is in vehicle assembly area", isCrescentWrenchInVehicleAssemblyArea),
-            ("Rivet gun is in vehicle assembly area", isRivetGunInVehicleAssemblyArea),
-            ("All \(Self.requiredSnowmobileCount) snowmobiles are in vehicle assembly area (\(snowmobilesInVehicleAssemblyAreaCount)/\(Self.requiredSnowmobileCount))", hasCompletedSnowmobileSnowtankerTask)
-        ]
-
-        for (description, isMet) in requirements {
-            if isMet {
-                met.append("[x] \(description)")
-            } else {
-                unmet.append("[ ] \(description)")
-            }
-        }
-
-        if unmet.isEmpty {
+        if requirements.allRequirementsMet {
             isLogWindowVisible = false
             isStatusWindowVisible = false
             isPendingTasksWindowVisible = false
@@ -4267,10 +4263,10 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
 
         var lines: [String] = []
         lines.append("Met requirements:")
-        lines.append(contentsOf: met.isEmpty ? ["None"] : met)
+        lines.append(contentsOf: requirements.metLines.isEmpty ? ["None"] : requirements.metLines)
         lines.append("")
         lines.append("Unmet requirements:")
-        lines.append(contentsOf: unmet)
+        lines.append(contentsOf: requirements.unmetLines)
 
         isLogWindowVisible = false
         isStatusWindowVisible = false
@@ -4281,27 +4277,96 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
 
     private func beginSnowtankerConstruction() {
         guard !hasConstructedSnowtanker,
+              !isSnowtankerBuildAnimationActive,
               let snowtankerNode = interactableNodesByID[snowtankerID] else {
             return
         }
+
+        let snowmobileIDs = snowtankerBuildCoordinator.makeSnowmobileIDs(configsByID: interactableConfigsByID)
+        let snowmobileNodes = snowtankerBuildCoordinator.makeNodes(ids: snowmobileIDs, nodesByID: interactableNodesByID)
+        let toolIDs = [propaneTankID, radioID, crescentWrenchID, rivetGunID]
+        let toolNodesByID = snowtankerBuildCoordinator.makeNodesByID(ids: toolIDs, nodesByID: interactableNodesByID)
+
+        let region = worldConfig.vehicleAssemblyRegion
+        let centerTile = snowtankerBuildCoordinator.makeAssemblyCenterTile(
+            minColumn: region.minColumn,
+            maxColumnExclusive: region.maxColumnExclusive,
+            minRow: region.minRow,
+            maxRowExclusive: region.maxRowExclusive
+        )
+        guard let centerPosition = scenePointForTile(centerTile) else {
+            finalizeSnowtankerConstruction(snowtankerNode: snowtankerNode, snowmobileIDs: snowmobileIDs)
+            return
+        }
+
+        let plan = snowtankerBuildCoordinator.makeScene1Plan(
+            center: centerPosition,
+            tileSize: tileSize,
+            snowmobileCount: snowmobileNodes.count,
+            propaneTankID: propaneTankID,
+            radioID: radioID,
+            crescentWrenchID: crescentWrenchID,
+            rivetGunID: rivetGunID
+        )
+
+        isSnowtankerBuildAnimationActive = true
+        clearMoveTarget()
+        player.physicsBody?.velocity = .zero
+        setMenuVisible(false)
+
+        let toolRestoreStates = snowtankerBuildCoordinator.captureNodeStates(ids: toolIDs, nodesByID: interactableNodesByID)
+        snowtankerBuildCoordinator.setHidden(true, ids: toolIDs, nodesByID: interactableNodesByID)
+        snowtankerBuildCoordinator.setHidden(true, nodes: snowmobileNodes)
+
+        let montageNode = snowtankerBuildCoordinator.makeScene1MontageNode(
+            sceneSize: size,
+            cameraPosition: cameraNode.position,
+            snowmobileNodes: snowmobileNodes,
+            toolNodesByID: toolNodesByID,
+            plan: plan,
+            baseZPosition: ZLayer.bearAttackOverlay - 10,
+            overlayAlpha: 0.18
+        )
+        addChild(montageNode)
+
+        let totalDuration = plan.moveDuration + plan.holdDuration
+        run(SKAction.sequence([SKAction.wait(forDuration: totalDuration)])) { [weak self] in
+            guard let self else { return }
+            montageNode.removeFromParent()
+
+            self.snowtankerBuildCoordinator.restoreNodes(
+                ids: [self.crescentWrenchID, self.rivetGunID],
+                states: toolRestoreStates,
+                nodesByID: self.interactableNodesByID
+            )
+
+            self.finalizeSnowtankerConstruction(snowtankerNode: snowtankerNode, snowmobileIDs: snowmobileIDs)
+            self.isSnowtankerBuildAnimationActive = false
+        }
+    }
+
+    private func finalizeSnowtankerConstruction(snowtankerNode: SKSpriteNode, snowmobileIDs: [String]) {
 
         hasConstructedSnowtanker = true
         snowtankerNode.removeAllActions()
         snowtankerNode.isHidden = false
 
         let region = worldConfig.vehicleAssemblyRegion
-        let centerTile = TileCoordinate(
-            column: (region.minColumn + region.maxColumnExclusive - 1) / 2,
-            row: (region.minRow + region.maxRowExclusive - 1) / 2
+        let centerTile = snowtankerBuildCoordinator.makeAssemblyCenterTile(
+            minColumn: region.minColumn,
+            maxColumnExclusive: region.maxColumnExclusive,
+            minRow: region.minRow,
+            maxRowExclusive: region.maxRowExclusive
         )
         if let centerPosition = scenePointForTile(centerTile) {
             snowtankerNode.position = centerPosition
         }
 
-        let snowmobileIDs = interactableConfigsByID.compactMap { id, config in
-            config.kind == .snowmobile ? id : nil
-        }
-        let consumedIDs = snowmobileIDs + [propaneTankID, radioID]
+        let consumedIDs = snowtankerBuildCoordinator.makeConsumedIDs(
+            snowmobileIDs: snowmobileIDs,
+            propaneTankID: propaneTankID,
+            radioID: radioID
+        )
 
         for id in consumedIDs {
             guard let node = interactableNodesByID[id] else { continue }
