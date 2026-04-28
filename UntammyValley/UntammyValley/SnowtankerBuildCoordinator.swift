@@ -33,6 +33,12 @@ final class SnowtankerBuildCoordinator {
         let holdDuration: TimeInterval
     }
 
+    struct Scene3Plan {
+        let convergeDuration: TimeInterval
+        let partialRevealDuration: TimeInterval
+        let holdDuration: TimeInterval
+    }
+
     struct Scene1Montage {
         let node: SKNode
         let snowmobileNodesByID: [String: SKSpriteNode]
@@ -113,6 +119,10 @@ final class SnowtankerBuildCoordinator {
 
     func makeScene2Plan() -> Scene2Plan {
         Scene2Plan(toolSweepDuration: 1.1, holdDuration: 1.0)
+    }
+
+    func makeScene3Plan() -> Scene3Plan {
+        Scene3Plan(convergeDuration: 0.75, partialRevealDuration: 0.45, holdDuration: 0.9)
     }
 
     func makeTemporarySprite(from sourceNode: SKSpriteNode) -> SKSpriteNode {

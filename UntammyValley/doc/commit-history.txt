@@ -1,4 +1,12 @@
 
+2026-04-27 13:51:59 -0500
+Implement phase 2 of snowtanker build animation
+Phase 2 is disassembling the 6 snowmobiles.
+
+Add disassembled snowmobile image sets (snowmobile1-6 @1x/@2x/@3x + Contents.json) and integrate a two-phase build montage into the game. Refactor SnowtankerBuildCoordinator to provide Scene1Montage/Scene2Plan, move sequencing, sweep target logic, and helper APIs (disassembled sprite naming, temporary node handling). Update GameScene to use the montage object, run staged actions that swap to disassembled textures and animate tool sweeps, then finalize construction. Bump Xcode project CURRENT_PROJECT_VERSION and MARKETING_VERSION (-> 92 / 0.7.92) and update commit-history/release-notes.
+
+---
+
 2026-04-27 12:52:18 -0500
 Add first phase of animation of snowtanker build
 Introduce SnowtankerBuildCoordinator to encapsulate snowtanker build logic (requirement checks, scene planning, temporary sprite handling, and node state restoration). Integrate the coordinator into GameScene: add isSnowtankerBuildAnimationActive to block input during the build montage, delegate requirement evaluation and montage planning to the coordinator, and refactor begin/finalize construction to use the new APIs. Also bump project CURRENT_PROJECT_VERSION and MARKETING_VERSION to 91 / 0.7.91 in the Xcode project file.
