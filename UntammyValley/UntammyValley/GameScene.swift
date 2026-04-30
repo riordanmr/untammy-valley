@@ -4287,13 +4287,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
         let toolIDs = [propaneTankID, radioID, crescentWrenchID, rivetGunID]
         let toolNodesByID = snowtankerBuildCoordinator.makeNodesByID(ids: toolIDs, nodesByID: interactableNodesByID)
 
-        let region = worldConfig.vehicleAssemblyRegion
-        let centerTile = snowtankerBuildCoordinator.makeAssemblyCenterTile(
-            minColumn: region.minColumn,
-            maxColumnExclusive: region.maxColumnExclusive,
-            minRow: region.minRow,
-            maxRowExclusive: region.maxRowExclusive
-        )
+        let centerTile = snowtankerAssemblyTile()
         guard let centerPosition = scenePointForTile(centerTile) else {
             finalizeSnowtankerConstruction(snowtankerNode: snowtankerNode, snowmobileIDs: snowmobileIDs)
             return
@@ -4424,13 +4418,7 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
         snowtankerNode.removeAllActions()
         snowtankerNode.isHidden = false
 
-        let region = worldConfig.vehicleAssemblyRegion
-        let centerTile = snowtankerBuildCoordinator.makeAssemblyCenterTile(
-            minColumn: region.minColumn,
-            maxColumnExclusive: region.maxColumnExclusive,
-            minRow: region.minRow,
-            maxRowExclusive: region.maxRowExclusive
-        )
+        let centerTile = snowtankerAssemblyTile()
         if let centerPosition = scenePointForTile(centerTile) {
             snowtankerNode.position = centerPosition
         }
@@ -4467,6 +4455,20 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
         updateStatusWindowBody()
         markSaveDirty()
         showMessage("Snowtanker construction complete.")
+    }
+
+    private func snowtankerAssemblyTile() -> TileCoordinate {
+        if let configuredTile = interactableConfigsByID[snowtankerID]?.tile {
+            return configuredTile
+        }
+
+        let region = worldConfig.vehicleAssemblyRegion
+        return snowtankerBuildCoordinator.makeAssemblyCenterTile(
+            minColumn: region.minColumn,
+            maxColumnExclusive: region.maxColumnExclusive,
+            minRow: region.minRow,
+            maxRowExclusive: region.maxRowExclusive
+        )
     }
 
     func numberOfComponents(in pickerView: UIPickerView) -> Int {

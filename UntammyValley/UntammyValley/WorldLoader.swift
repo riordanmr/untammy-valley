@@ -352,9 +352,16 @@ enum WorldLoader {
         }
 
         static var snowtankerTile: TileCoordinate {
-            TileCoordinate(
+            // Place the snowtanker at 70% from top toward bottom so it sits lower,
+            // closer to the build button and away from top-edge cropping.
+            let topRow = vehicleAssemblyRegion.maxRowExclusive - 1
+            let verticalSpan = max(0, vehicleAssemblyHeightTiles - 1)
+            let offsetFromTop = Int(round(CGFloat(verticalSpan) * 0.68))
+            let targetRow = max(vehicleAssemblyRegion.minRow, topRow - offsetFromTop)
+
+            return TileCoordinate(
                 column: vehicleAssemblyRegion.minColumn + (vehicleAssemblyWidthTiles / 2),
-                row: vehicleAssemblyRegion.minRow + (vehicleAssemblyHeightTiles / 2)
+                row: targetRow
             )
         }
 
