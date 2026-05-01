@@ -2286,6 +2286,9 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
         qaToolsDialogNode.onAddCoinsTapped = { [weak self] in
             self?.runQAAddCoinsAction()
         }
+        qaToolsDialogNode.onFoodOrderSoonTapped = { [weak self] in
+            self?.runQAFoodOrderSoonAction()
+        }
         qaToolsDialogNode.onMoveSnowtankerObjectsTapped = { [weak self] in
             self?.runQAMoveSnowtankerObjectsAction()
         }
@@ -3561,6 +3564,45 @@ class GameScene: SKScene, UIPickerViewDataSource, UIPickerViewDelegate, UITextFi
         updateStatusWindowBody()
         markSaveDirty()
         let feedback = "QA action: added \(QAToolsSettings.addCoinsAmount) coins."
+        qaToolsDialogNode.setFeedback(feedback)
+        showMessage(feedback)
+    }
+
+    private func runQAFoodOrderSoonAction() {
+        if foodOrderDeadlineMove != nil {
+            let feedback = "QA action: a food order is already active."
+            qaToolsDialogNode.setFeedback(feedback)
+            showMessage(feedback)
+            return
+        }
+
+        // Trigger food order soon while pushing other timed events out.
+        nextFoodOrderMove = scheduleTaskMove(after: 2)
+
+        batDefeatDeadlineMove = nil
+        if let batNode = interactableNodesByID[bedroomBatID] {
+            batNode.isHidden = true
+        }
+        nextBatSpawnMove = scheduleTaskMove(after: BatEventSettings.maxSpawnIntervalMoves)
+
+        isToiletDirty = false
+        toiletCleanDeadlineMove = nil
+        hasShownToiletPenaltyStartMessage = false
+        nextToiletDirtyMove = scheduleTaskMove(after: ToiletEventSettings.maxDirtyIntervalMoves)
+        updateToiletVisualState()
+
+        if let goatNode = interactableNodesByID[goatChaseSpotID] {
+            goatNode.isHidden = true
+        }
+        let goatRespawnMaxMoves = max(0, UTSettings.shared.counts.goatRespawnMaxMoves)
+        respawnAtMoveByInteractableID[goatChaseSpotID] = completedMoveCount + goatRespawnMaxMoves
+
+        updateWarningIcons()
+        updatePendingTasksWindowBody()
+        updateStatusWindowBody()
+        markSaveDirty()
+
+        let feedback = "QA action: next food order soon; bat/toilet/goat delayed to max."
         qaToolsDialogNode.setFeedback(feedback)
         showMessage(feedback)
     }

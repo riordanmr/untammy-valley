@@ -32,11 +32,13 @@ final class QAToolsDialogNode: SKNode {
 
     private let actionRows: [ActionRow] = [
         ActionRow(id: "qaAddCoins", description: "Add 600 coins", buttonTitle: "Run"),
+        ActionRow(id: "qaFoodOrderSoon", description: "Food order soon", buttonTitle: "Run"),
         ActionRow(id: "qaMoveSnowtankerObjects", description: "Move all snowtanker objects to vehicle assembly area", buttonTitle: "Run")
     ]
 
     var onClose: (() -> Void)?
     var onAddCoinsTapped: (() -> Void)?
+    var onFoodOrderSoonTapped: (() -> Void)?
     var onMoveSnowtankerObjectsTapped: (() -> Void)?
 
     var isVisible: Bool {
@@ -120,6 +122,11 @@ final class QAToolsDialogNode: SKNode {
 
         if names.contains("qaAction:qaAddCoins") {
             onAddCoinsTapped?()
+            return true
+        }
+
+        if names.contains("qaAction:qaFoodOrderSoon") {
+            onFoodOrderSoonTapped?()
             return true
         }
 

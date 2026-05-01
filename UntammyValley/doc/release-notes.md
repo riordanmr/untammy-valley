@@ -1,5 +1,13 @@
 # Untammy Valley Commit Summary
 
+## Version 0.7.94 (94) 2026-04-30 10:52:47
+
+Tweak snowtanker build location
+
+## Version 0.7.93 (93) 2026-04-28 07:42:27
+
+Add disassembled snowtanker asset and phase 3 of build
+
 ## Version 0.7.92 (92) 2026-04-27 13:51:59
 
 Implement phase 2 of snowtanker build animation

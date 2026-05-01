@@ -1,4 +1,17 @@
 
+2026-04-30 10:52:47 -0500
+Tweak snowtanker build location
+Bump project CURRENT_PROJECT_VERSION to 94 and MARKETING_VERSION to 0.7.94 in the Xcode project. Refactor GameScene to centralize snowtanker assembly tile logic into a new snowtankerAssemblyTile() helper that prefers a configured interactable tile when present and falls back to the existing assembly-center calculation. Update call sites to use the helper. Change WorldLoader.snowtankerTile to place the snowtanker lower in the assembly region (about 70% from the top) so it sits closer to the build button and avoids top-edge cropping.
+
+---
+
+2026-04-28 07:42:27 -0500
+Add disassembled snowtanker asset and phase 3 of build
+This completes the animation of the snowtanker build process.
+Add a new snowtanker_disassembled image set (1x/2x/3x) and its Contents.json. Introduce Scene3Plan and makeScene3Plan() in SnowtankerBuildCoordinator to drive the final reveal/converge step of the build animation. Update GameScene to use scene3: partially reveal the disassembled snowtanker, animate temporary snowmobile parts converging and fading, then restore tools and finalize construction. Also bump project CURRENT_PROJECT_VERSION to 93 and MARKETING_VERSION to 0.7.93.
+
+---
+
 2026-04-27 13:51:59 -0500
 Implement phase 2 of snowtanker build animation
 Phase 2 is disassembling the 6 snowmobiles.
